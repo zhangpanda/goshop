@@ -12,7 +12,7 @@ export default function ArticlesPage() {
   const [catId, setCatId] = useState('')
 
   useEffect(() => {
-    api.get<{ list: Category[] }>('/article-categories').then(d => setCategories(d.list || d as any || [])).catch(() => {})
+    api.get<Category[]>('/article-categories').then(d => setCategories(d || [])).catch(() => {})
   }, [])
 
   useEffect(() => {

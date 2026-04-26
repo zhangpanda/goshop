@@ -22,8 +22,8 @@ export default function Header() {
   const { home_site_name, home_site_logo, common_shop_notice, common_app_is_enable_search } = useSiteConfig()
 
   useEffect(() => {
-    api.get<{ list: Nav[] }>('/navigations?type=header').then(d => {
-      const list = d.list || d as any || []
+    api.get<Nav[]>('/navigations?type=header').then(d => {
+      const list = d || []
       if (list.length > 0) setNavItems(list.map((n: Nav) => ({ name: n.name, url: n.url })))
     }).catch(() => {})
   }, [])

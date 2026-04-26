@@ -19,7 +19,7 @@ export default function Checkout() {
   useEffect(() => {
     api.get<Address[]>('/address').then(d => { setAddresses(d); const def = d.find(a => a.is_default); if (def) setSelectedAddr(def.id) }).catch(() => {})
     api.get<CartItem[]>('/cart').then(setItems).catch(() => {})
-    api.get<{ list: Payment[] }>('/payments').then(d => { const list = d.list || []; setPayments(list); if (list[0]) setSelectedPay(list[0].id) }).catch(() => {})
+    api.get<Payment[]>('/payments').then(d => { const list = d || []; setPayments(list); if (list[0]) setSelectedPay(list[0].id) }).catch(() => {})
   }, [])
 
   const total = items.reduce((s, i) => s + i.sku.price * i.quantity, 0)

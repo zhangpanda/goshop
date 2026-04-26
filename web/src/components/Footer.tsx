@@ -13,8 +13,8 @@ export default function Footer() {
   const [friendLinks, setFriendLinks] = useState<FLink[]>([])
 
   useEffect(() => {
-    api.get<{ list: Nav[] }>('/navigations?type=footer').then(d => setFooterNav(d.list || d as any || [])).catch(() => {})
-    api.get<{ list: FLink[] }>('/links').then(d => setFriendLinks((d.list || d as any || []).filter((l: FLink) => l.url))).catch(() => {})
+    api.get<Nav[]>('/navigations?type=footer').then(d => setFooterNav(d || [])).catch(() => {})
+    api.get<FLink[]>('/links').then(d => setFriendLinks((d || []).filter((l: FLink) => l.url))).catch(() => {})
   }, [])
 
   return (
