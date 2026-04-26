@@ -15,13 +15,13 @@
 
 ## 截图预览
 
-<!-- 
-![首页](docs/screenshots/home.png)
-![商品详情](docs/screenshots/product.png)
-![管理后台](docs/screenshots/admin.png)
--->
+| 首页 | 商品列表 |
+|------|----------|
+| ![首页](docs/screenshots/home.png) | ![商品列表](docs/screenshots/products.png) |
 
-> 截图待补充，请先 clone 项目本地运行体验。
+| 商品详情 | 管理后台 |
+|----------|----------|
+| ![商品详情](docs/screenshots/product-detail.png) | ![管理后台](docs/screenshots/admin-login.png) |
 
 ## 快速开始
 
