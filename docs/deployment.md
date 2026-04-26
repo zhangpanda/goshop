@@ -165,11 +165,11 @@ server {
 
 ```yaml
 wechat:
-  app_id: "wx1234567890"        # 小程序 AppID
-  app_secret: "your_secret"     # 小程序 AppSecret
-  mch_id: "1234567890"          # 商户号
-  mch_api_key: "v3_api_key"     # APIv3 密钥
-  serial_no: "cert_serial_no"   # 商户证书序列号
+  app_id: "your_appid"              # 小程序 AppID
+  app_secret: "your_appsecret"      # 小程序 AppSecret
+  mch_id: "your_mchid"              # 商户号
+  mch_api_key: "your_v3_api_key"    # APIv3 密钥
+  serial_no: "your_cert_serial_no"  # 商户证书序列号
   private_key: "cert/apiclient_key.pem"  # 商户私钥文件路径
   notify_url: "https://api.yourdomain.com/api/pay/notify"  # 支付回调地址
 ```
