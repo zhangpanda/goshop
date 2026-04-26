@@ -566,7 +566,24 @@ func sxBuyIndex(c *gin.Context) {
 	}
 	response.OK(c, resp)
 }
-func sxBuyAdd(c *gin.Context) { CreateOrder(c) }
+func sxBuyAdd(c *gin.Context) {
+	// ShopXO buy/add: 直接用 goods_id+sku_id 下单，需要先加购物车
+	var req struct {
+		GoodsID   uint `json:"goods_id" form:"goods_id"`
+		SKUID     uint `json:"sku_id" form:"sku_id"`
+		Stock     int  `json:"stock" form:"stock"`
+		AddressID uint `json:"address_id" form:"address_id"`
+	}
+	c.ShouldBind(&req)
+	if req.Stock == 0 { req.Stock = 1 }
+	userID := c.GetUint("user_id")
+	cart, err := service.AddCart(userID, &service.AddCartReq{GoodsID: req.GoodsID, SKUID: req.SKUID, Quantity: req.Stock})
+	if err != nil { response.Fail(c, http.StatusBadRequest, err.Error()); return }
+	addrID := req.AddressID
+	order, err := service.CreateOrder(userID, &service.CreateOrderReq{AddressID: &addrID, CartIDs: []uint{cart.ID}})
+	if err != nil { response.Fail(c, http.StatusBadRequest, err.Error()); return }
+	response.OK(c, order)
+}
 
 func sxOrderIndex(c *gin.Context) { GetOrderList(c) }
 func sxOrderDetail(c *gin.Context) {
