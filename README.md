@@ -2,7 +2,7 @@
 
 用 Go 重写的开源电商系统，100% 对齐 ShopXO v6.8.0 功能，前后端分离架构。
 
-> Go 后端代码为独立编写。DIY装修器和Form表单设计器复用 ShopXO 官方子项目（MIT），uni-app 移动端可直接对接。
+> Go 后端代码为独立编写。DIY装修器和Form表单设计器复用 ShopXO 官方子项目（[shopxo-diy](https://github.com/gongfuxiang/shopxo-diy) / [shopxo-form](https://github.com/gongfuxiang/shopxo-form)，MIT），uni-app 移动端可直接对接（[shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)）。
 
 ## 特性
 
