@@ -35,17 +35,7 @@ export default function SeckillsPage() {
       <Typography.Title level={4}>秒杀活动</Typography.Title>
       <Card size="small" style={{ marginBottom: 16 }}>
         <Row justify="end">
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              form.resetFields()
-              form.setFieldsValue({
-                items: [{ goods_id: undefined, sku_id: undefined, promo_price: 1, promo_stock: 1, per_limit: 1 }],
-              })
-              setOpen(true)
-            }}
-          >
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
             新建秒杀
           </Button>
         </Row>
@@ -63,7 +53,21 @@ export default function SeckillsPage() {
           { title: 'SKU数', width: 72, render: (_: unknown, r: SeckillRow) => r.items?.length ?? 0 },
         ]}
       />
-      <Modal title="新建秒杀" open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} width={640} destroyOnClose>
+      <Modal
+        title="新建秒杀"
+        open={open}
+        onCancel={() => setOpen(false)}
+        onOk={() => form.submit()}
+        width={640}
+        forceRender
+        afterOpenChange={visible => {
+          if (!visible) return
+          form.resetFields()
+          form.setFieldsValue({
+            items: [{ goods_id: undefined, sku_id: undefined, promo_price: 1, promo_stock: 1, per_limit: 1 }],
+          })
+        }}
+      >
         <Form
           form={form}
           layout="vertical"

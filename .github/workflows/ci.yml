@@ -89,3 +89,61 @@ jobs:
         run: cd admin && npm ci
       - name: Build
         run: cd admin && npm run build
+
+  admin-e2e:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: goshop_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build API
+        run: go build -o bin/goshop ./cmd/server/
+      - name: Start API (E2E captcha skip)
+        env:
+          GOSHOP_E2E: "1"
+        run: |
+          cat > config.yaml <<'EOF'
+          server:
+            port: 8080
+            mode: release
+          db:
+            host: 127.0.0.1
+            port: 3306
+            user: root
+            password: "testpass"
+            dbname: goshop_test
+          redis:
+            host: ""
+          jwt:
+            secret: "ci-test-secret-key-at-least-32-chars"
+            expire: 72
+          payment:
+            sandbox: true
+          EOF
+          ./bin/goshop &
+          sleep 12
+      - name: Install admin + Playwright
+        run: |
+          cd admin && npm ci
+          cd admin && npx playwright install --with-deps chromium
+      - name: Run Playwright
+        env:
+          CI: true
+        run: cd admin && npm run test:e2e

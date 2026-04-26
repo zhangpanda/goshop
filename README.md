@@ -177,7 +177,7 @@ goshop/
 | [uni-app 对接指南](docs/uniapp-guide.md) | ShopXO uni-app 前端对接说明 |
 | [ShopXO 后台对齐清单](docs/shopxo-admin-parity.md) | 管理端模块与 ShopXO 对照（已对齐 / 部分对齐 / 占位 / 不适用） |
 | [Web 前台](web/README.md) | PC 前台开发说明 |
-| [管理后台](admin/README.md) | 管理后台开发说明 |
+| [管理后台](admin/README.md) | 管理后台开发说明（含 Playwright E2E） |
 | [`scripts/doc-metrics.sh`](scripts/doc-metrics.sh) | 规模指标统计（路由/表/页面/测试数等），与 `HANDOVER.md` 对齐 |
 
 ## 开源协议

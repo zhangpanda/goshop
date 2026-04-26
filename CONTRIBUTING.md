@@ -30,6 +30,8 @@ cd web && npm install && npm run dev
 cd admin && npm install && npm run dev
 ```
 
+管理后台 E2E（Playwright）：另开终端在仓库根目录 `GOSHOP_E2E=1 go run ./cmd/server/main.go`，再 `cd admin && npx playwright install chromium && npm run test:e2e`。详见 [admin/README.md](admin/README.md)。
+
 ## 提交规范
 
 - feat: 新功能

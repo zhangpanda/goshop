@@ -88,6 +88,7 @@ cd web && npm run dev           # PC前台 :3000
 
 #### CI
 - GitHub Actions 加 MySQL 8.0 容器跑集成测试
+- `admin-e2e` Job：`GOSHOP_E2E=1` 启动后端 + Playwright 跑管理端营销等用例（见 `admin/e2e/`）
 - Redis 不需要（内存缓存 fallback）
 - **Fmt**：CI 执行 `gofmt -s -l .`，提交前本地可跑 `gofmt -s -w .` 避免失败
 - **集成 Job 内 `config.yaml`**：增加 `payment.sandbox: true`，并以 **`GOSHOP_PAYMENT_SANDBOX=1`** 调用 `scripts/integration_test.sh`，覆盖 **ShopXO 多订单 + 沙盒回调** 路径

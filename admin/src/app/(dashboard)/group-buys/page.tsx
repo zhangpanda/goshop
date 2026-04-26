@@ -44,19 +44,7 @@ export default function GroupBuysPage() {
       <Typography.Title level={4}>拼团活动</Typography.Title>
       <Card size="small" style={{ marginBottom: 16 }}>
         <Row justify="end">
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              form.resetFields()
-              form.setFieldsValue({
-                group_size: 2,
-                group_time: 1440,
-                items: [{ goods_id: undefined, sku_id: undefined, promo_price: 1, promo_stock: 100 }],
-              })
-              setOpen(true)
-            }}
-          >
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
             新建拼团
           </Button>
         </Row>
@@ -75,7 +63,23 @@ export default function GroupBuysPage() {
           { title: 'SKU数', width: 72, render: (_: unknown, r: GroupRow) => r.items?.length ?? 0 },
         ]}
       />
-      <Modal title="新建拼团" open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} width={640} destroyOnClose>
+      <Modal
+        title="新建拼团"
+        open={open}
+        onCancel={() => setOpen(false)}
+        onOk={() => form.submit()}
+        width={640}
+        forceRender
+        afterOpenChange={visible => {
+          if (!visible) return
+          form.resetFields()
+          form.setFieldsValue({
+            group_size: 2,
+            group_time: 1440,
+            items: [{ goods_id: undefined, sku_id: undefined, promo_price: 1, promo_stock: 100 }],
+          })
+        }}
+      >
         <Form
           form={form}
           layout="vertical"

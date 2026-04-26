@@ -11,6 +11,24 @@ npm run dev    # http://localhost:3010（见 package.json）
 
 默认管理员：admin / admin123
 
+## E2E（Playwright）
+
+依赖 **Go 后端**（默认 `http://localhost:8080`，与 `next.config.js` 反代一致）。自动化下需 **`GOSHOP_E2E=1`** 跳过登录验证码（仅用于本地/CI，**生产勿开**）。
+
+```bash
+# 终端 1：仓库根目录，配置好 config.yaml 后
+GOSHOP_E2E=1 ./bin/goshop   # 或 go run ./cmd/server/main.go
+
+# 终端 2
+cd admin
+npm install
+npx playwright install chromium   # 首次
+npm run test:e2e                  # 会自动起 next dev :3010（若未占用）
+# npm run test:e2e:ui            # 调试
+```
+
+可选环境变量：`E2E_ADMIN_USER`、`E2E_ADMIN_PASS`（默认 admin / admin123）。
+
 ## 构建
 
 ```bash

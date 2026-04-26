@@ -30,6 +30,11 @@ node_modules/
 .next/
 .turbo/
 
+# Playwright（管理后台 E2E）
+admin/playwright-report/
+admin/test-results/
+admin/blob-report/
+
 # Logs
 *.log
 nohup.out

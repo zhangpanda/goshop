@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -18,17 +19,19 @@ func AdminLoginHandler(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	// 验证码校验
-	if req.CaptchaKey == "" || req.CaptchaCode == "" {
-		response.Fail(c, http.StatusBadRequest, "请输入验证码")
-		return
+	// 验证码校验（自动化 E2E：设置环境变量 GOSHOP_E2E=1 时跳过，切勿在生产环境开启）
+	if os.Getenv("GOSHOP_E2E") != "1" {
+		if req.CaptchaKey == "" || req.CaptchaCode == "" {
+			response.Fail(c, http.StatusBadRequest, "请输入验证码")
+			return
+		}
+		stored, err := global.Cache.Get(c, req.CaptchaKey)
+		if err != nil || stored != req.CaptchaCode {
+			response.Fail(c, http.StatusBadRequest, "验证码错误")
+			return
+		}
+		global.Cache.Del(c, req.CaptchaKey) // 用后即删
 	}
-	stored, err := global.Cache.Get(c, req.CaptchaKey)
-	if err != nil || stored != req.CaptchaCode {
-		response.Fail(c, http.StatusBadRequest, "验证码错误")
-		return
-	}
-	global.Cache.Del(c, req.CaptchaKey) // 用后即删
 
 	resp, err := service.AdminLogin(&req)
 	if err != nil {
