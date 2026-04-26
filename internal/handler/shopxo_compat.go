@@ -575,13 +575,21 @@ func sxBuyAdd(c *gin.Context) {
 		AddressID uint `json:"address_id" form:"address_id"`
 	}
 	c.ShouldBind(&req)
-	if req.Stock == 0 { req.Stock = 1 }
+	if req.Stock == 0 {
+		req.Stock = 1
+	}
 	userID := c.GetUint("user_id")
 	cart, err := service.AddCart(userID, &service.AddCartReq{GoodsID: req.GoodsID, SKUID: req.SKUID, Quantity: req.Stock})
-	if err != nil { response.Fail(c, http.StatusBadRequest, err.Error()); return }
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	addrID := req.AddressID
 	order, err := service.CreateOrder(userID, &service.CreateOrderReq{AddressID: &addrID, CartIDs: []uint{cart.ID}})
-	if err != nil { response.Fail(c, http.StatusBadRequest, err.Error()); return }
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	response.OK(c, order)
 }
 
