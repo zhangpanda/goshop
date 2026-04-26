@@ -1,5 +1,9 @@
 # GoShop
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/zhangpanda/goshop)](https://goreportcard.com/report/github.com/zhangpanda/goshop)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/zhangpanda/goshop)](go.mod)
+
 用 Go 重写的开源电商系统，100% 对齐 ShopXO v6.8.0 功能，前后端分离架构。
 
 > Go 后端代码为独立编写。DIY装修器和Form表单设计器复用 ShopXO 官方子项目（[shopxo-diy](https://github.com/gongfuxiang/shopxo-diy) / [shopxo-form](https://github.com/gongfuxiang/shopxo-form)，MIT），uni-app 移动端可直接对接（[shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)）。
