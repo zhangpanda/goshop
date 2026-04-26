@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  --fg: #1d1d1f;
+  --muted: #86868b;
+  --accent: #0071e3;
+  --surface: #f5f5f7;
+}
+
+* { -webkit-font-smoothing: antialiased; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  color: var(--fg);
+  background: #fff;
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; }

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DIY表单</title>
+    <script>
+      (function(){
+        var params = new URLSearchParams(window.location.search);
+        var token = params.get('token');
+        if(token){
+          document.cookie = 'admin_info=' + encodeURIComponent(JSON.stringify({token: token})) + ';path=/';
+        }
+        window.close = function(){ window.parent.postMessage('diy-close','*'); };
+      })();
+    </script>
+    <script type="module" crossorigin src="/static/form_input/js/entry/index-e52bd494.js"></script>
+    <link rel="stylesheet" href="/static/form_input/css/index-22328ec1.css">
+  </head>
+  <body>
+    <div id="app"></div>
+    
+  </body>
+</html>

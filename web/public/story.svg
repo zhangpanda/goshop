@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1d1d1f"/>
+      <stop offset="100%" stop-color="#2c2c2e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0071e3"/>
+      <stop offset="100%" stop-color="#40a9ff"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#0071e3" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#0071e3" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <!-- 背景光晕 -->
+  <ellipse cx="600" cy="320" rx="400" ry="280" fill="url(#glow)"/>
+  <!-- 装饰圆环 -->
+  <circle cx="600" cy="280" r="120" fill="none" stroke="#f5f5f7" stroke-width="0.5" opacity="0.15"/>
+  <circle cx="600" cy="280" r="180" fill="none" stroke="#f5f5f7" stroke-width="0.5" opacity="0.08"/>
+  <circle cx="600" cy="280" r="240" fill="none" stroke="#f5f5f7" stroke-width="0.5" opacity="0.04"/>
+  <!-- Logo 图标 - 购物袋 -->
+  <g transform="translate(600,260)" fill="none" stroke="url(#accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-30,10 L-25,-20 L25,-20 L30,10 L30,40 C30,45 25,50 20,50 L-20,50 C-25,50 -30,45 -30,40 Z" opacity="0.9"/>
+    <path d="M-15,-20 L-15,-30 C-15,-42 15,-42 15,-30 L15,-20" opacity="0.9"/>
+    <circle cx="0" cy="20" r="4" fill="url(#accent)" stroke="none" opacity="0.6"/>
+  </g>
+  <!-- 品牌名 -->
+  <text x="600" y="360" text-anchor="middle" fill="#f5f5f7" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif" font-size="42" font-weight="600" letter-spacing="8">GoShop</text>
+  <!-- 标语 -->
+  <text x="600" y="400" text-anchor="middle" fill="#86868b" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif" font-size="16" letter-spacing="4">为品质而生的购物体验</text>
+  <!-- 底部装饰线 -->
+  <line x1="560" y1="430" x2="640" y2="430" stroke="url(#accent)" stroke-width="2" opacity="0.4"/>
+  <!-- 左右装饰点 -->
+  <circle cx="200" cy="150" r="2" fill="#0071e3" opacity="0.3"/>
+  <circle cx="350" cy="500" r="1.5" fill="#0071e3" opacity="0.2"/>
+  <circle cx="900" cy="180" r="1.5" fill="#0071e3" opacity="0.25"/>
+  <circle cx="1000" cy="450" r="2" fill="#0071e3" opacity="0.2"/>
+  <circle cx="150" cy="400" r="1" fill="#f5f5f7" opacity="0.1"/>
+  <circle cx="1050" cy="250" r="1" fill="#f5f5f7" opacity="0.1"/>
+</svg>

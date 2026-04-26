@@ -1,0 +1,42 @@
+# Binaries
+bin/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config (contains secrets)
+config.yaml
+cert/
+
+# Uploads (user-generated, keep seed data)
+uploads/*
+!uploads/seed/
+
+# Go
+vendor/
+*.exe
+*.test
+
+# Node
+node_modules/
+.next/
+.turbo/
+
+# Logs
+*.log
+nohup.out
+
+# Internal docs (not for public)
+HANDOVER.md
+AGENTS.md
+CLAUDE.md
+
+# Test screenshots and scripts
+tests/start.sh
