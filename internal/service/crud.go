@@ -1,6 +1,8 @@
 package service
 
 import (
+	"errors"
+
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
 )
@@ -152,6 +154,20 @@ func GoodsCommentsStatusUpdate(id uint, status int8) error {
 	return statusUpdate("reviews", id, "status", status)
 }
 func GoodsCommentsDelete(id uint) error { return global.DB.Delete(&model.Review{}, id).Error }
+
+/**
+ * GoodsCommentsDeleteForUser 仅允许删除当前用户的评价。
+ */
+func GoodsCommentsDeleteForUser(id, userID uint) error {
+	res := global.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Review{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("评价不存在或无权删除")
+	}
+	return nil
+}
 func GoodsCommentsTotal(goodsID uint) int64 {
 	return totalCount(&model.Review{}, "goods_id = ?", goodsID)
 }

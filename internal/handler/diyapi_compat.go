@@ -353,7 +353,19 @@ func attachmentApiDelete(c *gin.Context) {
 	if req.ID > 0 {
 		global.DB.Delete(&model.Attachment{}, req.ID)
 	} else if req.IDs != "" {
-		global.DB.Where("id IN (?)", req.IDs).Delete(&model.Attachment{})
+		var idUints []uint
+		for _, p := range strings.Split(req.IDs, ",") {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+			if n, err := strconv.ParseUint(p, 10, 64); err == nil && n > 0 {
+				idUints = append(idUints, uint(n))
+			}
+		}
+		if len(idUints) > 0 {
+			global.DB.Where("id IN ?", idUints).Delete(&model.Attachment{})
+		}
 	}
 	response.OK(c, nil)
 }

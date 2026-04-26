@@ -54,6 +54,17 @@ func GetAddressList(userID uint) ([]model.Address, error) {
 	return list, err
 }
 
+/**
+ * GetAddress 返回单条收货地址（校验归属用户）。
+ */
+func GetAddress(userID, addrID uint) (*model.Address, error) {
+	var addr model.Address
+	if err := global.DB.Where("id = ? AND user_id = ?", addrID, userID).First(&addr).Error; err != nil {
+		return nil, errors.New("地址不存在")
+	}
+	return &addr, nil
+}
+
 func UpdateAddress(userID, addrID uint, req *AddressReq) error {
 	var addr model.Address
 	if err := global.DB.Where("id = ? AND user_id = ?", addrID, userID).First(&addr).Error; err != nil {

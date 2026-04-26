@@ -69,6 +69,7 @@ var authRequiredRoutes = map[string]bool{
 	"useraddress/delete": true, "useraddress/setdefault": true, "useraddress/outsystemadd": true,
 	"personal/index": true, "personal/save": true, "personal/useravatarupload": true,
 	"safety/loginpwdupdate": true, "safety/logout": true,
+	"goods/favor":            true,
 	"usergoodsfavor/index": true, "usergoodsfavor/cancel": true,
 	"usergoodsbrowse/index": true, "usergoodsbrowse/delete": true,
 	"usergoodscomments/save": true, "usergoodscomments/delete": true,
@@ -291,8 +292,10 @@ func sxIndexIndex(c *gin.Context) {
 	// 尝试DIY模式
 	diyData := service.AppClientHomeDiyData()
 	if diyData != nil {
+		uid := c.GetUint("user_id")
+		cartN := service.GoodsCartTotal(uid)
 		response.OK(c, map[string]interface{}{
-			"data_mode": 3, "data_list": diyData, "cart_total": map[string]int64{"buy_number": 0},
+			"data_mode": 3, "data_list": diyData, "cart_total": map[string]int64{"buy_number": cartN},
 		})
 		return
 	}
@@ -593,7 +596,27 @@ func sxBuyAdd(c *gin.Context) {
 	response.OK(c, order)
 }
 
-func sxOrderIndex(c *gin.Context) { GetOrderList(c) }
+func sxOrderIndex(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	var req service.OrderListReq
+	if err := c.ShouldBind(&req); err != nil {
+		req.Page = 1
+		req.PageSize = 20
+	}
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 20
+	}
+	payload, err := service.ShopXOOrderIndexPayload(userID, &req)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.OK(c, payload)
+}
+
 func sxOrderDetail(c *gin.Context) {
 	id := getID(c)
 	order, err := service.GetOrderDetail(c.GetUint("user_id"), id)
@@ -601,12 +624,55 @@ func sxOrderDetail(c *gin.Context) {
 		response.Fail(c, http.StatusNotFound, err.Error())
 		return
 	}
+	payRows, _ := service.ShopXOUserPaymentRows()
+	if payRows == nil {
+		payRows = []map[string]interface{}{}
+	}
 	response.OK(c, map[string]interface{}{
-		"data": order, "operate": service.OrderOperateButtons(order),
-		"steps": service.OrderStepData(order),
+		"data":               order,
+		"operate":            service.OrderOperateButtons(order),
+		"steps":              service.OrderStepData(order),
+		"payment_list":       payRows,
+		"default_payment_id": service.DefaultPaymentIDForShopXO(),
+		"status_tips":        "",
+		"site_fictitious":    nil,
 	})
 }
-func sxOrderPay(c *gin.Context) { UnifiedPay(c) }
+
+func sxOrderPay(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	var body struct {
+		IDs       string `form:"ids" json:"ids"`
+		ID        string `form:"id" json:"id"`
+		PaymentID uint   `form:"payment_id" json:"payment_id"`
+		OpenID    string `form:"openid" json:"openid"`
+		ReturnURL string `form:"return_url" json:"return_url"`
+	}
+	_ = c.ShouldBind(&body)
+	idsStr := strings.TrimSpace(body.IDs)
+	if idsStr == "" {
+		idsStr = strings.TrimSpace(body.ID)
+	}
+	ids := parseUintSlice(idsStr)
+	if len(ids) != 1 {
+		response.Fail(c, http.StatusBadRequest, "当前仅支持单笔订单支付")
+		return
+	}
+	if body.PaymentID == 0 {
+		response.Fail(c, http.StatusBadRequest, "请选择支付方式")
+		return
+	}
+	payload, outerMsg, err := service.ShopXOCompatUnifiedPay(userID, ids[0], body.PaymentID, body.OpenID, body.ReturnURL, c.ClientIP())
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if outerMsg != nil {
+		c.JSON(http.StatusOK, gin.H{"code": 0, "msg": *outerMsg, "data": payload})
+		return
+	}
+	response.OK(c, payload)
+}
 func sxOrderPayCheck(c *gin.Context) {
 	id := getID(c)
 	_, err := service.OrderPayCheck(c.GetUint("user_id"), id)
@@ -680,8 +746,11 @@ func sxAddressIndex(c *gin.Context) {
 }
 func sxAddressDetail(c *gin.Context) {
 	id := getID(c)
-	var addr struct{ ID uint }
-	addr.ID = id
+	addr, err := service.GetAddress(c.GetUint("user_id"), id)
+	if err != nil {
+		response.Fail(c, http.StatusNotFound, err.Error())
+		return
+	}
 	response.OK(c, addr)
 }
 func sxAddressSave(c *gin.Context) {
@@ -757,7 +826,10 @@ func sxCommentsDetail(c *gin.Context) { response.OK(c, nil) }
 func sxCommentsSave(c *gin.Context)   { CreateReview(c) }
 func sxCommentsDelete(c *gin.Context) {
 	id := getID(c)
-	service.GoodsCommentsDelete(id)
+	if err := service.GoodsCommentsDeleteForUser(id, c.GetUint("user_id")); err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	response.OK(c, nil)
 }
 

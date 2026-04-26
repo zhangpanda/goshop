@@ -19,9 +19,9 @@ type CreateOrderReq struct {
 }
 
 type OrderListReq struct {
-	Status   *int8 `form:"status"`
-	Page     int   `form:"page,default=1"`
-	PageSize int   `form:"page_size,default=20"`
+	Status   *int8 `form:"status" json:"status"`
+	Page     int   `form:"page" json:"page"`
+	PageSize int   `form:"page_size" json:"page_size"`
 }
 
 type OrderListResp struct {

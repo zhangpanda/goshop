@@ -64,10 +64,11 @@ echo ""
 echo "--- 添加地址 ---"
 R=$(api -X POST "$BASE/api/address" -H "$AUTH" -H 'Content-Type: application/json' -d '{"name":"测试","phone":"13800000000","province":"北京市","city":"北京市","district":"朝阳区","detail":"测试地址","is_default":true}')
 assert_code "POST /api/address" "0" "$(code "$R")"
+ADDR_ID=$(echo "$R" | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['id'])")
 
 echo ""
 echo "--- 创建订单 ---"
-R=$(api -X POST "$BASE/api/orders" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"address_id\":1,\"cart_ids\":[$CART_ID]}")
+R=$(api -X POST "$BASE/api/orders" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"address_id\":$ADDR_ID,\"cart_ids\":[$CART_ID]}")
 assert_code "POST /api/orders" "0" "$(code "$R")"
 ORDER_ID=$(echo "$R" | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['id'])")
 
