@@ -24,7 +24,7 @@ cd admin && npm run dev         # 管理后台 :3010（admin/admin123）
 cd web && npm run dev           # PC前台 :3000
 ```
 
-## 当前状态（v1.5.1, 2026-04-26）
+## 当前状态（v1.5.2, 2026-04-26）
 
 ### 核心数据
 | 指标 | 数值 |
@@ -36,7 +36,7 @@ cd web && npm run dev           # PC前台 :3000
 | 管理后台组件 | 12个 |
 | PC前台页面 | 24个 |
 | Go 单元测试 | 42个 |
-| 集成测试脚本 | 3个（API/支付沙盒/分销） |
+| 集成测试脚本 | 3个（API 含 ShopXO 多单/沙盒、支付沙盒、分销） |
 
 ### 本轮完成的全部工作
 
@@ -86,12 +86,15 @@ cd web && npm run dev           # PC前台 :3000
 #### CI
 - GitHub Actions 加 MySQL 8.0 容器跑集成测试
 - Redis 不需要（内存缓存 fallback）
+- **Fmt**：CI 执行 `gofmt -s -l .`，提交前本地可跑 `gofmt -s -w .` 避免失败
+- **集成 Job 内 `config.yaml`**：增加 `payment.sandbox: true`，并以 **`GOSHOP_PAYMENT_SANDBOX=1`** 调用 `scripts/integration_test.sh`，覆盖 **ShopXO 多订单 + 沙盒回调** 路径
 
 #### 文档
 - docs/migration-from-shopxo.md — ShopXO v6.x 迁移指南
 - docs/api.md — 补充秒杀/拼团/分销/统一支付等新 API
-- docs/deployment.md — Redis 可选 + 支付宝配置
+- docs/deployment.md — Redis 可选 + 支付宝配置 + **Nginx `X-Forwarded-Proto`** + **关闭 AutoMigrate 时 `orders.payment_id` 的 ALTER 示例**
 - README.md 全面更新
+- scripts/MANUAL_VERIFY_PROXY.md — **反代/HTTPS 下 ShopXO 支付、回调、DIY 附件与 DB 的手工验收清单**
 
 #### 支付与 ShopXO / DIY 兼容补充（同日后端提交）
 - **订单 `payment_id`**：`orders` 表增加字段，记录用户选用的支付方式主键；`UnifiedPayReq` 增加 `payment_id`（JSON）映射 `PaymentRecordID`，发起支付时回写订单；`PayLogSuccess` 在合并支付成功时亦回写子订单的 `payment_id`。
@@ -100,7 +103,12 @@ cd web && npm run dev           # PC前台 :3000
 - **ShopXO uni-app**：`order/pay` 支持多个 `ids`（或 `id` 逗号分隔），单笔仍走 `UnifiedPay`，多笔走 `MultiOrderUnifiedPay`。订单列表/详情中 `payment_id`、`payment_name` 优先取订单上的 `payment_id`，为 0 时回退 `DefaultPaymentIDForShopXO()`。
 - **DIY 管理端 URL**：`baseURL()` 识别反向代理 **`X-Forwarded-Proto`** / **`X-Forwarded-Host`**（取逗号分隔首段），避免 TLS 终止后仍生成 `http://` 错误链接。
 - **附件远程抓取**：`POST /api/attachmentapi/catch` 实现受限 HTTP 拉取（仅 http/https、拒绝常见内网解析结果、超时 20s、体 ≤5MB、白名单图片扩展名或 `Content-Type`），落盘至 `uploads/YYYY/MM/DD/` 并写入 **`Attachment`** 表；失败 URL 跳过，成功项放入响应 `data`。
-- **部署**：重启后端后 GORM `AutoMigrate` 会为 `orders` 增加 `payment_id` 列；若禁用自动迁移需自行 `ALTER TABLE` 对齐模型。
+- **部署**：重启后端后 GORM `AutoMigrate` 会为 `orders` 增加 `payment_id` 列；若禁用自动迁移需自行 `ALTER TABLE` 对齐模型（见 `docs/deployment.md`）。
+
+#### CI 与集成测试补充（v1.5.2）
+- **`EnsureDefaultPayments()`**（`internal/initialize/seed.go`，在 `main` 中 `InitDefaultSeedData` 之后调用）：当库中**没有任何** `payments` 记录时，自动插入线下 / 微信 JSAPI / 支付宝 H5 三条，避免老库仅有商品却无支付方式导致 **ShopXO `order/pay`** 与集成测试失败。
+- **`scripts/integration_test.sh`**：在原有流程末尾增加 **ShopXO `order/pay` 多订单线下支付**（两单合并付款后 `status=1`）；若环境变量 **`GOSHOP_PAYMENT_SANDBOX=1`** 且配置开启沙盒，再跑 **多订单 `wechat_jsapi` + GET `/api/pay/sandbox/callback`**，校验 `PayLog` 合并回调后两单均已支付。
+- **手工回归**：生产或预发在反向代理 + HTTPS 下按 **`scripts/MANUAL_VERIFY_PROXY.md`** 逐项验收（与自动化互补）。
 
 ## 待办
 
@@ -114,7 +122,8 @@ cd web && npm run dev           # PC前台 :3000
 
 ### 后端
 ```
-cmd/server/main.go                 # 入口
+cmd/server/main.go                 # 入口（含 EnsureDefaultPayments）
+internal/initialize/seed.go        # 商品等 seed + EnsureDefaultPayments
 pkg/cache/cache.go                 # 缓存抽象层(Redis/Memory)
 internal/router/router.go          # 路由(14个RBAC权限组)
 internal/service/payment_driver.go # 12种支付驱动 + 沙盒
@@ -140,7 +149,9 @@ admin/src/app/(dashboard)/distribution/page.tsx # 分销管理(3个Tab)
 
 ### 测试
 ```
-scripts/integration_test.sh    # 30项API集成测试
-scripts/sandbox_pay_test.sh    # 10种支付方式沙盒测试
-scripts/distribution_test.sh   # 分销完整链路测试
+scripts/integration_test.sh      # 核心 API + ShopXO 多单线下；可选 GOSHOP_PAYMENT_SANDBOX=1 跑多单沙盒回调
+scripts/MANUAL_VERIFY_PROXY.md   # 反代/HTTPS 下手工验收清单（非脚本）
+scripts/sandbox_pay_test.sh      # 10种支付方式沙盒测试
+scripts/distribution_test.sh     # 分销完整链路测试
+.github/workflows/ci.yml       # gofmt / vet / test / 集成（含 payment.sandbox）
 ```
