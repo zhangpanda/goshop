@@ -16,7 +16,7 @@ export default function Home() {
   const { home_site_name } = useSiteConfig()
 
   useEffect(() => {
-    api.get<{ list: Slide[] }>('/slides').then(d => setSlides(d.list || [])).catch(() => {})
+    api.get<Slide[]>('/slides').then(d => setSlides(d || [])).catch(() => {})
     api.get<{ list: Goods[] }>('/goods?limit=6').then(d => setGoods(d.list || [])).catch(() => {})
   }, [])
 
