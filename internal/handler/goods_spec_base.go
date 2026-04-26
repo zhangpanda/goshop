@@ -15,7 +15,8 @@ func SaveGoodsSpecBase(c *gin.Context) {
 		Specs []service.SpecBaseReq `json:"specs" binding:"required,min=1"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	service.SaveGoodsSpecBase(uint(id), req.Specs)
 	response.OK(c, nil)
@@ -33,7 +34,8 @@ func SaveGoodsPhotos(c *gin.Context) {
 		Images []string `json:"images" binding:"required,min=1"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	service.SaveGoodsPhotos(uint(id), req.Images)
 	response.OK(c, nil)

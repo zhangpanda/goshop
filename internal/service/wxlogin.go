@@ -17,9 +17,9 @@ type WxLoginReq struct {
 }
 
 type WxLoginResp struct {
-	Token  string     `json:"token"`
-	User   model.User `json:"user"`
-	IsNew  bool       `json:"is_new"`
+	Token string     `json:"token"`
+	User  model.User `json:"user"`
+	IsNew bool       `json:"is_new"`
 }
 
 func WxLogin(req *WxLoginReq) (*WxLoginResp, error) {

@@ -115,7 +115,7 @@ type GoodsListReq struct {
 	SpecValues string `form:"spec_values"` // 逗号分隔，如 "红色,256GB"
 	ParamName  string `form:"param_name"`
 	ParamValue string `form:"param_value"`
-	Region     string `form:"region"` // 产地
+	Region     string `form:"region"`   // 产地
 	OrderBy    string `form:"order_by"` // price_asc, price_desc, sales, new
 	Page       int    `form:"page,default=1"`
 	PageSize   int    `form:"page_size,default=20"`

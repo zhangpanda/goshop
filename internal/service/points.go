@@ -58,8 +58,8 @@ func ExchangePoints(userID uint, points int) (int64, error) {
 	if points < 100 {
 		return 0, errors.New("最少使用100积分")
 	}
-	discount := int64(points / 100) * 100 // 抵扣金额(分)
-	usePoints := int(discount / 100) * 100 // 实际使用积分（100的整数倍）
+	discount := int64(points/100) * 100  // 抵扣金额(分)
+	usePoints := int(discount/100) * 100 // 实际使用积分（100的整数倍）
 	err := ChangePoints(userID, -usePoints, "exchange", 0, fmt.Sprintf("积分抵扣%d积分", usePoints))
 	return discount, err
 }

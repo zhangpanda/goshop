@@ -17,7 +17,9 @@ import (
 // ========== 通用状态更新 ==========
 func statusUpdate(c *gin.Context, m interface{}) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	var req struct{ Status int8 `json:"status"` }
+	var req struct {
+		Status int8 `json:"status"`
+	}
 	c.ShouldBindJSON(&req)
 	global.DB.Model(m).Where("id = ?", id).Update("status", req.Status)
 	response.OK(c, nil)
@@ -49,8 +51,8 @@ func genericUpdate(c *gin.Context, m interface{}) {
 }
 
 // ========== 管理员 ==========
-func AdminDetailHandler(c *gin.Context)  { var m model.Admin; genericDetail(c, &m) }
-func AdminDeleteHandler(c *gin.Context)  { genericDelete(c, &model.Admin{}) }
+func AdminDetailHandler(c *gin.Context) { var m model.Admin; genericDetail(c, &m) }
+func AdminDeleteHandler(c *gin.Context) { genericDelete(c, &model.Admin{}) }
 
 // ========== 角色 ==========
 func RoleDetailHandler(c *gin.Context)       { var m model.Role; genericDetail(c, &m) }
@@ -145,8 +147,10 @@ func QuickNavStatusUpdateHandler(c *gin.Context) { statusUpdate(c, &model.QuickN
 func AttachmentDeleteHandler(c *gin.Context) { genericDelete(c, &model.Attachment{}) }
 
 // ========== 附件分类 ==========
-func AttachmentCategoryDeleteHandler(c *gin.Context)       { genericDelete(c, &model.AttachmentCategory{}) }
-func AttachmentCategoryStatusUpdateHandler(c *gin.Context) { statusUpdate(c, &model.AttachmentCategory{}) }
+func AttachmentCategoryDeleteHandler(c *gin.Context) { genericDelete(c, &model.AttachmentCategory{}) }
+func AttachmentCategoryStatusUpdateHandler(c *gin.Context) {
+	statusUpdate(c, &model.AttachmentCategory{})
+}
 
 // ========== 搜索记录 ==========
 func SearchHistoryDeleteHandler(c *gin.Context) { genericDelete(c, &model.SearchHistory{}) }
@@ -221,9 +225,9 @@ func UserAddressListHandler(c *gin.Context) {
 	db.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
-func UserAddressDetailHandler(c *gin.Context)  { var m model.Address; genericDetail(c, &m) }
-func UserAddressSaveHandler(c *gin.Context)    { genericUpdate(c, &model.Address{}) }
-func UserAddressDeleteHandler(c *gin.Context)  { genericDelete(c, &model.Address{}) }
+func UserAddressDetailHandler(c *gin.Context) { var m model.Address; genericDetail(c, &m) }
+func UserAddressSaveHandler(c *gin.Context)   { genericUpdate(c, &model.Address{}) }
+func UserAddressDeleteHandler(c *gin.Context) { genericDelete(c, &model.Address{}) }
 
 // ========== 仓库商品 ==========
 func WarehouseGoodsDeleteHandler(c *gin.Context)       { genericDelete(c, &model.WarehouseGoods{}) }
@@ -242,7 +246,7 @@ func AdminGoodsBrowseList(c *gin.Context) {
 	var total int64
 	global.DB.Model(&model.BrowseHistory{}).Count(&total)
 	var list []model.BrowseHistory
-	global.DB.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list)
+	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 func AdminGoodsBrowseDelete(c *gin.Context) { genericDelete(c, &model.BrowseHistory{}) }
@@ -253,7 +257,7 @@ func AdminGoodsFavorList(c *gin.Context) {
 	var total int64
 	global.DB.Model(&model.Favorite{}).Count(&total)
 	var list []model.Favorite
-	global.DB.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list)
+	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 func AdminGoodsFavorDelete(c *gin.Context) { genericDelete(c, &model.Favorite{}) }
@@ -264,7 +268,7 @@ func AdminGoodsCartList(c *gin.Context) {
 	var total int64
 	global.DB.Model(&model.Cart{}).Count(&total)
 	var list []model.Cart
-	global.DB.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list)
+	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 func AdminGoodsCartDelete(c *gin.Context) { genericDelete(c, &model.Cart{}) }
@@ -276,7 +280,7 @@ func AdminMessageList(c *gin.Context) {
 	var total int64
 	global.DB.Model(&model.Message{}).Count(&total)
 	var list []model.Message
-	global.DB.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list)
+	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 
@@ -286,7 +290,7 @@ func AdminIntegralLogList(c *gin.Context) {
 	var total int64
 	global.DB.Model(&model.PointsLog{}).Count(&total)
 	var list []model.PointsLog
-	global.DB.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list)
+	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 
@@ -296,7 +300,7 @@ func AdminSearchHistoryList(c *gin.Context) {
 	var total int64
 	global.DB.Model(&model.SearchHistory{}).Count(&total)
 	var list []model.SearchHistory
-	global.DB.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list)
+	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 
@@ -306,7 +310,7 @@ func AdminPayRequestLogList(c *gin.Context) {
 	var total int64
 	global.DB.Model(&model.PayRequestLog{}).Count(&total)
 	var list []model.PayRequestLog
-	global.DB.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list)
+	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 
@@ -322,18 +326,25 @@ func CouponDeleteHandler(c *gin.Context) { genericDelete(c, &model.Coupon{}) }
 func LogisticsTrackHandler(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	result, err := service.GetLogisticsTrack(uint(id))
-	if err != nil { response.Fail(c, 400, err.Error()); return }
+	if err != nil {
+		response.Fail(c, 400, err.Error())
+		return
+	}
 	response.OK(c, result)
 }
 
 // ========== 主题上传安装 ==========
 func ThemeUploadHandler(c *gin.Context) {
 	file, err := c.FormFile("file")
-	if err != nil { response.Fail(c, 400, "请选择文件"); return }
+	if err != nil {
+		response.Fail(c, 400, "请选择文件")
+		return
+	}
 	dst := fmt.Sprintf("./uploads/themes/%d_%s", time.Now().Unix(), file.Filename)
 	os.MkdirAll("./uploads/themes", 0755)
 	if err := c.SaveUploadedFile(file, dst); err != nil {
-		response.Fail(c, 500, err.Error()); return
+		response.Fail(c, 500, err.Error())
+		return
 	}
 	// 创建主题记录
 	theme := model.ThemeData{Name: file.Filename, Data: dst}

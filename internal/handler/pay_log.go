@@ -17,11 +17,13 @@ func CreatePayLog(c *gin.Context) {
 		ClientType string `json:"client_type"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	pl, err := service.CreatePayLog(c.GetUint("user_id"), req.OrderIDs, req.PaymentID, req.ClientType)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	response.OK(c, pl)
 }

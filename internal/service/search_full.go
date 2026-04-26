@@ -45,7 +45,9 @@ func SearchGoodsSpecValueList() []SpecFilterItem {
 	var result []SpecFilterItem
 	for _, t := range types {
 		vals := make([]string, len(t.Values))
-		for i, v := range t.Values { vals[i] = v.Value }
+		for i, v := range t.Values {
+			vals[i] = v.Value
+		}
 		if len(vals) > 0 {
 			result = append(result, SpecFilterItem{Name: t.Name, Values: vals})
 		}
@@ -59,9 +61,13 @@ func SearchGoodsParamsValueList() []ParamFilterItem {
 	var rows []row
 	global.DB.Model(&model.GoodsParams{}).Select("DISTINCT name, value").Find(&rows)
 	m := map[string][]string{}
-	for _, r := range rows { m[r.Name] = append(m[r.Name], r.Value) }
+	for _, r := range rows {
+		m[r.Name] = append(m[r.Name], r.Value)
+	}
 	var result []ParamFilterItem
-	for k, v := range m { result = append(result, ParamFilterItem{Name: k, Values: v}) }
+	for k, v := range m {
+		result = append(result, ParamFilterItem{Name: k, Values: v})
+	}
 	return result
 }
 
@@ -77,7 +83,9 @@ func CategoryBrandList(categoryID uint) []model.Brand {
 	ids := GoodsCategoryItemsIds([]uint{categoryID}, 3)
 	var brandIDs []uint
 	global.DB.Model(&model.Goods{}).Where("category_id IN ? AND status = 1", ids).Distinct("brand_id").Where("brand_id > 0").Pluck("brand_id", &brandIDs)
-	if len(brandIDs) == 0 { return nil }
+	if len(brandIDs) == 0 {
+		return nil
+	}
 	var list []model.Brand
 	global.DB.Where("id IN ? AND status = 1", brandIDs).Find(&list)
 	return list
@@ -86,9 +94,13 @@ func CategoryBrandList(categoryID uint) []model.Brand {
 // SearchProhibitCheck 搜索禁止词检查
 func SearchProhibitCheck(keyword string) bool {
 	raw := GetConfig("search_prohibit_keywords")
-	if raw == "" { return false }
+	if raw == "" {
+		return false
+	}
 	for _, w := range splitLines(raw) {
-		if w != "" && keyword == w { return true }
+		if w != "" && keyword == w {
+			return true
+		}
 	}
 	return false
 }
@@ -102,7 +114,9 @@ func splitLines(s string) []string {
 			start = i + 1
 		}
 	}
-	if start < len(s) { lines = append(lines, s[start:]) }
+	if start < len(s) {
+		lines = append(lines, s[start:])
+	}
 	return lines
 }
 
@@ -112,7 +126,9 @@ type SearchRankItem struct {
 }
 
 func SearchRankingList(limit int) []SearchRankItem {
-	if limit <= 0 { limit = 20 }
+	if limit <= 0 {
+		limit = 20
+	}
 	var list []SearchRankItem
 	global.DB.Model(&model.SearchHistory{}).Select("keyword, COUNT(*) as count").
 		Group("keyword").Order("count DESC").Limit(limit).Find(&list)

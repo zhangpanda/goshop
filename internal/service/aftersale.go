@@ -146,7 +146,7 @@ func GetAftersaleList(userID uint, page, pageSize int) ([]model.OrderAftersale, 
 	global.DB.Model(&model.OrderAftersale{}).Where("user_id = ?", userID).Count(&total)
 	var list []model.OrderAftersale
 	err := global.DB.Where("user_id = ?", userID).Preload("Histories").
-		Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list).Error
+		Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 
@@ -166,7 +166,7 @@ func AdminGetAftersaleList(page, pageSize int, status *int8) ([]model.OrderAfter
 	}
 	db.Count(&total)
 	var list []model.OrderAftersale
-	err := db.Preload("Histories").Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list).Error
+	err := db.Preload("Histories").Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 

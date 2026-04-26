@@ -39,4 +39,6 @@ AGENTS.md
 CLAUDE.md
 
 # Test screenshots and scripts
-tests/start.sh
+# Test screenshots and scripts
+tests/
+start.sh

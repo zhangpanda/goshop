@@ -11,10 +11,10 @@ import (
 )
 
 type CreateOrderReq struct {
-	AddressID    *uint  `json:"address_id"`                       // 快递/同城必填，自提可选，虚拟不需要
+	AddressID    *uint  `json:"address_id"` // 快递/同城必填，自提可选，虚拟不需要
 	CartIDs      []uint `json:"cart_ids" form:"cart_ids" binding:"required,min=1"`
 	UserCouponID *uint  `json:"user_coupon_id"`
-	OrderModel   int8   `json:"order_model"`                      // 0快递 1同城 2自提 3虚拟
+	OrderModel   int8   `json:"order_model"` // 0快递 1同城 2自提 3虚拟
 	Remark       string `json:"remark"`
 }
 

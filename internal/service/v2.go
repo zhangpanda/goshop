@@ -64,10 +64,10 @@ type StatisticalData struct {
 	UserTop   []UserRank        `json:"user_top"`
 	OrderDist []OrderStatusDist `json:"order_dist"`
 	// 待处理事项
-	OrderPendingCount    int64 `json:"order_pending_count"`
+	OrderPendingCount     int64 `json:"order_pending_count"`
 	AftersalePendingCount int64 `json:"aftersale_pending_count"`
-	GoodsOfflineCount    int64 `json:"goods_offline_count"`
-	ReviewPendingCount   int64 `json:"review_pending_count"`
+	GoodsOfflineCount     int64 `json:"goods_offline_count"`
+	ReviewPendingCount    int64 `json:"review_pending_count"`
 	// 支付方式统计
 	PayTypeStats []PayTypeStat `json:"pay_type_stats"`
 	// 地域分布
@@ -419,14 +419,14 @@ func ExecuteSQL(sql string) ([]map[string]interface{}, error) {
 // ==================== 9. 系统信息 ====================
 
 type SystemInfo struct {
-	GoVersion   string `json:"go_version"`
-	AppVersion  string `json:"app_version"`
-	DBVersion   string `json:"db_version"`
-	OS          string `json:"os"`
-	Arch        string `json:"arch"`
-	NumCPU      int    `json:"num_cpu"`
-	NumGoroutine int   `json:"num_goroutine"`
-	StartTime   string `json:"start_time"`
+	GoVersion    string `json:"go_version"`
+	AppVersion   string `json:"app_version"`
+	DBVersion    string `json:"db_version"`
+	OS           string `json:"os"`
+	Arch         string `json:"arch"`
+	NumCPU       int    `json:"num_cpu"`
+	NumGoroutine int    `json:"num_goroutine"`
+	StartTime    string `json:"start_time"`
 }
 
 var appStartTime = time.Now()

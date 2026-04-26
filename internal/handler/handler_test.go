@@ -118,7 +118,9 @@ func TestRegisterLogin(t *testing.T) {
 		t.Fatalf("login failed: %s", resp.Msg)
 	}
 
-	var loginData struct{ Token string `json:"token"` }
+	var loginData struct {
+		Token string `json:"token"`
+	}
 	json.Unmarshal(resp.Data, &loginData)
 	if loginData.Token == "" {
 		t.Fatal("login returned empty token")

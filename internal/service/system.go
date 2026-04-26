@@ -42,7 +42,9 @@ func CreateSlide(s *model.Slide) error { return global.DB.Create(s).Error }
 func NavigationList(typ string) ([]model.Navigation, error) {
 	var l []model.Navigation
 	db := global.DB.Where("status=1")
-	if typ != "" { db = db.Where("type=?", typ) }
+	if typ != "" {
+		db = db.Where("type=?", typ)
+	}
 	return l, db.Order("sort DESC").Find(&l).Error
 }
 func CreateNavigation(n *model.Navigation) error { return global.DB.Create(n).Error }
@@ -64,10 +66,12 @@ func CreatePayment(p *model.Payment) error { return global.DB.Create(p).Error }
 func AttachmentList(categoryID uint, page, pageSize int) ([]model.Attachment, int64, error) {
 	var total int64
 	db := global.DB.Model(&model.Attachment{})
-	if categoryID > 0 { db = db.Where("category_id=?", categoryID) }
+	if categoryID > 0 {
+		db = db.Where("category_id=?", categoryID)
+	}
 	db.Count(&total)
 	var list []model.Attachment
-	err := db.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list).Error
+	err := db.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 func DeleteAttachment(id uint) error { return global.DB.Delete(&model.Attachment{}, id).Error }
@@ -87,7 +91,7 @@ func GetErrorLogList(page, pageSize int) ([]model.ErrorLog, int64, error) {
 	var total int64
 	global.DB.Model(&model.ErrorLog{}).Count(&total)
 	var list []model.ErrorLog
-	err := global.DB.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list).Error
+	err := global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 

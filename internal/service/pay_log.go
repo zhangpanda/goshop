@@ -96,7 +96,7 @@ func GetPayLogList(userID uint, page, pageSize int) ([]model.PayLog, int64, erro
 	global.DB.Model(&model.PayLog{}).Where("user_id = ?", userID).Count(&total)
 	var list []model.PayLog
 	err := global.DB.Where("user_id = ?", userID).Order("id DESC").
-		Offset((page-1)*pageSize).Limit(pageSize).Find(&list).Error
+		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 
@@ -104,7 +104,7 @@ func GetRefundLogList(page, pageSize int) ([]model.RefundLog, int64, error) {
 	var total int64
 	global.DB.Model(&model.RefundLog{}).Count(&total)
 	var list []model.RefundLog
-	err := global.DB.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list).Error
+	err := global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 

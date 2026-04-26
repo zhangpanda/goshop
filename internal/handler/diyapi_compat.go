@@ -130,12 +130,12 @@ func diyApiInit(c *gin.Context) {
 
 	response.OK(c, gin.H{
 		"config": map[string]interface{}{
-			"attachment_host": base,
-			"public_host":    base + "/",
-			"currency_symbol": "¥",
-			"diy_detail_url":  "diyapi/diydetail",
-			"diy_save_url":    "diyapi/diysave",
-			"diy_upload_url":  "diyapi/diyupload",
+			"attachment_host":  base,
+			"public_host":      base + "/",
+			"currency_symbol":  "¥",
+			"diy_detail_url":   "diyapi/diydetail",
+			"diy_save_url":     "diyapi/diysave",
+			"diy_upload_url":   "diyapi/diyupload",
 			"diy_download_url": "diyapi/diydownload",
 			"diy_install_url":  "diyapi/diyinstall",
 			"diy_market_url":   "diyapi/diymarket",
@@ -154,11 +154,11 @@ func diyApiInit(c *gin.Context) {
 			},
 		},
 		"attachment_category": attachCats,
-		"article_category":   articleCats,
-		"brand_category":     brandCats,
-		"brand_list":         brands,
-		"goods_category":     cats,
-		"page_link_list":     []interface{}{},
+		"article_category":    articleCats,
+		"brand_category":      brandCats,
+		"brand_list":          brands,
+		"goods_category":      cats,
+		"page_link_list":      []interface{}{},
 		"module_list": []map[string]interface{}{
 			{"name": "基础组件", "key": "base", "data": []map[string]string{
 				{"key": "tabs", "name": "选项卡"},
@@ -376,7 +376,9 @@ func attachmentApiCategorySave(c *gin.Context) {
 }
 
 func attachmentApiCategoryDelete(c *gin.Context) {
-	var req struct{ ID uint `json:"id"` }
+	var req struct {
+		ID uint `json:"id"`
+	}
 	c.ShouldBindJSON(&req)
 	global.DB.Delete(&model.AttachmentCategory{}, req.ID)
 	response.OK(c, nil)
@@ -413,11 +415,11 @@ func formInputApiInit(c *gin.Context) {
 	response.OK(c, gin.H{
 		"config": map[string]interface{}{
 			"attachment_host":        base,
-			"public_host":           base + "/",
-			"currency_symbol":       "¥",
-			"forminput_detail_url":  "forminputapi/forminputdetail",
-			"forminput_save_url":    "forminputapi/forminputsave",
-			"forminput_upload_url":  "forminputapi/forminputupload",
+			"public_host":            base + "/",
+			"currency_symbol":        "¥",
+			"forminput_detail_url":   "forminputapi/forminputdetail",
+			"forminput_save_url":     "forminputapi/forminputsave",
+			"forminput_upload_url":   "forminputapi/forminputupload",
 			"forminput_download_url": "forminputapi/forminputdownload",
 			"forminput_install_url":  "forminputapi/forminputinstall",
 			"forminput_market_url":   "forminputapi/forminputmarket",

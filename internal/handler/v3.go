@@ -14,11 +14,13 @@ import (
 func PlatformLogin(c *gin.Context) {
 	var req service.PlatformLoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	resp, err := service.PlatformLogin(&req)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	response.OK(c, resp)
 }
@@ -37,7 +39,8 @@ func GoodsSpecDetailHandler(c *gin.Context) {
 	specValues := c.Query("spec_values")
 	resp, err := service.GoodsSpecDetail(uint(id), specValues)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	response.OK(c, resp)
 }
@@ -68,18 +71,23 @@ func OrderOperateHandler(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	order, err := service.GetOrderDetail(c.GetUint("user_id"), uint(id))
 	if err != nil {
-		response.Fail(c, http.StatusNotFound, err.Error()); return
+		response.Fail(c, http.StatusNotFound, err.Error())
+		return
 	}
 	response.OK(c, service.OrderOperateButtons(order))
 }
 
 func AdminOrderPayUnderLineHandler(c *gin.Context) {
-	var req struct{ OrderID uint `json:"order_id" binding:"required"` }
+	var req struct {
+		OrderID uint `json:"order_id" binding:"required"`
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	if err := service.AdminOrderPayUnderLine(req.OrderID, c.GetUint("admin_id")); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	response.OK(c, nil)
 }
@@ -94,7 +102,9 @@ func SmsLogListHandler(c *gin.Context) {
 }
 
 func SmsLogDeleteHandler(c *gin.Context) {
-	var req struct{ IDs []uint `json:"ids"` }
+	var req struct {
+		IDs []uint `json:"ids"`
+	}
 	c.ShouldBindJSON(&req)
 	if len(req.IDs) == 0 {
 		service.SmsLogAllDelete()
@@ -112,7 +122,9 @@ func EmailLogListHandler(c *gin.Context) {
 }
 
 func EmailLogDeleteHandler(c *gin.Context) {
-	var req struct{ IDs []uint `json:"ids"` }
+	var req struct {
+		IDs []uint `json:"ids"`
+	}
 	c.ShouldBindJSON(&req)
 	if len(req.IDs) == 0 {
 		service.EmailLogAllDelete()

@@ -49,12 +49,12 @@ type JWTConfig struct {
 
 type WechatConfig struct {
 	AppID      string `yaml:"app_id"`
-	AppSecret  string `yaml:"app_secret"`   // 小程序密钥
+	AppSecret  string `yaml:"app_secret"` // 小程序密钥
 	MchID      string `yaml:"mch_id"`
-	MchAPIKey  string `yaml:"mch_api_key"`   // APIv3 密钥
-	SerialNo   string `yaml:"serial_no"`     // 商户证书序列号
-	PrivateKey string `yaml:"private_key"`   // 商户私钥文件路径
-	NotifyURL  string `yaml:"notify_url"`    // 支付回调地址
+	MchAPIKey  string `yaml:"mch_api_key"` // APIv3 密钥
+	SerialNo   string `yaml:"serial_no"`   // 商户证书序列号
+	PrivateKey string `yaml:"private_key"` // 商户私钥文件路径
+	NotifyURL  string `yaml:"notify_url"`  // 支付回调地址
 }
 
 func Load(path string) (*Config, error) {

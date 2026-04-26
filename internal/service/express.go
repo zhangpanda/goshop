@@ -23,10 +23,12 @@ func AddInventoryLog(orderID, goodsID, skuID uint, quantity int, typ, remark str
 func GetInventoryLogList(goodsID uint, page, pageSize int) ([]model.InventoryLog, int64, error) {
 	var total int64
 	db := global.DB.Model(&model.InventoryLog{})
-	if goodsID > 0 { db = db.Where("goods_id = ?", goodsID) }
+	if goodsID > 0 {
+		db = db.Where("goods_id = ?", goodsID)
+	}
 	db.Count(&total)
 	var list []model.InventoryLog
-	err := db.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list).Error
+	err := db.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 

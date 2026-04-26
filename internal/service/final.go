@@ -8,7 +8,8 @@ import (
 // Design
 func DesignList() ([]model.Design, error) { var l []model.Design; return l, global.DB.Find(&l).Error }
 func DesignCreate(name, data string) (*model.Design, error) {
-	d := model.Design{Name: name, Data: data}; return &d, global.DB.Create(&d).Error
+	d := model.Design{Name: name, Data: data}
+	return &d, global.DB.Create(&d).Error
 }
 func DesignUpdate(id uint, data string) error {
 	return global.DB.Model(&model.Design{}).Where("id = ?", id).Update("data", data).Error
@@ -19,7 +20,9 @@ func LayoutList() ([]model.Layout, error) { var l []model.Layout; return l, glob
 func LayoutSave(name, typ, data string) error {
 	var l model.Layout
 	global.DB.Where("type = ?", typ).Find(&l)
-	if l.ID > 0 { return global.DB.Model(&l).Updates(map[string]interface{}{"name": name, "data": data}).Error }
+	if l.ID > 0 {
+		return global.DB.Model(&l).Updates(map[string]interface{}{"name": name, "data": data}).Error
+	}
 	return global.DB.Create(&model.Layout{Name: name, Type: typ, Data: data}).Error
 }
 
@@ -27,7 +30,9 @@ func LayoutSave(name, typ, data string) error {
 func SaveGoodsContentApp(goodsID uint, content string) error {
 	var c model.GoodsContentApp
 	global.DB.Where("goods_id = ?", goodsID).Find(&c)
-	if c.ID > 0 { return global.DB.Model(&c).Update("content", content).Error }
+	if c.ID > 0 {
+		return global.DB.Model(&c).Update("content", content).Error
+	}
 	return global.DB.Create(&model.GoodsContentApp{GoodsID: goodsID, Content: content}).Error
 }
 func GetGoodsContentApp(goodsID uint) string {
@@ -52,16 +57,19 @@ func OrderServiceList(orderID uint) ([]model.OrderService, error) {
 func AdminOrderServiceList(status *int8, page, pageSize int) ([]model.OrderService, int64, error) {
 	var total int64
 	db := global.DB.Model(&model.OrderService{})
-	if status != nil { db = db.Where("status = ?", *status) }
+	if status != nil {
+		db = db.Where("status = ?", *status)
+	}
 	db.Count(&total)
 	var l []model.OrderService
-	err := db.Order("id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&l).Error
+	err := db.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&l).Error
 	return l, total, err
 }
 
 // QuickNav
 func QuickNavList() ([]model.QuickNav, error) {
-	var l []model.QuickNav; return l, global.DB.Where("status=1").Order("sort DESC").Find(&l).Error
+	var l []model.QuickNav
+	return l, global.DB.Where("status=1").Order("sort DESC").Find(&l).Error
 }
 func QuickNavCreate(n *model.QuickNav) error { return global.DB.Create(n).Error }
 
@@ -74,7 +82,9 @@ func PluginConfigGet(pluginID uint, key string) string {
 func PluginConfigSet(pluginID uint, key, value string) error {
 	var c model.PluginsDataConfig
 	global.DB.Where("plugin_id = ? AND `key` = ?", pluginID, key).Find(&c)
-	if c.ID > 0 { return global.DB.Model(&c).Update("value", value).Error }
+	if c.ID > 0 {
+		return global.DB.Model(&c).Update("value", value).Error
+	}
 	return global.DB.Create(&model.PluginsDataConfig{PluginID: pluginID, Key: key, Value: value}).Error
 }
 
@@ -82,16 +92,24 @@ func PluginConfigSet(pluginID uint, key, value string) error {
 func SaveRolePlugins(roleID uint, pluginIDs []uint) error {
 	tx := global.DB.Begin()
 	tx.Where("role_id = ?", roleID).Delete(&model.RolePlugins{})
-	for _, pid := range pluginIDs { tx.Create(&model.RolePlugins{RoleID: roleID, PluginID: pid}) }
-	tx.Commit(); return nil
+	for _, pid := range pluginIDs {
+		tx.Create(&model.RolePlugins{RoleID: roleID, PluginID: pid})
+	}
+	tx.Commit()
+	return nil
 }
 
 // FormTableUserFields
 func SaveFormFields(formID uint, fields []model.FormTableUserFields) error {
 	tx := global.DB.Begin()
 	tx.Where("form_id = ?", formID).Delete(&model.FormTableUserFields{})
-	for i := range fields { fields[i].FormID = formID; fields[i].Sort = i; tx.Create(&fields[i]) }
-	tx.Commit(); return nil
+	for i := range fields {
+		fields[i].FormID = formID
+		fields[i].Sort = i
+		tx.Create(&fields[i])
+	}
+	tx.Commit()
+	return nil
 }
 func GetFormFields(formID uint) ([]model.FormTableUserFields, error) {
 	var l []model.FormTableUserFields

@@ -57,41 +57,56 @@ func OrderAddressData(order *model.Order) map[string]interface{} {
 // ==================== ThemeAdmin补全 ====================
 
 func ThemeAdminList() ([]model.ThemeData, error) { return ThemeList() }
-func ThemeAdminSave(name, data string) error { return ThemeCreate(name, data) }
+func ThemeAdminSave(name, data string) error     { return ThemeCreate(name, data) }
 func ThemeAdminSwitch(id uint) error {
 	global.DB.Model(&model.ThemeData{}).Where("status = 1").Update("status", 0)
 	return global.DB.Model(&model.ThemeData{}).Where("id = ?", id).Update("status", 1).Error
 }
 func ThemeAdminDelete(id uint) error { return global.DB.Delete(&model.ThemeData{}, id).Error }
 func ThemeAdminConfig(id uint) *model.ThemeData {
-	var t model.ThemeData; global.DB.First(&t, id); return &t
+	var t model.ThemeData
+	global.DB.First(&t, id)
+	return &t
 }
 func DefaultTheme() *model.ThemeData {
-	var t model.ThemeData; global.DB.Where("status = 1").First(&t); return &t
+	var t model.ThemeData
+	global.DB.Where("status = 1").First(&t)
+	return &t
 }
 
 // ==================== ThemeData补全 ====================
 
 func ThemeDataSave(id uint, name, data string) error {
-	if id > 0 { return global.DB.Model(&model.ThemeData{}).Where("id = ?", id).Updates(map[string]interface{}{"name": name, "data": data}).Error }
+	if id > 0 {
+		return global.DB.Model(&model.ThemeData{}).Where("id = ?", id).Updates(map[string]interface{}{"name": name, "data": data}).Error
+	}
 	return ThemeCreate(name, data)
 }
 func ThemeDataDelete(id uint) error { return global.DB.Delete(&model.ThemeData{}, id).Error }
-func ThemeDataStatusUpdate(id uint, status int8) error { return statusUpdate("theme_data", id, "status", status) }
+func ThemeDataStatusUpdate(id uint, status int8) error {
+	return statusUpdate("theme_data", id, "status", status)
+}
 func ThemeDataListHandle(list []model.ThemeData) []model.ThemeData { return list }
 
 // ==================== Diy补全 ====================
 
 func DiyData(id uint) *model.Diy {
-	var d model.Diy; global.DB.First(&d, id); return &d
+	var d model.Diy
+	global.DB.First(&d, id)
+	return &d
 }
 func DiySave(id uint, name, data string) error {
-	if id > 0 { return DiyUpdate(id, data) }
-	_, err := DiyCreate(name, data); return err
+	if id > 0 {
+		return DiyUpdate(id, data)
+	}
+	_, err := DiyCreate(name, data)
+	return err
 }
 func DiyPreviewData(id uint) map[string]interface{} {
 	d := DiyData(id)
-	if d == nil { return nil }
+	if d == nil {
+		return nil
+	}
 	var parsed map[string]interface{}
 	json.Unmarshal([]byte(d.Data), &parsed)
 	return parsed
@@ -99,73 +114,97 @@ func DiyPreviewData(id uint) map[string]interface{} {
 func AppClientHomeDiyData() map[string]interface{} {
 	var d model.Diy
 	global.DB.Where("status = 1").Order("id DESC").First(&d)
-	if d.ID == 0 { return nil }
+	if d.ID == 0 {
+		return nil
+	}
 	var parsed map[string]interface{}
 	json.Unmarshal([]byte(d.Data), &parsed)
 	return parsed
 }
 func AppClientHomeDiyId() uint {
-	var d model.Diy; global.DB.Where("status = 1").Select("id").First(&d); return d.ID
+	var d model.Diy
+	global.DB.Where("status = 1").Select("id").First(&d)
+	return d.ID
 }
 
 // ==================== Design补全 ====================
 
 func DesignSave(id uint, name, data string) error {
-	if id > 0 { return DesignUpdate(id, data) }
-	_, err := DesignCreate(name, data); return err
+	if id > 0 {
+		return DesignUpdate(id, data)
+	}
+	_, err := DesignCreate(name, data)
+	return err
 }
 func DesignSync(id uint) error {
-	d := &model.Design{}; global.DB.First(d, id)
+	d := &model.Design{}
+	global.DB.First(d, id)
 	return LayoutSave(d.Name, "home", d.Data)
 }
 
 // ==================== FormInput补全 ====================
 
 func FormInputDetail(id uint) *model.FormInput {
-	var f model.FormInput; global.DB.First(&f, id); return &f
+	var f model.FormInput
+	global.DB.First(&f, id)
+	return &f
 }
 func FormInputPreview(id uint) map[string]interface{} {
 	f := FormInputDetail(id)
-	if f == nil { return nil }
+	if f == nil {
+		return nil
+	}
 	fields, _ := GetFormFields(id)
 	return map[string]interface{}{"form": f, "fields": fields}
 }
 
 // ==================== Plugins补全 ====================
 
-func PluginsStatus(id uint, status int8) error { return global.DB.Model(&model.Plugin{}).Where("id = ?", id).Update("status", status).Error }
+func PluginsStatus(id uint, status int8) error {
+	return global.DB.Model(&model.Plugin{}).Where("id = ?", id).Update("status", status).Error
+}
 func PluginsData(id uint) *model.Plugin { var p model.Plugin; global.DB.First(&p, id); return &p }
-func PluginsCheck(name string) bool { var c int64; global.DB.Model(&model.Plugin{}).Where("name = ? AND status = 1", name).Count(&c); return c > 0 }
+func PluginsCheck(name string) bool {
+	var c int64
+	global.DB.Model(&model.Plugin{}).Where("name = ? AND status = 1", name).Count(&c)
+	return c > 0
+}
 func PluginsField(name, field string) string {
-	var p model.Plugin; global.DB.Where("name = ?", name).Select(field).First(&p); return ""
+	var p model.Plugin
+	global.DB.Where("name = ?", name).Select(field).First(&p)
+	return ""
 }
 func PluginsDataSave(id uint, config string) error {
 	return global.DB.Model(&model.Plugin{}).Where("id = ?", id).Update("config", config).Error
 }
 func PluginsDataHandle(list []model.Plugin) []model.Plugin { return list }
-func PluginsBaseList() ([]model.Plugin, error) { return PluginList() }
+func PluginsBaseList() ([]model.Plugin, error)             { return PluginList() }
 func PluginsHomeDataList() []model.Plugin {
-	var l []model.Plugin; global.DB.Where("status = 1").Find(&l); return l
+	var l []model.Plugin
+	global.DB.Where("status = 1").Find(&l)
+	return l
 }
 func PluginsSortList() []model.Plugin {
-	var l []model.Plugin; global.DB.Where("status = 1").Order("sort DESC, id ASC").Find(&l); return l
+	var l []model.Plugin
+	global.DB.Where("status = 1").Order("sort DESC, id ASC").Find(&l)
+	return l
 }
-func PluginsNewVersionCheck() bool { return false }
-func PluginsEventCall(hookName string, params map[string]interface{}) {} // Go用接口而非事件钩子
+func PluginsNewVersionCheck() bool                                                      { return false }
+func PluginsEventCall(hookName string, params map[string]interface{})                   {} // Go用接口而非事件钩子
 func PluginsControlCall(name, method string, params map[string]interface{}) interface{} { return nil }
 
 // ==================== PluginsAdmin补全 ====================
 
-func PluginsAdminList() ([]model.Plugin, error) { return PluginList() }
-func PluginsAdminSave(id uint, config string) error { return PluginsDataSave(id, config) }
+func PluginsAdminList() ([]model.Plugin, error)           { return PluginList() }
+func PluginsAdminSave(id uint, config string) error       { return PluginsDataSave(id, config) }
 func PluginsAdminStatusUpdate(id uint, status int8) error { return PluginsStatus(id, status) }
-func PluginsAdminDelete(id uint) error { return global.DB.Delete(&model.Plugin{}, id).Error }
+func PluginsAdminDelete(id uint) error                    { return global.DB.Delete(&model.Plugin{}, id).Error }
 
 // ==================== Config补全 ====================
 
-func ConfigInit() { /* Go不需要PHP的配置初始化 */ }
+func ConfigInit()                                     { /* Go不需要PHP的配置初始化 */ }
 func ConfigSave(key, value, group, desc string) error { return SetConfig(key, value, group, desc) }
-func ConfigContentRow(key string) string { return GetConfig(key) }
+func ConfigContentRow(key string) string              { return GetConfig(key) }
 func SiteFictitiousConfig() map[string]string {
 	return map[string]string{"is_enable": GetConfig("common_fictitious_order_direct_pay")}
 }
@@ -190,11 +229,11 @@ func AttachmentDiskFilesToDb(path, pathType string) {
 func AttachmentApiList(categoryID uint, page, pageSize int) ([]model.Attachment, int64, error) {
 	return AttachmentList(categoryID, page, pageSize)
 }
-func AttachmentApiSave(a *model.Attachment) error { return AttachmentSave(a) }
-func AttachmentApiDelete(id uint) error { return AttachmentDelete(id) }
+func AttachmentApiSave(a *model.Attachment) error                    { return AttachmentSave(a) }
+func AttachmentApiDelete(id uint) error                              { return AttachmentDelete(id) }
 func AttachmentApiCategoryList() ([]model.AttachmentCategory, error) { return AttachmentCategoryList() }
-func AttachmentApiCategorySave(name string) error { return CreateAttachmentCategory(name) }
-func AttachmentApiCategoryDelete(id uint) error { return AttachmentCategoryDelete(id) }
+func AttachmentApiCategorySave(name string) error                    { return CreateAttachmentCategory(name) }
+func AttachmentApiCategoryDelete(id uint) error                      { return AttachmentCategoryDelete(id) }
 
 // ==================== Statistical补全 ====================
 

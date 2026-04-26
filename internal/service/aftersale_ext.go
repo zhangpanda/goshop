@@ -9,8 +9,12 @@ import (
 func OrderAftersaleCalculation(orderDetailID uint, number int) int64 {
 	var item model.OrderItem
 	global.DB.First(&item, orderDetailID)
-	if item.ID == 0 { return 0 }
-	if number <= 0 { number = item.Quantity }
+	if item.ID == 0 {
+		return 0
+	}
+	if number <= 0 {
+		number = item.Quantity
+	}
 	return item.Price * int64(number)
 }
 
@@ -74,15 +78,23 @@ func OrderAftersaleTipsMsg(status int8) string {
 // OrderAftersaleTotal 售后总数
 func OrderAftersaleTotal(userID uint, status *int8) int64 {
 	db := global.DB.Model(&model.OrderAftersale{})
-	if userID > 0 { db = db.Where("user_id = ?", userID) }
-	if status != nil { db = db.Where("status = ?", *status) }
-	var c int64; db.Count(&c); return c
+	if userID > 0 {
+		db = db.Where("user_id = ?", userID)
+	}
+	if status != nil {
+		db = db.Where("status = ?", *status)
+	}
+	var c int64
+	db.Count(&c)
+	return c
 }
 
 // OrderIsCanLaunchAftersale 判断订单是否可发起售后
 func OrderIsCanLaunchAftersale(orderID, userID uint) bool {
 	var order model.Order
 	global.DB.Where("id = ? AND user_id = ?", orderID, userID).First(&order)
-	if order.ID == 0 { return false }
+	if order.ID == 0 {
+		return false
+	}
 	return order.Status == model.OrderStatusPaid || order.Status == model.OrderStatusShipped || order.Status == model.OrderStatusCompleted
 }

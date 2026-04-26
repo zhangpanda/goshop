@@ -14,7 +14,9 @@ import (
 // UserInfo 获取用户完整信息
 func UserInfo(userID uint) map[string]interface{} {
 	user, _ := GetUserByID(userID)
-	if user == nil { return nil }
+	if user == nil {
+		return nil
+	}
 	return map[string]interface{}{
 		"user": user, "order_total": OrderStatusGroupTotal(userID),
 		"favor_total": GoodsFavorTotal(userID), "browse_total": totalCount(&model.BrowseHistory{}, "user_id = ?", userID),
@@ -60,14 +62,18 @@ func PersonalSave(userID uint, req *PersonalSaveReq) error {
 func UserStatusCheck(userID uint) error {
 	var u model.User
 	global.DB.Select("status").First(&u, userID)
-	if u.Status == 0 { return errors.New("账号已禁用") }
+	if u.Status == 0 {
+		return errors.New("账号已禁用")
+	}
 	return nil
 }
 
 // UserLoginHandle 登录处理
 func UserLoginHandle(user *model.User) (*LoginResp, error) {
 	token, err := auth.GenerateToken(user.ID, false, global.Cfg.JWT.Secret, global.Cfg.JWT.Expire)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return &LoginResp{Token: token, User: *user}, nil
 }
 
@@ -80,7 +86,9 @@ func LoginUserInfo(userID uint) *model.User {
 // TokenUserinfo Token获取用户信息
 func TokenUserinfo(token string) (*model.User, error) {
 	claims, err := auth.ParseToken(token, global.Cfg.JWT.Secret)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return GetUserByID(claims.UserID)
 }
 
@@ -103,20 +111,28 @@ func IsExistAccounts(account string) bool {
 func UserLoginAccountsCheck(account string) (*model.User, error) {
 	var u model.User
 	global.DB.Where("username = ? OR phone = ?", account, account).First(&u)
-	if u.ID == 0 { return nil, errors.New("用户不存在") }
-	if u.Status == 0 { return nil, errors.New("账号已禁用") }
+	if u.ID == 0 {
+		return nil, errors.New("用户不存在")
+	}
+	if u.Status == 0 {
+		return nil, errors.New("账号已禁用")
+	}
 	return &u, nil
 }
 
 // UserRegAccountsCheck 注册账号检查
 func UserRegAccountsCheck(username string) error {
-	if IsExistAccounts(username) { return errors.New("账号已存在") }
+	if IsExistAccounts(username) {
+		return errors.New("账号已存在")
+	}
 	return nil
 }
 
 // UserRegForbidCheck 注册禁止检查
 func UserRegForbidCheck() error {
-	if GetConfig("site_register_close") == "1" { return errors.New("注册已关闭") }
+	if GetConfig("site_register_close") == "1" {
+		return errors.New("注册已关闭")
+	}
 	return nil
 }
 
@@ -142,7 +158,9 @@ func AppEmailBindVerifySend(email string) error { return SendVerifyCode(email, "
 
 // AppEmailBind 邮箱绑定
 func AppEmailBind(userID uint, email, code string) error {
-	if err := CheckVerifyCode(email, code, "email_bind"); err != nil { return err }
+	if err := CheckVerifyCode(email, code, "email_bind"); err != nil {
+		return err
+	}
 	return global.DB.Model(&model.User{}).Where("id = ?", userID).Update("email", email).Error
 }
 
@@ -150,7 +168,9 @@ func AppEmailBind(userID uint, email, code string) error {
 func AppAccountsBindhHandle(userID uint, platform, openID string) error {
 	var p model.UserPlatform
 	global.DB.Where("user_id = ? AND platform = ?", userID, platform).First(&p)
-	if p.ID > 0 { return global.DB.Model(&p).Update("openid", openID).Error }
+	if p.ID > 0 {
+		return global.DB.Model(&p).Update("openid", openID).Error
+	}
 	return global.DB.Create(&model.UserPlatform{UserID: userID, Platform: platform, OpenID: openID}).Error
 }
 
@@ -163,7 +183,9 @@ func UserOpenidBind(userID uint, platform, openID, unionID string) error {
 func UserOpenidHandle(platform, openID string) *model.UserPlatform {
 	var p model.UserPlatform
 	global.DB.Where("platform = ? AND openid = ?", platform, openID).First(&p)
-	if p.ID == 0 { return nil }
+	if p.ID == 0 {
+		return nil
+	}
 	return &p
 }
 
@@ -171,7 +193,9 @@ func UserOpenidHandle(platform, openID string) *model.UserPlatform {
 func UserUnionidHandle(platform, unionID string) *model.UserPlatform {
 	var p model.UserPlatform
 	global.DB.Where("platform = ? AND unionid = ?", platform, unionID).First(&p)
-	if p.ID == 0 { return nil }
+	if p.ID == 0 {
+		return nil
+	}
 	return &p
 }
 
@@ -186,7 +210,9 @@ func MatchingUserPlatformData(userID uint) []model.UserPlatform {
 func UserPlatformInfo(userID uint, platform string) *model.UserPlatform {
 	var p model.UserPlatform
 	global.DB.Where("user_id = ? AND platform = ?", userID, platform).First(&p)
-	if p.ID == 0 { return nil }
+	if p.ID == 0 {
+		return nil
+	}
 	return &p
 }
 
@@ -209,7 +235,9 @@ func UserReferrerDecrypt(ref string) uint {
 }
 
 // UserNumberCodeCreatedHandle 用户编号生成
-func UserNumberCodeCreatedHandle() string { return fmt.Sprintf("U%d", time.Now().UnixNano()%1000000000) }
+func UserNumberCodeCreatedHandle() string {
+	return fmt.Sprintf("U%d", time.Now().UnixNano()%1000000000)
+}
 
 // UserUniqueMethod 用户唯一性方法
 func UserUniqueMethod() string { return "username" }
@@ -243,7 +271,9 @@ func CacheUserTokenData(userID uint) (string, error) { return UserTokenData(user
 
 // UserListHandle 用户列表数据处理
 func UserListHandle(list []model.User) []model.User {
-	for i := range list { list[i].Password = "" }
+	for i := range list {
+		list[i].Password = ""
+	}
 	return list
 }
 

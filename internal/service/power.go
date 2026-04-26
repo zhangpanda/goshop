@@ -35,6 +35,8 @@ func GetRolePowers(roleID uint) ([]uint, error) {
 	var rps []model.RolePower
 	global.DB.Where("role_id = ?", roleID).Find(&rps)
 	ids := make([]uint, len(rps))
-	for i, rp := range rps { ids[i] = rp.PowerID }
+	for i, rp := range rps {
+		ids[i] = rp.PowerID
+	}
 	return ids, nil
 }

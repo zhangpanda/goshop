@@ -40,7 +40,7 @@ type platformOAuthConfig struct {
 
 var platformConfigs = map[string]platformOAuthConfig{
 	"alipay": {
-		TokenURL: "https://openapi.alipay.com/gateway.do?method=alipay.system.oauth.token&grant_type=authorization_code",
+		TokenURL:    "https://openapi.alipay.com/gateway.do?method=alipay.system.oauth.token&grant_type=authorization_code",
 		OpenIDField: "user_id",
 	},
 	"baidu": {
@@ -112,8 +112,12 @@ func PlatformLogin(req *PlatformLoginReq) (*PlatformLoginResp, error) {
 	// 更新昵称头像
 	if req.Nickname != "" || req.Avatar != "" {
 		updates := map[string]interface{}{}
-		if req.Nickname != "" { updates["nickname"] = req.Nickname }
-		if req.Avatar != "" { updates["avatar"] = req.Avatar }
+		if req.Nickname != "" {
+			updates["nickname"] = req.Nickname
+		}
+		if req.Avatar != "" {
+			updates["avatar"] = req.Avatar
+		}
 		global.DB.Model(&user).Updates(updates)
 	}
 
@@ -231,7 +235,9 @@ func OrderDeliverySyncWeixin(orderNo, tradeNo, openID, goodsTitle, expressName, 
 		return err
 	}
 	defer tokenResp.Body.Close()
-	var tokenResult struct{ AccessToken string `json:"access_token"` }
+	var tokenResult struct {
+		AccessToken string `json:"access_token"`
+	}
 	json.NewDecoder(tokenResp.Body).Decode(&tokenResult)
 	if tokenResult.AccessToken == "" {
 		return fmt.Errorf("获取access_token失败")
@@ -251,16 +257,16 @@ func OrderDeliverySyncWeixin(orderNo, tradeNo, openID, goodsTitle, expressName, 
 	body := map[string]interface{}{
 		"order_key": map[string]interface{}{
 			"order_number_type": 2,
-			"transaction_id":   tradeNo,
+			"transaction_id":    tradeNo,
 		},
 		"logistics_type": logisticsType,
 		"delivery_mode":  1,
 		"upload_time":    time.Now().Format("2006-01-02T15:04:05.000+08:00"),
 		"shipping_list": []map[string]interface{}{{
-			"tracking_no": expressNumber,
+			"tracking_no":     expressNumber,
 			"express_company": expressName,
 			"item_desc":       goodsTitle,
-			"contact": map[string]string{"receiver_contact": tel},
+			"contact":         map[string]string{"receiver_contact": tel},
 		}},
 		"payer": map[string]string{"openid": openID},
 	}
@@ -329,13 +335,13 @@ func GoodsStock(goodsID uint, spec string) (int, error) {
 
 // GoodsSpecDetail 获取规格详情（选中规格后返回价格/库存/图片）
 type GoodsSpecDetailResp struct {
-	SKUID    uint   `json:"sku_id"`
-	Price    int64  `json:"price"`
-	Stock    int    `json:"stock"`
-	Image    string `json:"image"`
-	Coding   string `json:"coding"`
-	Barcode  string `json:"barcode"`
-	Weight   float64 `json:"weight"`
+	SKUID   uint    `json:"sku_id"`
+	Price   int64   `json:"price"`
+	Stock   int     `json:"stock"`
+	Image   string  `json:"image"`
+	Coding  string  `json:"coding"`
+	Barcode string  `json:"barcode"`
+	Weight  float64 `json:"weight"`
 }
 
 func GoodsSpecDetail(goodsID uint, specValues string) (*GoodsSpecDetailResp, error) {
@@ -379,11 +385,16 @@ func GoodsScore(goodsID uint) *GoodsScoreData {
 		var c int64
 		global.DB.Model(&model.Review{}).Where("goods_id = ? AND rating = ?", goodsID, i).Count(&c)
 		switch i {
-		case 1: d.Star1 = c
-		case 2: d.Star2 = c
-		case 3: d.Star3 = c
-		case 4: d.Star4 = c
-		case 5: d.Star5 = c
+		case 1:
+			d.Star1 = c
+		case 2:
+			d.Star2 = c
+		case 3:
+			d.Star3 = c
+		case 4:
+			d.Star4 = c
+		case 5:
+			d.Star5 = c
 		}
 	}
 	return d
@@ -470,13 +481,13 @@ func OrderStatusGroupTotal(userID uint) map[string]int64 {
 
 // OrderOperateData 订单可执行的操作按钮
 type OrderOperate struct {
-	CanCancel  bool `json:"can_cancel"`
-	CanPay     bool `json:"can_pay"`
-	CanReceive bool `json:"can_receive"`
-	CanDelete  bool `json:"can_delete"`
-	CanReview  bool `json:"can_review"`
+	CanCancel    bool `json:"can_cancel"`
+	CanPay       bool `json:"can_pay"`
+	CanReceive   bool `json:"can_receive"`
+	CanDelete    bool `json:"can_delete"`
+	CanReview    bool `json:"can_review"`
 	CanAftersale bool `json:"can_aftersale"`
-	CanRefund  bool `json:"can_refund"`
+	CanRefund    bool `json:"can_refund"`
 }
 
 func OrderOperateButtons(order *model.Order) *OrderOperate {

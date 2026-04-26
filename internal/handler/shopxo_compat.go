@@ -59,7 +59,7 @@ var authRequiredRoutes = map[string]bool{
 	"user/tokenuserinfo": true, "user/center": true,
 	"user/appminiuserinfo": true, "user/appmobilebind": true, "user/appemailbind": true,
 	"user/onekeyusermobilebind": true,
-	"cart/index": true, "cart/save": true, "cart/delete": true,
+	"cart/index":                true, "cart/save": true, "cart/delete": true,
 	"buy/index": true, "buy/add": true,
 	"order/index": true, "order/detail": true, "order/pay": true, "order/paycheck": true,
 	"order/cancel": true, "order/collect": true, "order/delete": true, "order/comments": true,
@@ -97,23 +97,23 @@ var routeMap = map[string]gin.HandlerFunc{
 	"index/index": sxIndexIndex,
 
 	// ===== user =====
-	"user/login":                     sxUserLogin,
-	"user/reg":                       sxUserReg,
-	"user/forgetpwd":                 sxUserForgetPwd,
-	"user/tokenuserinfo":             sxTokenUserInfo,
-	"user/center":                    sxUserCenter,
-	"user/appminiuserauth":           sxAppMiniUserAuth,
-	"user/appminiuserinfo":           sxAppMiniUserInfo,
-	"user/appmobilebind":             sxAppMobileBind,
-	"user/appemailbind":              sxAppEmailBind,
-	"user/onekeyusermobilebind":      sxOnekeyMobileBind,
-	"user/onekeyusermobiledecrypt":   sxOnekeyMobileDecrypt,
-	"user/userbasereg":               sxUserBaseReg,
-	"user/loginverifysend":           sxLoginVerifySend,
-	"user/regverifysend":             sxRegVerifySend,
-	"user/forgetpwdverifysend":       sxForgetPwdVerifySend,
-	"user/appmobilebindverifysend":   sxMobileBindVerifySend,
-	"user/appemailbindverifysend":    sxEmailBindVerifySend,
+	"user/login":                   sxUserLogin,
+	"user/reg":                     sxUserReg,
+	"user/forgetpwd":               sxUserForgetPwd,
+	"user/tokenuserinfo":           sxTokenUserInfo,
+	"user/center":                  sxUserCenter,
+	"user/appminiuserauth":         sxAppMiniUserAuth,
+	"user/appminiuserinfo":         sxAppMiniUserInfo,
+	"user/appmobilebind":           sxAppMobileBind,
+	"user/appemailbind":            sxAppEmailBind,
+	"user/onekeyusermobilebind":    sxOnekeyMobileBind,
+	"user/onekeyusermobiledecrypt": sxOnekeyMobileDecrypt,
+	"user/userbasereg":             sxUserBaseReg,
+	"user/loginverifysend":         sxLoginVerifySend,
+	"user/regverifysend":           sxRegVerifySend,
+	"user/forgetpwdverifysend":     sxForgetPwdVerifySend,
+	"user/appmobilebindverifysend": sxMobileBindVerifySend,
+	"user/appemailbindverifysend":  sxEmailBindVerifySend,
 
 	// ===== goods =====
 	"goods/detail":     sxGoodsDetail,
@@ -207,7 +207,7 @@ var routeMap = map[string]gin.HandlerFunc{
 	"diy/index": sxDiyIndex,
 
 	// ===== forminput =====
-	"forminput/index":     sxFormInputIndex,
+	"forminput/index":      sxFormInputIndex,
 	"forminput/verifysend": sxFormInputVerifySend,
 
 	// ===== forminputdata =====
@@ -221,52 +221,52 @@ var routeMap = map[string]gin.HandlerFunc{
 func sxCommon(c *gin.Context) {
 	// 构造ShopXO base/common 完整返回结构
 	config := map[string]interface{}{
-		"common_site_type":                        service.GetConfig("common_site_type"),
-		"common_shop_notice":                      service.GetConfig("common_shop_notice"),
-		"common_app_is_enable_search":             1,
-		"common_app_is_online_service":            0,
-		"common_app_customer_service_tel":         service.GetConfig("app_customer_service_tel"),
-		"common_app_h5_url":                       service.GetConfig("common_app_h5_url"),
-		"common_order_close_limit_time":           30,
-		"common_order_is_booking":                 0,
-		"common_verify_expire_time":               600,
-		"common_verify_interval_time":             60,
-		"common_img_verify_state":                 0,
-		"home_user_login_type":                    []string{"username"},
-		"home_user_reg_type":                      []string{"username"},
-		"home_user_login_img_verify_state":        0,
-		"home_user_register_img_verify_state":     0,
-		"common_user_is_mandatory_bind_mobile":    0,
-		"common_user_verify_bind_mobile_list":     []string{},
-		"common_user_onekey_bind_mobile_list":     []string{},
-		"common_user_address_platform_import_list": []string{},
-		"common_app_is_weixin_force_user_base":    0,
-		"common_app_user_base_popup_pages":        []string{},
-		"common_app_user_base_popup_client":       []string{},
-		"home_site_name":                          service.GetConfig("home_site_name"),
-		"home_site_logo":                          service.GetConfig("home_site_logo"),
-		"home_site_logo_app":                      service.GetConfig("home_site_logo_app"),
-		"home_site_logo_square":                   service.GetConfig("home_site_logo_square"),
-		"home_search_is_brand":                    1,
-		"home_search_is_category":                 1,
-		"home_search_is_price":                    1,
-		"home_search_is_params":                   1,
-		"home_search_is_spec":                     1,
-		"home_search_limit_number":                20,
-		"home_user_address_map_status":            0,
-		"home_user_address_idcard_status":         0,
-		"home_is_enable_order_bulk_pay":           0,
-		"home_use_multilingual_status":            0,
-		"common_is_goods_detail_show_comments":    1,
-		"common_is_goods_detail_show_seeing_you":  1,
+		"common_site_type":                           service.GetConfig("common_site_type"),
+		"common_shop_notice":                         service.GetConfig("common_shop_notice"),
+		"common_app_is_enable_search":                1,
+		"common_app_is_online_service":               0,
+		"common_app_customer_service_tel":            service.GetConfig("app_customer_service_tel"),
+		"common_app_h5_url":                          service.GetConfig("common_app_h5_url"),
+		"common_order_close_limit_time":              30,
+		"common_order_is_booking":                    0,
+		"common_verify_expire_time":                  600,
+		"common_verify_interval_time":                60,
+		"common_img_verify_state":                    0,
+		"home_user_login_type":                       []string{"username"},
+		"home_user_reg_type":                         []string{"username"},
+		"home_user_login_img_verify_state":           0,
+		"home_user_register_img_verify_state":        0,
+		"common_user_is_mandatory_bind_mobile":       0,
+		"common_user_verify_bind_mobile_list":        []string{},
+		"common_user_onekey_bind_mobile_list":        []string{},
+		"common_user_address_platform_import_list":   []string{},
+		"common_app_is_weixin_force_user_base":       0,
+		"common_app_user_base_popup_pages":           []string{},
+		"common_app_user_base_popup_client":          []string{},
+		"home_site_name":                             service.GetConfig("home_site_name"),
+		"home_site_logo":                             service.GetConfig("home_site_logo"),
+		"home_site_logo_app":                         service.GetConfig("home_site_logo_app"),
+		"home_site_logo_square":                      service.GetConfig("home_site_logo_square"),
+		"home_search_is_brand":                       1,
+		"home_search_is_category":                    1,
+		"home_search_is_price":                       1,
+		"home_search_is_params":                      1,
+		"home_search_is_spec":                        1,
+		"home_search_limit_number":                   20,
+		"home_user_address_map_status":               0,
+		"home_user_address_idcard_status":            0,
+		"home_is_enable_order_bulk_pay":              0,
+		"home_use_multilingual_status":               0,
+		"common_is_goods_detail_show_comments":       1,
+		"common_is_goods_detail_show_seeing_you":     1,
 		"common_is_goods_detail_show_guess_you_like": 1,
-		"common_map_type":                         "baidu",
-		"category_show_level":                     0,
-		"common_goods_cover_size_type":            0,
-		"home_is_enable_userregister_agreement":   0,
-		"agreement_userregister_url":              "/api.php?s=agreement/index&name=userregister",
-		"agreement_userprivacy_url":               "/api.php?s=agreement/index&name=userprivacy",
-		"agreement_userlogout_url":                "/api.php?s=agreement/index&name=userlogout",
+		"common_map_type":                            "baidu",
+		"category_show_level":                        0,
+		"common_goods_cover_size_type":               0,
+		"home_is_enable_userregister_agreement":      0,
+		"agreement_userregister_url":                 "/api.php?s=agreement/index&name=userregister",
+		"agreement_userprivacy_url":                  "/api.php?s=agreement/index&name=userprivacy",
+		"agreement_userlogout_url":                   "/api.php?s=agreement/index&name=userlogout",
 	}
 	// 底部导航
 	tabbar, _ := service.AppTabbarList()
@@ -303,11 +303,11 @@ func sxIndexIndex(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	cartTotal := service.GoodsCartTotal(userID)
 	response.OK(c, map[string]interface{}{
-		"data_mode":  0,
-		"navigation": homeNav,
-		"banner_list": slides,
-		"data_list":  floors,
-		"cart_total": map[string]int64{"buy_number": cartTotal},
+		"data_mode":     0,
+		"navigation":    homeNav,
+		"banner_list":   slides,
+		"data_list":     floors,
+		"cart_total":    map[string]int64{"buy_number": cartTotal},
 		"message_total": service.UnreadCount(userID),
 	})
 }
@@ -324,13 +324,21 @@ func sxUserLogin(c *gin.Context) {
 		Username: body.Username,
 		Password: body.Password,
 	}
-	if body.Accounts != "" { req.Username = body.Accounts }
-	if body.Pwd != "" { req.Password = body.Pwd }
+	if body.Accounts != "" {
+		req.Username = body.Accounts
+	}
+	if body.Pwd != "" {
+		req.Password = body.Pwd
+	}
 	if req.Username == "" || req.Password == "" {
-		response.Fail(c, http.StatusBadRequest, "请输入账号和密码"); return
+		response.Fail(c, http.StatusBadRequest, "请输入账号和密码")
+		return
 	}
 	resp, err := service.Login(&req)
-	if err != nil { response.Fail(c, http.StatusBadRequest, err.Error()); return }
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	response.OK(c, resp)
 }
 
@@ -346,13 +354,21 @@ func sxUserReg(c *gin.Context) {
 		Username: body.Username,
 		Password: body.Password,
 	}
-	if body.Accounts != "" { req.Username = body.Accounts }
-	if body.Pwd != "" { req.Password = body.Pwd }
+	if body.Accounts != "" {
+		req.Username = body.Accounts
+	}
+	if body.Pwd != "" {
+		req.Password = body.Pwd
+	}
 	if req.Username == "" || req.Password == "" {
-		response.Fail(c, http.StatusBadRequest, "请输入账号和密码"); return
+		response.Fail(c, http.StatusBadRequest, "请输入账号和密码")
+		return
 	}
 	user, err := service.Register(&req)
-	if err != nil { response.Fail(c, http.StatusBadRequest, err.Error()); return }
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	response.OK(c, user)
 }
 
@@ -360,7 +376,8 @@ func sxUserForgetPwd(c *gin.Context) {
 	var req service.ForgetPwdReq
 	c.ShouldBind(&req)
 	if err := service.ForgetPassword(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	response.OK(c, nil)
 }
@@ -377,7 +394,10 @@ func sxAppMiniUserAuth(c *gin.Context) {
 	var req service.WxLoginReq
 	c.ShouldBind(&req)
 	resp, err := service.WxLogin(&req)
-	if err != nil { response.Fail(c, http.StatusBadRequest, err.Error()); return }
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	response.OK(c, resp)
 }
 
@@ -389,7 +409,8 @@ func sxAppMobileBind(c *gin.Context) {
 	var req service.BindMobileReq
 	c.ShouldBind(&req)
 	if err := service.BindMobile(c.GetUint("user_id"), &req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	response.OK(c, nil)
 }
@@ -398,7 +419,8 @@ func sxAppEmailBind(c *gin.Context) {
 	email := c.PostForm("email")
 	code := c.PostForm("code")
 	if err := service.AppEmailBind(c.GetUint("user_id"), email, code); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	response.OK(c, nil)
 }
@@ -410,17 +432,35 @@ func sxOnekeyMobileBind(c *gin.Context) {
 }
 
 func sxOnekeyMobileDecrypt(c *gin.Context) { response.OK(c, nil) }
-func sxUserBaseReg(c *gin.Context) { sxUserReg(c) }
-func sxLoginVerifySend(c *gin.Context) { service.LoginVerifySend(c.PostForm("accounts")); response.OK(c, nil) }
-func sxRegVerifySend(c *gin.Context) { service.RegVerifySend(c.PostForm("accounts")); response.OK(c, nil) }
-func sxForgetPwdVerifySend(c *gin.Context) { service.ForgetPwdVerifySend(c.PostForm("accounts")); response.OK(c, nil) }
-func sxMobileBindVerifySend(c *gin.Context) { service.AppMobileBindVerifySend(c.PostForm("mobile")); response.OK(c, nil) }
-func sxEmailBindVerifySend(c *gin.Context) { service.AppEmailBindVerifySend(c.PostForm("email")); response.OK(c, nil) }
+func sxUserBaseReg(c *gin.Context)         { sxUserReg(c) }
+func sxLoginVerifySend(c *gin.Context) {
+	service.LoginVerifySend(c.PostForm("accounts"))
+	response.OK(c, nil)
+}
+func sxRegVerifySend(c *gin.Context) {
+	service.RegVerifySend(c.PostForm("accounts"))
+	response.OK(c, nil)
+}
+func sxForgetPwdVerifySend(c *gin.Context) {
+	service.ForgetPwdVerifySend(c.PostForm("accounts"))
+	response.OK(c, nil)
+}
+func sxMobileBindVerifySend(c *gin.Context) {
+	service.AppMobileBindVerifySend(c.PostForm("mobile"))
+	response.OK(c, nil)
+}
+func sxEmailBindVerifySend(c *gin.Context) {
+	service.AppEmailBindVerifySend(c.PostForm("email"))
+	response.OK(c, nil)
+}
 
 func sxGoodsDetail(c *gin.Context) {
 	id := getID(c)
 	goods, err := service.GetGoodsDetail(id)
-	if err != nil { response.Fail(c, http.StatusNotFound, "商品不存在"); return }
+	if err != nil {
+		response.Fail(c, http.StatusNotFound, "商品不存在")
+		return
+	}
 	response.OK(c, goods)
 }
 
@@ -444,7 +484,10 @@ func sxGoodsSpecDetail(c *gin.Context) {
 	id := getID(c)
 	spec := c.Query("spec")
 	resp, err := service.GoodsSpecDetail(id, spec)
-	if err != nil { response.Fail(c, http.StatusBadRequest, err.Error()); return }
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	response.OK(c, resp)
 }
 
@@ -468,15 +511,21 @@ func sxGoodsComments(c *gin.Context) {
 func sxSearchIndex(c *gin.Context) {
 	var req service.GoodsListReq
 	c.ShouldBindQuery(&req)
-	if wd := c.Query("wd"); wd != "" { req.Keyword = wd }
-	if kw := c.Query("keywords"); kw != "" { req.Keyword = kw }
+	if wd := c.Query("wd"); wd != "" {
+		req.Keyword = wd
+	}
+	if kw := c.Query("keywords"); kw != "" {
+		req.Keyword = kw
+	}
 	resp, _ := service.GetGoodsList(&req)
 	response.OK(c, resp)
 }
 func sxSearchDataList(c *gin.Context) {
 	var req service.GoodsListReq
 	c.ShouldBindQuery(&req)
-	if wd := c.Query("wd"); wd != "" { req.Keyword = wd }
+	if wd := c.Query("wd"); wd != "" {
+		req.Keyword = wd
+	}
 	resp, _ := service.GetGoodsList(&req)
 	response.OK(c, resp)
 }
@@ -490,7 +539,10 @@ func sxCartSave(c *gin.Context) {
 	var req service.AddCartReq
 	c.ShouldBind(&req)
 	cart, err := service.AddCart(c.GetUint("user_id"), &req)
-	if err != nil { response.Fail(c, http.StatusBadRequest, err.Error()); return }
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	response.OK(c, cart)
 }
 func sxCartDelete(c *gin.Context) {
@@ -508,7 +560,10 @@ func sxBuyIndex(c *gin.Context) {
 	ids := parseUintSlice(c.Query("ids"))
 	buyType := c.DefaultQuery("buy_type", "cart")
 	resp, err := service.BuyOrderInit(c.GetUint("user_id"), ids, buyType)
-	if err != nil { response.Fail(c, http.StatusBadRequest, err.Error()); return }
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	response.OK(c, resp)
 }
 func sxBuyAdd(c *gin.Context) { CreateOrder(c) }
@@ -517,7 +572,10 @@ func sxOrderIndex(c *gin.Context) { GetOrderList(c) }
 func sxOrderDetail(c *gin.Context) {
 	id := getID(c)
 	order, err := service.GetOrderDetail(c.GetUint("user_id"), id)
-	if err != nil { response.Fail(c, http.StatusNotFound, err.Error()); return }
+	if err != nil {
+		response.Fail(c, http.StatusNotFound, err.Error())
+		return
+	}
 	response.OK(c, map[string]interface{}{
 		"data": order, "operate": service.OrderOperateButtons(order),
 		"steps": service.OrderStepData(order),
@@ -527,20 +585,25 @@ func sxOrderPay(c *gin.Context) { UnifiedPay(c) }
 func sxOrderPayCheck(c *gin.Context) {
 	id := getID(c)
 	_, err := service.OrderPayCheck(c.GetUint("user_id"), id)
-	if err != nil { response.Fail(c, http.StatusBadRequest, err.Error()); return }
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	response.OK(c, nil)
 }
 func sxOrderCancel(c *gin.Context) {
 	id := getID(c)
 	if err := service.CancelOrder(c.GetUint("user_id"), id); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	response.OK(c, nil)
 }
 func sxOrderCollect(c *gin.Context) {
 	id := getID(c)
 	if err := service.ConfirmReceive(c.GetUint("user_id"), id); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	response.OK(c, nil)
 }
@@ -563,7 +626,10 @@ func sxAftersaleIndex(c *gin.Context) {
 func sxAftersaleDetail(c *gin.Context) {
 	id := getID(c)
 	as, err := service.GetAftersaleDetail(c.GetUint("user_id"), id)
-	if err != nil { response.Fail(c, http.StatusNotFound, err.Error()); return }
+	if err != nil {
+		response.Fail(c, http.StatusNotFound, err.Error())
+		return
+	}
 	response.OK(c, service.OrderAftersaleDetailData(as.ID))
 }
 func sxAftersaleCreate(c *gin.Context) { AftersaleCreate(c) }
@@ -572,7 +638,8 @@ func sxAftersaleDelivery(c *gin.Context) {
 	var req service.AftersaleDeliveryReq
 	c.ShouldBind(&req)
 	if err := service.AftersaleDelivery(c.GetUint("user_id"), id, &req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	response.OK(c, nil)
 }
@@ -636,7 +703,7 @@ func sxPersonalSave(c *gin.Context) {
 func sxUserAvatarUpload(c *gin.Context) { Upload(c) }
 
 func sxLoginPwdUpdate(c *gin.Context) { UpdatePassword(c) }
-func sxLogout(c *gin.Context) { response.OK(c, nil) }
+func sxLogout(c *gin.Context)         { response.OK(c, nil) }
 
 func sxFavorIndex(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -660,9 +727,9 @@ func sxBrowseDelete(c *gin.Context) {
 	response.OK(c, nil)
 }
 
-func sxCommentsIndex(c *gin.Context) { sxGoodsComments(c) }
+func sxCommentsIndex(c *gin.Context)  { sxGoodsComments(c) }
 func sxCommentsDetail(c *gin.Context) { response.OK(c, nil) }
-func sxCommentsSave(c *gin.Context) { CreateReview(c) }
+func sxCommentsSave(c *gin.Context)   { CreateReview(c) }
 func sxCommentsDelete(c *gin.Context) {
 	id := getID(c)
 	service.GoodsCommentsDelete(id)
@@ -723,7 +790,9 @@ func sxFormInputDataDelete(c *gin.Context) {
 
 func sxFormInputVerifySend(c *gin.Context) {
 	account := c.PostForm("accounts")
-	if account == "" { account = c.PostForm("mobile") }
+	if account == "" {
+		account = c.PostForm("mobile")
+	}
 	service.SendVerifyCode(account, "forminput")
 	response.OK(c, nil)
 }
@@ -745,12 +814,16 @@ func getID(c *gin.Context) uint {
 }
 
 func parseUintSlice(s string) []uint {
-	if s == "" { return nil }
+	if s == "" {
+		return nil
+	}
 	parts := strings.Split(s, ",")
 	var ids []uint
 	for _, p := range parts {
 		id, _ := strconv.ParseUint(strings.TrimSpace(p), 10, 64)
-		if id > 0 { ids = append(ids, uint(id)) }
+		if id > 0 {
+			ids = append(ids, uint(id))
+		}
 	}
 	return ids
 }

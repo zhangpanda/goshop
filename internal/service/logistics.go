@@ -61,8 +61,8 @@ func queryKuaidi100(key, com, num, name string) (*TrackResult, error) {
 	body, _ := io.ReadAll(resp.Body)
 
 	var result struct {
-		State   string `json:"state"`
-		Data    []struct {
+		State string `json:"state"`
+		Data  []struct {
 			Time    string `json:"time"`
 			Context string `json:"context"`
 		} `json:"data"`

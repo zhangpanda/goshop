@@ -20,7 +20,8 @@ func SetMultilingualConfig(c *gin.Context) {
 		Available   []string `json:"available" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	service.SetMultilingualConfig(req.DefaultLang, req.Available)
 	response.OK(c, nil)
@@ -42,7 +43,8 @@ func GetCurrencyConfig(c *gin.Context) {
 func SetCurrencyConfig(c *gin.Context) {
 	var req service.CurrencyConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	service.SetCurrencyConfig(&req)
 	response.OK(c, nil)
@@ -51,12 +53,16 @@ func SetCurrencyConfig(c *gin.Context) {
 // ========== 订单预约确认 ==========
 
 func AdminBookingConfirm(c *gin.Context) {
-	var req struct{ OrderID uint `json:"order_id" binding:"required"` }
+	var req struct {
+		OrderID uint `json:"order_id" binding:"required"`
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	if err := service.BookingConfirm(req.OrderID); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	response.OK(c, nil)
 }
@@ -66,7 +72,8 @@ func AdminBookingConfirm(c *gin.Context) {
 func ExportData(c *gin.Context) {
 	var req service.ExportReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error()); return
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
 	}
 	c.Header("Content-Type", "text/csv; charset=utf-8")
 	c.Header("Content-Disposition", "attachment; filename=export_"+req.Type+".csv")
@@ -80,7 +87,8 @@ func ExportData(c *gin.Context) {
 
 func UserLogout(c *gin.Context) {
 	if err := service.UserLogout(c.GetUint("user_id")); err != nil {
-		response.Fail(c, http.StatusInternalServerError, err.Error()); return
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
 	}
 	response.OK(c, nil)
 }
@@ -90,7 +98,8 @@ func UserLogout(c *gin.Context) {
 func ClearCache(c *gin.Context) {
 	cacheType := c.DefaultQuery("type", "all")
 	if err := service.ClearCache(cacheType); err != nil {
-		response.Fail(c, http.StatusInternalServerError, err.Error()); return
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
 	}
 	response.OK(c, nil)
 }

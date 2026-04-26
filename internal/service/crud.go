@@ -20,13 +20,17 @@ func softDelete(table string, id uint) error {
 func totalCount(m interface{}, where ...interface{}) int64 {
 	var c int64
 	db := global.DB.Model(m)
-	if len(where) >= 2 { db = db.Where(where[0], where[1:]...) }
+	if len(where) >= 2 {
+		db = db.Where(where[0], where[1:]...)
+	}
 	db.Count(&c)
 	return c
 }
 
 // ==================== Goods ====================
-func GoodsStatusUpdate(id uint, status int8) error { return statusUpdate("goods", id, "status", status) }
+func GoodsStatusUpdate(id uint, status int8) error {
+	return statusUpdate("goods", id, "status", status)
+}
 func GoodsDeleteFull(id uint) error {
 	tx := global.DB.Begin()
 	tx.Where("goods_id = ?", id).Delete(&model.GoodsSKU{})
@@ -41,8 +45,12 @@ func GoodsDeleteFull(id uint) error {
 }
 func GoodsTotal(status *int8) int64 {
 	db := global.DB.Model(&model.Goods{})
-	if status != nil { db = db.Where("status = ?", *status) }
-	var c int64; db.Count(&c); return c
+	if status != nil {
+		db = db.Where("status = ?", *status)
+	}
+	var c int64
+	db.Count(&c)
+	return c
 }
 func GoodsListHandle(list []model.Goods) []model.Goods {
 	for i := range list {
@@ -54,31 +62,46 @@ func GoodsListHandle(list []model.Goods) []model.Goods {
 }
 
 // ==================== GoodsCategory ====================
-func GoodsCategoryStatusUpdate(id uint, status int8) error { return statusUpdate("categories", id, "status", status) }
+func GoodsCategoryStatusUpdate(id uint, status int8) error {
+	return statusUpdate("categories", id, "status", status)
+}
 func GoodsCategoryDelete(id uint) error {
 	var count int64
 	global.DB.Model(&model.Category{}).Where("parent_id = ?", id).Count(&count)
-	if count > 0 { return errHasChildren }
+	if count > 0 {
+		return errHasChildren
+	}
 	return global.DB.Delete(&model.Category{}, id).Error
 }
 func GoodsCategoryItemsIds(ids []uint, deep int) []uint {
 	result := make([]uint, 0, len(ids))
 	result = append(result, ids...)
-	if deep <= 0 { deep = 3 }
+	if deep <= 0 {
+		deep = 3
+	}
 	for d := 0; d < deep; d++ {
 		var childIDs []uint
 		global.DB.Model(&model.Category{}).Where("parent_id IN ? AND status = 1", result).Pluck("id", &childIDs)
-		if len(childIDs) == 0 { break }
+		if len(childIDs) == 0 {
+			break
+		}
 		result = append(result, childIDs...)
 	}
 	return result
 }
 func GoodsCategoryLevel() int {
 	v := GetConfig("goods_category_level")
-	if v == "" { return 3 }
+	if v == "" {
+		return 3
+	}
 	n := 3
-	for _, c := range v { n = int(c - '0'); break }
-	if n < 1 || n > 3 { n = 3 }
+	for _, c := range v {
+		n = int(c - '0')
+		break
+	}
+	if n < 1 || n > 3 {
+		n = 3
+	}
 	return n
 }
 func GoodsCategoryName(id uint) string {
@@ -90,7 +113,9 @@ func GoodsCategoryNames(ids []uint) map[uint]string {
 	var cats []model.Category
 	global.DB.Where("id IN ?", ids).Select("id, name").Find(&cats)
 	m := make(map[uint]string, len(cats))
-	for _, c := range cats { m[c.ID] = c.Name }
+	for _, c := range cats {
+		m[c.ID] = c.Name
+	}
 	return m
 }
 func GoodsCategoryParentIds(id uint) []uint {
@@ -98,7 +123,9 @@ func GoodsCategoryParentIds(id uint) []uint {
 	for id > 0 {
 		var c model.Category
 		global.DB.Select("id, parent_id").First(&c, id)
-		if c.ID == 0 { break }
+		if c.ID == 0 {
+			break
+		}
 		ids = append([]uint{c.ID}, ids...)
 		id = c.ParentID
 	}
@@ -121,9 +148,13 @@ func buildCategoryTree(all []model.Category, pid uint) []model.Category {
 }
 
 // ==================== GoodsComments ====================
-func GoodsCommentsStatusUpdate(id uint, status int8) error { return statusUpdate("reviews", id, "status", status) }
+func GoodsCommentsStatusUpdate(id uint, status int8) error {
+	return statusUpdate("reviews", id, "status", status)
+}
 func GoodsCommentsDelete(id uint) error { return global.DB.Delete(&model.Review{}, id).Error }
-func GoodsCommentsTotal(goodsID uint) int64 { return totalCount(&model.Review{}, "goods_id = ?", goodsID) }
+func GoodsCommentsTotal(goodsID uint) int64 {
+	return totalCount(&model.Review{}, "goods_id = ?", goodsID)
+}
 func GoodsFirstSeveralComments(goodsID uint, n int) []model.Review {
 	var list []model.Review
 	global.DB.Where("goods_id = ?", goodsID).Preload("User").Order("id DESC").Limit(n).Find(&list)
@@ -146,49 +177,71 @@ func GoodsCartTotal(userID uint) int64 { return totalCount(&model.Cart{}, "user_
 func GoodsCartStock(cartID uint) (int, error) {
 	var cart model.Cart
 	global.DB.Preload("SKU").First(&cart, cartID)
-	if cart.SKU == nil { return 0, errNotFound }
+	if cart.SKU == nil {
+		return 0, errNotFound
+	}
 	return cart.SKU.Stock, nil
 }
 
 // ==================== Brand ====================
-func BrandStatusUpdate(id uint, status int8) error { return statusUpdate("brands", id, "status", status) }
+func BrandStatusUpdate(id uint, status int8) error {
+	return statusUpdate("brands", id, "status", status)
+}
 func BrandDeleteFull(id uint) error { return global.DB.Delete(&model.Brand{}, id).Error }
-func BrandTotal() int64 { return totalCount(&model.Brand{}, "status = ?", 1) }
+func BrandTotal() int64             { return totalCount(&model.Brand{}, "status = ?", 1) }
 
 // ==================== BrandCategory ====================
 func BrandCategoryDelete(id uint) error { return global.DB.Delete(&model.BrandCategory{}, id).Error }
 
 // ==================== Article ====================
-func ArticleStatusUpdate(id uint, status int8) error { return statusUpdate("articles", id, "status", status) }
+func ArticleStatusUpdate(id uint, status int8) error {
+	return statusUpdate("articles", id, "status", status)
+}
 func ArticleDeleteFull(id uint) error { return global.DB.Delete(&model.Article{}, id).Error }
 func ArticleTotal(catID uint) int64 {
 	db := global.DB.Model(&model.Article{}).Where("status = 1")
-	if catID > 0 { db = db.Where("category_id = ?", catID) }
-	var c int64; db.Count(&c); return c
+	if catID > 0 {
+		db = db.Where("category_id = ?", catID)
+	}
+	var c int64
+	db.Count(&c)
+	return c
 }
 
 // ==================== ArticleCategory ====================
-func ArticleCategoryStatusUpdate(id uint, status int8) error { return statusUpdate("article_categories", id, "status", status) }
+func ArticleCategoryStatusUpdate(id uint, status int8) error {
+	return statusUpdate("article_categories", id, "status", status)
+}
 func ArticleCategoryDelete(id uint) error {
 	var count int64
 	global.DB.Model(&model.Article{}).Where("category_id = ?", id).Count(&count)
-	if count > 0 { return errHasChildren }
+	if count > 0 {
+		return errHasChildren
+	}
 	return global.DB.Delete(&model.ArticleCategory{}, id).Error
 }
 
 // ==================== Express ====================
-func ExpressStatusUpdate(id uint, status int8) error { return statusUpdate("expresses", id, "status", status) }
+func ExpressStatusUpdate(id uint, status int8) error {
+	return statusUpdate("expresses", id, "status", status)
+}
 func ExpressDelete(id uint) error { return global.DB.Delete(&model.Express{}, id).Error }
 
 // ==================== Slide ====================
-func SlideStatusUpdate(id uint, status int8) error { return statusUpdate("slides", id, "status", status) }
+func SlideStatusUpdate(id uint, status int8) error {
+	return statusUpdate("slides", id, "status", status)
+}
 func SlideDelete(id uint) error { return global.DB.Delete(&model.Slide{}, id).Error }
 
 // ==================== Navigation ====================
-func NavStatusUpdate(id uint, status int8) error { return statusUpdate("navigations", id, "status", status) }
+func NavStatusUpdate(id uint, status int8) error {
+	return statusUpdate("navigations", id, "status", status)
+}
 func NavDelete(id uint) error { return global.DB.Delete(&model.Navigation{}, id).Error }
 func NavSave(n *model.Navigation) error {
-	if n.ID > 0 { return global.DB.Save(n).Error }
+	if n.ID > 0 {
+		return global.DB.Save(n).Error
+	}
 	return global.DB.Create(n).Error
 }
 func BottomNavigationData() []model.Navigation {
@@ -209,27 +262,35 @@ func UserCenterLeftList() []model.Navigation {
 
 // ==================== Link ====================
 func LinkStatusUpdate(id uint, status int8) error { return statusUpdate("links", id, "status", status) }
-func LinkDelete(id uint) error { return global.DB.Delete(&model.Link{}, id).Error }
+func LinkDelete(id uint) error                    { return global.DB.Delete(&model.Link{}, id).Error }
 
 // ==================== ScreeningPrice ====================
 func ScreeningPriceSave(s *model.ScreeningPrice) error {
-	if s.ID > 0 { return global.DB.Save(s).Error }
+	if s.ID > 0 {
+		return global.DB.Save(s).Error
+	}
 	return global.DB.Create(s).Error
 }
 func ScreeningPriceDelete(id uint) error { return global.DB.Delete(&model.ScreeningPrice{}, id).Error }
 
 // ==================== Region ====================
 func RegionSave(r *model.Region) error {
-	if r.ID > 0 { return global.DB.Save(r).Error }
+	if r.ID > 0 {
+		return global.DB.Save(r).Error
+	}
 	return global.DB.Create(r).Error
 }
 func RegionDelete(id uint) error {
 	var count int64
 	global.DB.Model(&model.Region{}).Where("parent_id = ?", id).Count(&count)
-	if count > 0 { return errHasChildren }
+	if count > 0 {
+		return errHasChildren
+	}
 	return global.DB.Delete(&model.Region{}, id).Error
 }
-func RegionStatusUpdate(id uint, status int8) error { return statusUpdate("regions", id, "status", status) }
+func RegionStatusUpdate(id uint, status int8) error {
+	return statusUpdate("regions", id, "status", status)
+}
 func RegionAll() []model.Region {
 	var list []model.Region
 	global.DB.Order("sort, id").Find(&list)
@@ -257,20 +318,30 @@ func RegionItemsIds(pid uint) []uint {
 }
 
 // ==================== CustomView ====================
-func CustomViewStatusUpdate(id uint, status int8) error { return statusUpdate("custom_views", id, "status", status) }
+func CustomViewStatusUpdate(id uint, status int8) error {
+	return statusUpdate("custom_views", id, "status", status)
+}
 func CustomViewDelete(id uint) error { return global.DB.Delete(&model.CustomView{}, id).Error }
 
 // ==================== Design ====================
-func DesignStatusUpdate(id uint, status int8) error { return statusUpdate("designs", id, "status", status) }
+func DesignStatusUpdate(id uint, status int8) error {
+	return statusUpdate("designs", id, "status", status)
+}
 func DesignDelete(id uint) error { return global.DB.Delete(&model.Design{}, id).Error }
-func DesignAccessCountInc(id uint) { global.DB.Model(&model.Design{}).Where("id = ?", id).Update("status", global.DB.Raw("COALESCE(status,0)")) }
+func DesignAccessCountInc(id uint) {
+	global.DB.Model(&model.Design{}).Where("id = ?", id).Update("status", global.DB.Raw("COALESCE(status,0)"))
+}
 
 // ==================== Diy ====================
 func DiyStatusUpdate(id uint, status int8) error { return statusUpdate("diys", id, "status", status) }
-func DiyAccessCountInc(id uint) { global.DB.Model(&model.Diy{}).Where("id = ?", id).Update("access_count", global.DB.Raw("access_count + 1")) }
+func DiyAccessCountInc(id uint) {
+	global.DB.Model(&model.Diy{}).Where("id = ?", id).Update("access_count", global.DB.Raw("access_count + 1"))
+}
 
 // ==================== FormInput ====================
-func FormInputStatusUpdate(id uint, status int8) error { return statusUpdate("form_inputs", id, "status", status) }
+func FormInputStatusUpdate(id uint, status int8) error {
+	return statusUpdate("form_inputs", id, "status", status)
+}
 func FormInputDelete(id uint) error {
 	tx := global.DB.Begin()
 	tx.Where("form_id = ?", id).Delete(&model.FormInputData{})
@@ -281,33 +352,47 @@ func FormInputDelete(id uint) error {
 }
 
 // ==================== AppHomeNav ====================
-func AppHomeNavStatusUpdate(id uint, status int8) error { return statusUpdate("app_home_navs", id, "status", status) }
+func AppHomeNavStatusUpdate(id uint, status int8) error {
+	return statusUpdate("app_home_navs", id, "status", status)
+}
 func AppHomeNavDelete(id uint) error { return global.DB.Delete(&model.AppHomeNav{}, id).Error }
 
 // ==================== AppCenterNav ====================
-func AppCenterNavStatusUpdate(id uint, status int8) error { return statusUpdate("app_center_navs", id, "status", status) }
+func AppCenterNavStatusUpdate(id uint, status int8) error {
+	return statusUpdate("app_center_navs", id, "status", status)
+}
 func AppCenterNavDelete(id uint) error { return global.DB.Delete(&model.AppCenterNav{}, id).Error }
 
 // ==================== ShortcutMenu ====================
 func ShortcutMenuDelete(id uint) error { return global.DB.Delete(&model.ShortcutMenu{}, id).Error }
 
 // ==================== QuickNav ====================
-func QuickNavStatusUpdate(id uint, status int8) error { return statusUpdate("quick_navs", id, "status", status) }
+func QuickNavStatusUpdate(id uint, status int8) error {
+	return statusUpdate("quick_navs", id, "status", status)
+}
 func QuickNavDelete(id uint) error { return global.DB.Delete(&model.QuickNav{}, id).Error }
 
 // ==================== Attachment ====================
 func AttachmentDelete(id uint) error { return global.DB.Delete(&model.Attachment{}, id).Error }
 func AttachmentSave(a *model.Attachment) error {
-	if a.ID > 0 { return global.DB.Save(a).Error }
+	if a.ID > 0 {
+		return global.DB.Save(a).Error
+	}
 	return global.DB.Create(a).Error
 }
 
 // ==================== AttachmentCategory ====================
-func AttachmentCategoryStatusUpdate(id uint, status int8) error { return statusUpdate("attachment_categories", id, "status", status) }
-func AttachmentCategoryDelete(id uint) error { return global.DB.Delete(&model.AttachmentCategory{}, id).Error }
+func AttachmentCategoryStatusUpdate(id uint, status int8) error {
+	return statusUpdate("attachment_categories", id, "status", status)
+}
+func AttachmentCategoryDelete(id uint) error {
+	return global.DB.Delete(&model.AttachmentCategory{}, id).Error
+}
 
 // ==================== ErrorLog ====================
-func ErrorLogDelete(ids []uint) error { return global.DB.Where("id IN ?", ids).Delete(&model.ErrorLog{}).Error }
+func ErrorLogDelete(ids []uint) error {
+	return global.DB.Where("id IN ?", ids).Delete(&model.ErrorLog{}).Error
+}
 func ErrorLogAllDelete() error { return global.DB.Where("1=1").Delete(&model.ErrorLog{}).Error }
 
 // ==================== PluginsCategory ====================
@@ -324,7 +409,9 @@ func PluginsCategoryList() []model.PluginCategory {
 // ==================== Admin ====================
 func AdminDetail(id uint) (*model.Admin, error) {
 	var a model.Admin
-	if err := global.DB.Preload("Role").First(&a, id).Error; err != nil { return nil, err }
+	if err := global.DB.Preload("Role").First(&a, id).Error; err != nil {
+		return nil, err
+	}
 	return &a, nil
 }
 func AdminSave(id uint, nickname string, roleID uint) error {
@@ -333,9 +420,13 @@ func AdminSave(id uint, nickname string, roleID uint) error {
 func AdminDelete(id uint) error { return global.DB.Delete(&model.Admin{}, id).Error }
 
 // ==================== Power ====================
-func PowerStatusUpdate(id uint, status int8) error { return statusUpdate("powers", id, "status", status) }
+func PowerStatusUpdate(id uint, status int8) error {
+	return statusUpdate("powers", id, "status", status)
+}
 func PowerSave(p *model.Power) error {
-	if p.ID > 0 { return global.DB.Save(p).Error }
+	if p.ID > 0 {
+		return global.DB.Save(p).Error
+	}
 	return global.DB.Create(p).Error
 }
 
@@ -350,5 +441,7 @@ var (
 	errHasChildren = errMsg("请先删除子数据")
 	errNotFound    = errMsg("数据不存在")
 )
+
 type errMsg string
+
 func (e errMsg) Error() string { return string(e) }

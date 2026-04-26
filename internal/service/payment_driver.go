@@ -10,8 +10,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"net/url"
 	net_http "net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -37,10 +37,10 @@ type PayDriverReq struct {
 }
 
 type PayDriverResp struct {
-	PayURL    string                 `json:"pay_url,omitempty"`    // 跳转支付URL
+	PayURL     string                 `json:"pay_url,omitempty"`     // 跳转支付URL
 	PrepayData map[string]interface{} `json:"prepay_data,omitempty"` // 小程序/APP调起参数
-	QRCode    string                 `json:"qr_code,omitempty"`    // 二维码链接
-	TradeNo   string                 `json:"trade_no,omitempty"`
+	QRCode     string                 `json:"qr_code,omitempty"`     // 二维码链接
+	TradeNo    string                 `json:"trade_no,omitempty"`
 }
 
 type RefundDriverReq struct {

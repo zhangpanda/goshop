@@ -10,11 +10,11 @@ import (
 // GoodsSave 完整保存商品（含规格/参数/相册/分类）
 type GoodsSaveReq struct {
 	GoodsReq
-	SKUs         []SKUReq           `json:"skus"`
-	CategoryIDs  []uint             `json:"category_ids"`
-	Params       []ParamsConfigItem `json:"params"`
-	Photos       []string           `json:"photos"`
-	ContentApp   string             `json:"content_app"`
+	SKUs        []SKUReq           `json:"skus"`
+	CategoryIDs []uint             `json:"category_ids"`
+	Params      []ParamsConfigItem `json:"params"`
+	Photos      []string           `json:"photos"`
+	ContentApp  string             `json:"content_app"`
 }
 
 func GoodsSave(id uint, req *GoodsSaveReq) (*model.Goods, error) {
@@ -36,13 +36,21 @@ func GoodsSave(id uint, req *GoodsSaveReq) (*model.Goods, error) {
 	}
 	tx.Commit()
 	// 多分类
-	if len(req.CategoryIDs) > 0 { SaveGoodsCategoryJoinRecords(id, req.CategoryIDs) }
+	if len(req.CategoryIDs) > 0 {
+		SaveGoodsCategoryJoinRecords(id, req.CategoryIDs)
+	}
 	// 参数
-	if len(req.Params) > 0 { SaveGoodsParams(id, req.Params) }
+	if len(req.Params) > 0 {
+		SaveGoodsParams(id, req.Params)
+	}
 	// 相册
-	if len(req.Photos) > 0 { SaveGoodsPhotos(id, req.Photos) }
+	if len(req.Photos) > 0 {
+		SaveGoodsPhotos(id, req.Photos)
+	}
 	// APP详情
-	if req.ContentApp != "" { SaveGoodsContentApp(id, req.ContentApp) }
+	if req.ContentApp != "" {
+		SaveGoodsContentApp(id, req.ContentApp)
+	}
 	var goods model.Goods
 	global.DB.Preload("SKUs").Preload("Category").First(&goods, id)
 	return &goods, nil
@@ -57,7 +65,9 @@ func GoodsSaveBaseUpdate(id uint, updates map[string]interface{}) error {
 func GoodsData(id uint) *model.Goods {
 	var g model.Goods
 	global.DB.Preload("SKUs").Preload("Category").First(&g, id)
-	if g.ID == 0 { return nil }
+	if g.ID == 0 {
+		return nil
+	}
 	return &g
 }
 
@@ -65,44 +75,59 @@ func GoodsData(id uint) *model.Goods {
 func GoodsDataEditStatusCheck(id uint) error {
 	var g model.Goods
 	global.DB.Select("status").First(&g, id)
-	if g.Status == 1 { return fmt.Errorf("商品已上架，请先下架再编辑") }
+	if g.Status == 1 {
+		return fmt.Errorf("商品已上架，请先下架再编辑")
+	}
 	return nil
 }
 
 // GoodsSearchList 商品搜索列表（含关键字+分类+品牌）
 func GoodsSearchList(keyword string, categoryID, brandID uint, page, pageSize int) ([]model.Goods, int64) {
 	db := global.DB.Model(&model.Goods{}).Where("status = 1")
-	if keyword != "" { db = db.Where("title LIKE ?", "%"+keyword+"%") }
+	if keyword != "" {
+		db = db.Where("title LIKE ?", "%"+keyword+"%")
+	}
 	if categoryID > 0 {
 		ids := GoodsCategoryItemsIds([]uint{categoryID}, 3)
 		db = db.Where("category_id IN ?", ids)
 	}
-	if brandID > 0 { db = db.Where("brand_id = ?", brandID) }
+	if brandID > 0 {
+		db = db.Where("brand_id = ?", brandID)
+	}
 	var total int64
 	db.Count(&total)
 	var list []model.Goods
-	db.Preload("SKUs").Order("sort DESC, id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list)
+	db.Preload("SKUs").Order("sort DESC, id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	return list, total
 }
 
 // AppointGoodsList 指定ID商品列表
 func AppointGoodsList(ids []uint) []model.Goods {
 	var list []model.Goods
-	if len(ids) == 0 { return list }
+	if len(ids) == 0 {
+		return list
+	}
 	global.DB.Where("id IN ? AND status = 1", ids).Preload("SKUs").Find(&list)
 	return list
 }
 
 // AutoGoodsList 自动商品列表（按条件）
 func AutoGoodsList(categoryID uint, orderBy string, limit int) []model.Goods {
-	if limit <= 0 { limit = 10 }
+	if limit <= 0 {
+		limit = 10
+	}
 	db := global.DB.Where("status = 1")
-	if categoryID > 0 { db = db.Where("category_id = ?", categoryID) }
+	if categoryID > 0 {
+		db = db.Where("category_id = ?", categoryID)
+	}
 	order := "sort DESC, id DESC"
 	switch orderBy {
-	case "sales": order = "sales_count DESC"
-	case "new": order = "id DESC"
-	case "price_asc": order = "id ASC"
+	case "sales":
+		order = "sales_count DESC"
+	case "new":
+		order = "id DESC"
+	case "price_asc":
+		order = "id ASC"
 	}
 	var list []model.Goods
 	db.Preload("SKUs").Order(order).Limit(limit).Find(&list)
@@ -116,7 +141,7 @@ func CategoryGoodsList(categoryID uint, page, pageSize int) ([]model.Goods, int6
 	global.DB.Model(&model.Goods{}).Where("category_id IN ? AND status = 1", ids).Count(&total)
 	var list []model.Goods
 	global.DB.Where("category_id IN ? AND status = 1", ids).Preload("SKUs").
-		Order("sort DESC, id DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list)
+		Order("sort DESC, id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	return list, total
 }
 
@@ -136,8 +161,12 @@ func GoodsQrcode(id uint) string { return GenerateQRCodeURL(GoodsUrlCreate(id)) 
 
 // GoodsImagesCoverHandle 封面图处理
 func GoodsImagesCoverHandle(goods *model.Goods) string {
-	if goods.MainImage != "" { return goods.MainImage }
-	if len(goods.SKUs) > 0 && goods.SKUs[0].Image != "" { return goods.SKUs[0].Image }
+	if goods.MainImage != "" {
+		return goods.MainImage
+	}
+	if len(goods.SKUs) > 0 && goods.SKUs[0].Image != "" {
+		return goods.SKUs[0].Image
+	}
 	return ""
 }
 
@@ -184,7 +213,9 @@ func GoodsSpecOperateData(goodsID uint) map[string]interface{} {
 func GoodsParametersData(goodsID uint) ([]model.GoodsParams, error) { return GetGoodsParams(goodsID) }
 
 // GoodsParamsInsert 保存参数
-func GoodsParamsInsert(goodsID uint, params []ParamsConfigItem) error { return SaveGoodsParams(goodsID, params) }
+func GoodsParamsInsert(goodsID uint, params []ParamsConfigItem) error {
+	return SaveGoodsParams(goodsID, params)
+}
 
 // GoodsParamsOperateData 参数操作数据
 func GoodsParamsOperateData(goodsID uint) map[string]interface{} {
@@ -203,17 +234,23 @@ func GoodsPhotoInsert(goodsID uint, images []string) error { return SaveGoodsPho
 func GoodsCategoryInsert(goodsID uint, catIDs []uint) { SaveGoodsCategoryJoinRecords(goodsID, catIDs) }
 
 // GoodsContentAppInsert 保存APP详情
-func GoodsContentAppInsert(goodsID uint, content string) error { return SaveGoodsContentApp(goodsID, content) }
+func GoodsContentAppInsert(goodsID uint, content string) error {
+	return SaveGoodsContentApp(goodsID, content)
+}
 
 // GoodsEditParameters 编辑页参数数据
 func GoodsEditParameters(goodsID uint) map[string]interface{} { return GoodsParamsOperateData(goodsID) }
 
 // GoodsEditSpecifications 编辑页规格数据
-func GoodsEditSpecifications(goodsID uint) map[string]interface{} { return GoodsSpecOperateData(goodsID) }
+func GoodsEditSpecifications(goodsID uint) map[string]interface{} {
+	return GoodsSpecOperateData(goodsID)
+}
 
 // GoodsBuyButtonList 购买按钮列表
 func GoodsBuyButtonList(goods *model.Goods) []map[string]string {
-	if goods.Status != 1 { return nil }
+	if goods.Status != 1 {
+		return nil
+	}
 	btns := []map[string]string{{"type": "buy", "name": "立即购买"}, {"type": "cart", "name": "加入购物车"}}
 	return btns
 }
@@ -222,10 +259,14 @@ func GoodsBuyButtonList(goods *model.Goods) []map[string]string {
 func GoodsSalesModelType(goods *model.Goods) string {
 	siteType := GetConfig("common_site_type")
 	switch siteType {
-	case "2": return "自提"
-	case "3": return "虚拟"
-	case "4": return "展示"
-	default: return "快递"
+	case "2":
+		return "自提"
+	case "3":
+		return "虚拟"
+	case "4":
+		return "展示"
+	default:
+		return "快递"
 	}
 }
 
@@ -242,7 +283,9 @@ func GoodsDetailMiddleTabsNavList(goodsID uint) []map[string]interface{} {
 
 // GoodsDetailSeeingYouData 看了又看
 func GoodsDetailSeeingYouData(goodsID uint, limit int) []model.Goods {
-	if limit <= 0 { limit = 6 }
+	if limit <= 0 {
+		limit = 6
+	}
 	var g model.Goods
 	global.DB.Select("category_id").First(&g, goodsID)
 	var list []model.Goods
@@ -262,10 +305,12 @@ func GoodsListCategoryGroupList() []HomeFloor { return HomeFloorList(8) }
 // GoodsAppData APP端商品数据
 func GoodsAppData(goodsID uint) map[string]interface{} {
 	goods := GoodsData(goodsID)
-	if goods == nil { return nil }
+	if goods == nil {
+		return nil
+	}
 	return map[string]interface{}{
 		"goods": goods, "score": GoodsScore(goodsID),
-		"photos": func() []model.GoodsPhoto { l, _ := GoodsPhotoData(goodsID); return l }(),
+		"photos":      func() []model.GoodsPhoto { l, _ := GoodsPhotoData(goodsID); return l }(),
 		"content_app": GetGoodsContentApp(goodsID),
 	}
 }
@@ -292,13 +337,19 @@ func UserCartGoodsCountData(userID uint) int64 { return GoodsCartTotal(userID) }
 func UserFavorGoodsCountData(userID uint) int64 { return GoodsFavorTotal(userID) }
 
 // GetFormGoodsSpecificationsParams 表单规格参数
-func GetFormGoodsSpecificationsParams(goodsID uint) map[string]interface{} { return GoodsSpecOperateData(goodsID) }
+func GetFormGoodsSpecificationsParams(goodsID uint) map[string]interface{} {
+	return GoodsSpecOperateData(goodsID)
+}
 
 // GetFormGoodsSpecificationsBaseParams 表单规格基础参数
-func GetFormGoodsSpecificationsBaseParams(goodsID uint) ([]model.GoodsSpecBase, error) { return GoodsSpecificationsActual(goodsID) }
+func GetFormGoodsSpecificationsBaseParams(goodsID uint) ([]model.GoodsSpecBase, error) {
+	return GoodsSpecificationsActual(goodsID)
+}
 
 // GetFormGoodsPhotoParams 表单相册参数
-func GetFormGoodsPhotoParams(goodsID uint) ([]model.GoodsPhoto, error) { return GoodsPhotoData(goodsID) }
+func GetFormGoodsPhotoParams(goodsID uint) ([]model.GoodsPhoto, error) {
+	return GoodsPhotoData(goodsID)
+}
 
 // GetFormGoodsContentAppParams 表单APP详情参数
 func GetFormGoodsContentAppParams(goodsID uint) string { return GetGoodsContentApp(goodsID) }
@@ -317,4 +368,6 @@ func GoodsSpecificationsConcise(goodsID uint) []string {
 }
 
 // GoodsSpecificationsExtends 规格扩展数据
-func GoodsSpecificationsExtends(goodsID uint) map[string]interface{} { return GoodsSpecOperateData(goodsID) }
+func GoodsSpecificationsExtends(goodsID uint) map[string]interface{} {
+	return GoodsSpecOperateData(goodsID)
+}

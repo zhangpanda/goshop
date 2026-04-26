@@ -12,14 +12,14 @@ import (
 // ==================== 批次7: 统计细分 ====================
 
 type StatisticalExt struct {
-	OrderProfitTotal    int64              `json:"order_profit_total" form:"order_profit_total"`
-	PayTypeTotal        []PayTypeStat      `json:"pay_type_total" form:"pay_type_total"`
-	BuyUserTotal        int64              `json:"buy_user_total" form:"buy_user_total"`
-	OrderRegionTotal    []RegionStat       `json:"order_region_total" form:"order_region_total"`
-	NewUserYesterday    int64              `json:"new_user_yesterday" form:"new_user_yesterday"`
-	NewUserToday        int64              `json:"new_user_today" form:"new_user_today"`
-	OrderCompleteToday  int64              `json:"order_complete_today" form:"order_complete_today"`
-	OrderCompleteYesterday int64           `json:"order_complete_yesterday" form:"order_complete_yesterday"`
+	OrderProfitTotal       int64         `json:"order_profit_total" form:"order_profit_total"`
+	PayTypeTotal           []PayTypeStat `json:"pay_type_total" form:"pay_type_total"`
+	BuyUserTotal           int64         `json:"buy_user_total" form:"buy_user_total"`
+	OrderRegionTotal       []RegionStat  `json:"order_region_total" form:"order_region_total"`
+	NewUserYesterday       int64         `json:"new_user_yesterday" form:"new_user_yesterday"`
+	NewUserToday           int64         `json:"new_user_today" form:"new_user_today"`
+	OrderCompleteToday     int64         `json:"order_complete_today" form:"order_complete_today"`
+	OrderCompleteYesterday int64         `json:"order_complete_yesterday" form:"order_complete_yesterday"`
 }
 type PayTypeStat struct {
 	PaymentKey string `json:"payment_key" form:"payment_key"`
@@ -59,10 +59,18 @@ func UserTotal() int64 { return totalCount(&model.User{}) }
 
 func UserSave(userID uint, nickname, avatar, phone string) error {
 	updates := map[string]interface{}{}
-	if nickname != "" { updates["nickname"] = nickname }
-	if avatar != "" { updates["avatar"] = avatar }
-	if phone != "" { updates["phone"] = phone }
-	if len(updates) == 0 { return nil }
+	if nickname != "" {
+		updates["nickname"] = nickname
+	}
+	if avatar != "" {
+		updates["avatar"] = avatar
+	}
+	if phone != "" {
+		updates["phone"] = phone
+	}
+	if len(updates) == 0 {
+		return nil
+	}
 	return global.DB.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error
 }
 
@@ -81,7 +89,9 @@ func UserListService(page, pageSize int, keyword string, status *int8) ([]model.
 	if keyword != "" {
 		db = db.Where("username LIKE ? OR nickname LIKE ? OR phone LIKE ?", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 	}
-	if status != nil { db = db.Where("status = ?", *status) }
+	if status != nil {
+		db = db.Where("status = ?", *status)
+	}
 	db.Count(&total)
 	var list []model.User
 	err := db.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
@@ -119,7 +129,9 @@ func OrderPayCheck(userID, orderID uint) (*model.Order, error) {
 // OrderExpressData 订单物流信息
 func OrderExpressData(orderID uint) (*model.Shipment, []TrackInfo, error) {
 	s, err := GetShipment(orderID)
-	if err != nil { return nil, nil, err }
+	if err != nil {
+		return nil, nil, err
+	}
 	tracks, _ := QueryExpress(s.ExpressCompany, s.ExpressNo)
 	return s, tracks, nil
 }
@@ -151,15 +163,22 @@ func OrderStepData(order *model.Order) []OrderStep {
 		{Name: "收货", Status: 0},
 		{Name: "完成", Status: 0},
 	}
-	if order.PaidAt != nil { steps[1] = OrderStep{Name: "付款", Status: 2, Time: order.PaidAt.Format(time.DateTime)} }
-	if order.ShippedAt != nil { steps[2] = OrderStep{Name: "发货", Status: 2, Time: order.ShippedAt.Format(time.DateTime)} }
+	if order.PaidAt != nil {
+		steps[1] = OrderStep{Name: "付款", Status: 2, Time: order.PaidAt.Format(time.DateTime)}
+	}
+	if order.ShippedAt != nil {
+		steps[2] = OrderStep{Name: "发货", Status: 2, Time: order.ShippedAt.Format(time.DateTime)}
+	}
 	if order.CompletedAt != nil {
 		steps[3] = OrderStep{Name: "收货", Status: 2, Time: order.CompletedAt.Format(time.DateTime)}
 		steps[4] = OrderStep{Name: "完成", Status: 2, Time: order.CompletedAt.Format(time.DateTime)}
 	}
 	// 标记当前步骤
 	for i := range steps {
-		if steps[i].Status == 0 { steps[i].Status = 1; break }
+		if steps[i].Status == 0 {
+			steps[i].Status = 1
+			break
+		}
 	}
 	return steps
 }
@@ -205,7 +224,9 @@ func MultilingualSetUserValue(userID uint, lang string) {
 
 func MultilingualGetUserValue(userID uint) string {
 	v := GetConfig(fmt.Sprintf("user_%d_lang", userID))
-	if v == "" { return GetMultilingualConfig().DefaultLang }
+	if v == "" {
+		return GetMultilingualConfig().DefaultLang
+	}
 	return v
 }
 
@@ -214,7 +235,9 @@ func MultilingualGetUserValue(userID uint) string {
 // DiyApiCustomInit DIY自定义组件初始化
 func DiyApiCustomInit(diyID uint) (map[string]interface{}, error) {
 	var diy model.Diy
-	if err := global.DB.First(&diy, diyID).Error; err != nil { return nil, err }
+	if err := global.DB.First(&diy, diyID).Error; err != nil {
+		return nil, err
+	}
 	DiyAccessCountInc(diyID)
 	var data map[string]interface{}
 	if diy.Data != "" {
@@ -228,9 +251,9 @@ func jsonUnmarshal(b []byte, v interface{}) { _ = jsonPkg.Unmarshal(b, v) }
 // DiyApiUserHeadData 用户头部数据（消息数+购物车数+收藏数）
 func DiyApiUserHeadData(userID uint) map[string]int64 {
 	return map[string]int64{
-		"message_total":  UnreadCount(userID),
-		"cart_total":     GoodsCartTotal(userID),
-		"favor_total":    GoodsFavorTotal(userID),
+		"message_total": UnreadCount(userID),
+		"cart_total":    GoodsCartTotal(userID),
+		"favor_total":   GoodsFavorTotal(userID),
 	}
 }
 
@@ -260,7 +283,9 @@ func FormInputApiList(page, pageSize int) ([]model.FormInput, int64, error) {
 // FormInputApiDetail Form表单API详情
 func FormInputApiDetail(id uint) (*model.FormInput, error) {
 	var f model.FormInput
-	if err := global.DB.First(&f, id).Error; err != nil { return nil, err }
+	if err := global.DB.First(&f, id).Error; err != nil {
+		return nil, err
+	}
 	return &f, nil
 }
 

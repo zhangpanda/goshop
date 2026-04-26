@@ -17,10 +17,10 @@ import (
 )
 
 type Client struct {
-	AppID     string
-	MchID     string
-	NotifyURL string
-	client    *core.Client
+	AppID      string
+	MchID      string
+	NotifyURL  string
+	client     *core.Client
 	privateKey *rsa.PrivateKey
 }
 
@@ -140,8 +140,8 @@ func (c *Client) Refund(ctx context.Context, req *RefundRequest) (*refunddomesti
 		OutRefundNo: core.String(req.RefundNo),
 		Reason:      core.String(req.Reason),
 		Amount: &refunddomestic.AmountReq{
-			Total:   core.Int64(req.Total),
-			Refund:  core.Int64(req.Refund),
+			Total:    core.Int64(req.Total),
+			Refund:   core.Int64(req.Refund),
 			Currency: core.String("CNY"),
 		},
 	})
