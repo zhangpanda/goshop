@@ -68,7 +68,7 @@ func InitDefaultSeedData() {
 	}
 
 	now := time.Now()
-	img := func(n int) string { return fmt.Sprintf("/uploads/seed/product-%d.svg", n) }
+	img := func(n int) string { return fmt.Sprintf("/uploads/seed/product-%d.jpg", n) }
 	detail := func(title, desc string) string {
 		return fmt.Sprintf(`<h2>%s</h2><p>%s</p>`, title, desc)
 	}
@@ -226,16 +226,16 @@ func InitDefaultSeedData() {
 	global.DB.Create(&articleCats)
 
 	articles := []model.Article{
-		{CategoryID: 1, Title: "iPhone 16 Pro Max 全新发布", Cover: "/uploads/seed/article-1.svg", Content: "<p>Apple 今日正式发布 iPhone 16 Pro Max，搭载全新 A18 Pro 芯片，配备 4800 万像素四合一超级长焦镜头，支持 5 倍光学变焦。全新钛金属设计，提供沙漠色、黑色钛金属等多种配色。</p><p>iPhone 16 Pro Max 拥有 6.9 英寸超视网膜 XDR 显示屏，峰值亮度高达 2000 尼特，支持 ProMotion 自适应刷新率技术。全天候显示功能让你随时掌握重要信息。</p>", Author: "GoShop", Sort: 50, Status: 1},
-		{CategoryID: 1, Title: "HUAWEI Mate 70 系列正式亮相", Cover: "/uploads/seed/article-2.svg", Content: "<p>华为 Mate 70 系列搭载全新麒麟芯片，运行 HarmonyOS NEXT 操作系统，带来更流畅的智慧体验。Mate 70 Pro+ 配备超感知 XMAGE 影像系统，支持十档可变光圈。</p><p>全系标配卫星通信功能，支持天通卫星通话和北斗卫星消息，让你在无网络环境下也能保持联络。</p>", Author: "GoShop", Sort: 48, Status: 1},
-		{CategoryID: 1, Title: "MacBook Pro M4 Max 性能怪兽来袭", Cover: "/uploads/seed/article-3.svg", Content: "<p>全新 MacBook Pro 搭载 M4 Max 芯片，最高可配 48GB 统一内存和 2TB 固态硬盘。CPU 性能较上代提升最高 30%，GPU 性能提升最高 40%，为专业创作者提供前所未有的强大性能。</p><p>Liquid Retina XDR 显示屏支持 1000 尼特持续亮度和 1600 尼特 HDR 峰值亮度，P3 广色域让每一个像素都栩栩如生。</p>", Author: "GoShop", Sort: 46, Status: 1},
-		{CategoryID: 2, Title: "2026 年手机选购指南：旗舰机怎么选", Cover: "/uploads/seed/article-4.svg", Content: "<p>选购旗舰手机时，建议从以下几个维度考虑：</p><p><strong>处理器性能：</strong>A18 Pro、麒麟、骁龙 8 Gen 4 是目前三大顶级移动芯片，日常使用差异不大，重度游戏用户建议关注 GPU 性能。</p><p><strong>影像系统：</strong>如果你热爱摄影，iPhone 16 Pro Max 的长焦和 Mate 70 Pro+ 的可变光圈都是不错的选择。</p><p><strong>续航与充电：</strong>5000mAh 以上电池容量已成标配，快充功率建议选择 67W 以上。</p>", Author: "GoShop", Sort: 40, Status: 1},
-		{CategoryID: 2, Title: "笔记本电脑选购：创作者 vs 商务办公", Cover: "/uploads/seed/article-5.svg", Content: "<p>创作者用户推荐 MacBook Pro M4 Max 或联想小新 Pro 16，前者适合 macOS 生态的视频剪辑和音乐制作，后者性价比更高适合 Windows 用户。</p><p>商务办公用户更看重便携性和续航，MacBook Air M3 和联想 ThinkPad X1 Carbon 都是不错的选择，重量控制在 1.3kg 以内，续航超过 10 小时。</p>", Author: "GoShop", Sort: 38, Status: 1},
-		{CategoryID: 3, Title: "如何注册成为会员", Cover: "/uploads/seed/article-6.svg", Content: "<p>点击页面右上角「账户」进入登录页面，选择「注册」标签，填写用户名和密码即可完成注册。注册成功后自动登录。</p><p>注册会员可享受：收藏商品、查看订单、领取优惠券、积分签到等专属权益。</p>", Author: "GoShop", Sort: 30, Status: 1},
-		{CategoryID: 3, Title: "退换货政策说明", Cover: "/uploads/seed/article-7.svg", Content: "<p>自签收之日起 7 天内，商品未经使用且包装完好，可申请无理由退换货。</p><p><strong>退货流程：</strong>进入「我的订单」→ 选择需要退货的订单 → 点击「申请售后」→ 选择退货原因 → 提交申请。</p><p>审核通过后，请在 7 个工作日内将商品寄回，我们收到商品并确认无误后，将在 3 个工作日内完成退款。</p>", Author: "GoShop", Sort: 28, Status: 1},
-		{CategoryID: 3, Title: "支付方式与配送说明", Cover: "/uploads/seed/article-8.svg", Content: "<p><strong>支付方式：</strong>支持微信支付、支付宝等主流支付方式。</p><p><strong>配送说明：</strong>默认使用顺丰快递，下单后 48 小时内发货（节假日顺延）。大部分地区 2-3 天可送达，偏远地区 5-7 天。</p><p>订单满 99 元包邮，不满 99 元收取 10 元运费。</p>", Author: "GoShop", Sort: 26, Status: 1},
-		{CategoryID: 4, Title: "关于 GoShop", Cover: "/uploads/seed/article-9.svg", Content: "<p>GoShop 是一个追求品质与体验的电商平台。我们精选全球优质商品，致力于为用户提供简洁、高效、愉悦的购物体验。</p><p>我们相信，好的产品值得被更多人发现。无论是前沿科技产品，还是经典时尚单品，GoShop 都以严格的品质标准为你把关。</p>", Author: "GoShop", Sort: 20, Status: 1},
-		{CategoryID: 4, Title: "联系我们", Cover: "/uploads/seed/article-10.svg", Content: "<p>如有任何问题，欢迎通过以下方式联系我们：</p><p>客服邮箱：hi@zhangpanda.com</p><p>工作时间：周一至周五 9:00-18:00</p><p>您也可以访问「支持」页面查看常见问题解答。</p>", Author: "GoShop", Sort: 18, Status: 1},
+		{CategoryID: 1, Title: "iPhone 16 Pro Max 全新发布", Cover: "/uploads/seed/article-1.jpg", Content: "<p>Apple 今日正式发布 iPhone 16 Pro Max，搭载全新 A18 Pro 芯片，配备 4800 万像素四合一超级长焦镜头，支持 5 倍光学变焦。全新钛金属设计，提供沙漠色、黑色钛金属等多种配色。</p><p>iPhone 16 Pro Max 拥有 6.9 英寸超视网膜 XDR 显示屏，峰值亮度高达 2000 尼特，支持 ProMotion 自适应刷新率技术。全天候显示功能让你随时掌握重要信息。</p>", Author: "GoShop", Sort: 50, Status: 1},
+		{CategoryID: 1, Title: "HUAWEI Mate 70 系列正式亮相", Cover: "/uploads/seed/article-2.jpg", Content: "<p>华为 Mate 70 系列搭载全新麒麟芯片，运行 HarmonyOS NEXT 操作系统，带来更流畅的智慧体验。Mate 70 Pro+ 配备超感知 XMAGE 影像系统，支持十档可变光圈。</p><p>全系标配卫星通信功能，支持天通卫星通话和北斗卫星消息，让你在无网络环境下也能保持联络。</p>", Author: "GoShop", Sort: 48, Status: 1},
+		{CategoryID: 1, Title: "MacBook Pro M4 Max 性能怪兽来袭", Cover: "/uploads/seed/article-3.jpg", Content: "<p>全新 MacBook Pro 搭载 M4 Max 芯片，最高可配 48GB 统一内存和 2TB 固态硬盘。CPU 性能较上代提升最高 30%，GPU 性能提升最高 40%，为专业创作者提供前所未有的强大性能。</p><p>Liquid Retina XDR 显示屏支持 1000 尼特持续亮度和 1600 尼特 HDR 峰值亮度，P3 广色域让每一个像素都栩栩如生。</p>", Author: "GoShop", Sort: 46, Status: 1},
+		{CategoryID: 2, Title: "2026 年手机选购指南：旗舰机怎么选", Cover: "/uploads/seed/article-4.jpg", Content: "<p>选购旗舰手机时，建议从以下几个维度考虑：</p><p><strong>处理器性能：</strong>A18 Pro、麒麟、骁龙 8 Gen 4 是目前三大顶级移动芯片，日常使用差异不大，重度游戏用户建议关注 GPU 性能。</p><p><strong>影像系统：</strong>如果你热爱摄影，iPhone 16 Pro Max 的长焦和 Mate 70 Pro+ 的可变光圈都是不错的选择。</p><p><strong>续航与充电：</strong>5000mAh 以上电池容量已成标配，快充功率建议选择 67W 以上。</p>", Author: "GoShop", Sort: 40, Status: 1},
+		{CategoryID: 2, Title: "笔记本电脑选购：创作者 vs 商务办公", Cover: "/uploads/seed/article-5.jpg", Content: "<p>创作者用户推荐 MacBook Pro M4 Max 或联想小新 Pro 16，前者适合 macOS 生态的视频剪辑和音乐制作，后者性价比更高适合 Windows 用户。</p><p>商务办公用户更看重便携性和续航，MacBook Air M3 和联想 ThinkPad X1 Carbon 都是不错的选择，重量控制在 1.3kg 以内，续航超过 10 小时。</p>", Author: "GoShop", Sort: 38, Status: 1},
+		{CategoryID: 3, Title: "如何注册成为会员", Cover: "/uploads/seed/article-6.jpg", Content: "<p>点击页面右上角「账户」进入登录页面，选择「注册」标签，填写用户名和密码即可完成注册。注册成功后自动登录。</p><p>注册会员可享受：收藏商品、查看订单、领取优惠券、积分签到等专属权益。</p>", Author: "GoShop", Sort: 30, Status: 1},
+		{CategoryID: 3, Title: "退换货政策说明", Cover: "/uploads/seed/article-7.jpg", Content: "<p>自签收之日起 7 天内，商品未经使用且包装完好，可申请无理由退换货。</p><p><strong>退货流程：</strong>进入「我的订单」→ 选择需要退货的订单 → 点击「申请售后」→ 选择退货原因 → 提交申请。</p><p>审核通过后，请在 7 个工作日内将商品寄回，我们收到商品并确认无误后，将在 3 个工作日内完成退款。</p>", Author: "GoShop", Sort: 28, Status: 1},
+		{CategoryID: 3, Title: "支付方式与配送说明", Cover: "/uploads/seed/article-8.jpg", Content: "<p><strong>支付方式：</strong>支持微信支付、支付宝等主流支付方式。</p><p><strong>配送说明：</strong>默认使用顺丰快递，下单后 48 小时内发货（节假日顺延）。大部分地区 2-3 天可送达，偏远地区 5-7 天。</p><p>订单满 99 元包邮，不满 99 元收取 10 元运费。</p>", Author: "GoShop", Sort: 26, Status: 1},
+		{CategoryID: 4, Title: "关于 GoShop", Cover: "/uploads/seed/article-9.jpg", Content: "<p>GoShop 是一个追求品质与体验的电商平台。我们精选全球优质商品，致力于为用户提供简洁、高效、愉悦的购物体验。</p><p>我们相信，好的产品值得被更多人发现。无论是前沿科技产品，还是经典时尚单品，GoShop 都以严格的品质标准为你把关。</p>", Author: "GoShop", Sort: 20, Status: 1},
+		{CategoryID: 4, Title: "联系我们", Cover: "/uploads/seed/article-10.jpg", Content: "<p>如有任何问题，欢迎通过以下方式联系我们：</p><p>客服邮箱：hi@zhangpanda.com</p><p>工作时间：周一至周五 9:00-18:00</p><p>您也可以访问「支持」页面查看常见问题解答。</p>", Author: "GoShop", Sort: 18, Status: 1},
 	}
 	global.DB.Create(&articles)
 	log.Println("default articles seeded:", len(articles), "articles")
@@ -263,9 +263,9 @@ func InitDefaultSeedData() {
 
 	// ========== 轮播图 ==========
 	slides := []model.Slide{
-		{Name: "探索全新 iPhone", Images: `["/uploads/seed/slide-1.svg"]`, Sort: 30, Status: 1},
-		{Name: "MacBook Pro", Images: `["/uploads/seed/slide-2.svg"]`, Sort: 20, Status: 1},
-		{Name: "春季新品上市", Images: `["/uploads/seed/slide-3.svg"]`, Sort: 10, Status: 1},
+		{Name: "探索全新 iPhone", Images: `["/uploads/seed/slide-1.jpg"]`, Sort: 30, Status: 1},
+		{Name: "MacBook Pro", Images: `["/uploads/seed/slide-2.jpg"]`, Sort: 20, Status: 1},
+		{Name: "春季新品上市", Images: `["/uploads/seed/slide-3.jpg"]`, Sort: 10, Status: 1},
 	}
 	global.DB.Create(&slides)
 	log.Println("default slides seeded:", len(slides), "slides")
