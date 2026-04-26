@@ -23,6 +23,7 @@ uploads/*
 vendor/
 *.exe
 *.test
+.gocache/
 
 # Node
 node_modules/

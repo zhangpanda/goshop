@@ -25,8 +25,201 @@ var shopxoOrderStatusName = map[int8]string{
 	model.OrderStatusBooking:   "预约待确认",
 }
 
+// ShopXO 订单状态 ID（与 ShopXO ConstService common_order_status 一致：0待确认…6已关闭）
+var shopxoStatusIDByInternal = map[int8]int{
+	model.OrderStatusBooking:   0,
+	model.OrderStatusPending:   1,
+	model.OrderStatusPaid:      2,
+	model.OrderStatusShipped:   3,
+	model.OrderStatusCompleted: 4,
+	model.OrderStatusCancelled: 5,
+	model.OrderStatusRefunded:  4,
+}
+
+var shopxoStatusNameByShopXOStatusID = map[int]string{
+	0: "待确认",
+	1: "待付款",
+	2: "待发货",
+	3: "待收货",
+	4: "已完成",
+	5: "已取消",
+	6: "已关闭",
+}
+
+var shopxoOrderModelName = map[int8]string{
+	model.OrderModelExpress: "快递",
+	model.OrderModelLocal:   "同城",
+	model.OrderModelPickup:  "自提",
+	model.OrderModelVirtual: "虚拟",
+}
+
 func shopxoFmtYuanFen(fen int64) string {
 	return fmt.Sprintf("%.2f", float64(fen)/100)
+}
+
+func shopxoShopXOStatusMeta(internal int8) (sxID int, name string) {
+	sxID = shopxoStatusIDByInternal[internal]
+	if sxID == 0 && internal != model.OrderStatusBooking {
+		sxID = 1
+	}
+	name = shopxoStatusNameByShopXOStatusID[sxID]
+	if name == "" {
+		name = shopxoOrderStatusName[internal]
+	}
+	if name == "" {
+		name = "未知"
+	}
+	return sxID, name
+}
+
+func shopxoPayStatusMeta(o *model.Order) (payStatus int, payName string) {
+	if o == nil {
+		return 0, "未支付"
+	}
+	if o.Status == model.OrderStatusRefunded {
+		return 2, "已退款"
+	}
+	if o.Status == model.OrderStatusPending || o.Status == model.OrderStatusBooking {
+		return 0, "未支付"
+	}
+	if o.PaidAt != nil || o.Status >= model.OrderStatusPaid {
+		return 1, "已支付"
+	}
+	return 0, "未支付"
+}
+
+func shopxoAddressDataFromOrder(o *model.Order) map[string]interface{} {
+	if o == nil {
+		return nil
+	}
+	raw := strings.TrimSpace(o.Address)
+	if raw == "" || raw == "{}" {
+		return nil
+	}
+	var addr model.Address
+	if json.Unmarshal([]byte(raw), &addr) != nil {
+		return nil
+	}
+	return map[string]interface{}{
+		"name":          addr.Name,
+		"tel":           addr.Phone,
+		"province_name": addr.Province,
+		"city_name":     addr.City,
+		"county_name":   addr.District,
+		"address":       addr.Detail,
+		"lng":           addr.Lng,
+		"lat":           addr.Lat,
+	}
+}
+
+func shopxoPaymentNameByID(id uint) string {
+	if global.DB == nil || id == 0 {
+		return ""
+	}
+	var p model.Payment
+	if err := global.DB.First(&p, id).Error; err != nil {
+		return ""
+	}
+	return p.Name
+}
+
+/**
+ * ShopXOOrderDetailView 构造 uni-app 订单详情页 data.data 所需字段（与 ShopXO 状态码对齐）。
+ */
+func ShopXOOrderDetailView(o *model.Order) map[string]interface{} {
+	if o == nil {
+		return map[string]interface{}{}
+	}
+	sxStatus, statusName := shopxoShopXOStatusMeta(o.Status)
+	paySt, payStName := shopxoPayStatusMeta(o)
+	op := OrderOperateButtons(o)
+	oper := shopxoOperateDataInt(op)
+	pid := DefaultPaymentIDForShopXO()
+	omName := shopxoOrderModelName[o.OrderModel]
+	if omName == "" {
+		omName = "快递"
+	}
+	sym := shopxoCurrencySymbol()
+	items := make([]map[string]interface{}, 0, len(o.Items))
+	for _, it := range o.Items {
+		spec := []map[string]string{}
+		if it.SkuName != "" {
+			spec = append(spec, map[string]string{"name": "规格", "value": it.SkuName})
+		}
+		items = append(items, map[string]interface{}{
+			"id":                      it.ID,
+			"goods_id":                it.GoodsID,
+			"goods_url":               "",
+			"images":                  it.Image,
+			"title":                   it.Title,
+			"spec":                    spec,
+			"price":                   shopxoFmtYuanFen(it.Price),
+			"buy_number":              it.Quantity,
+			"orderaftersale_btn_text": nil,
+		})
+	}
+	out := map[string]interface{}{
+		"id":                       o.ID,
+		"order_no":                 o.OrderNo,
+		"status":                   sxStatus,
+		"status_name":              statusName,
+		"pay_status":               paySt,
+		"pay_status_name":          payStName,
+		"warehouse_name":         "",
+		"warehouse_url":            "",
+		"warehouse_icon":           nil,
+		"order_model":              int(o.OrderModel),
+		"order_model_name":         omName,
+		"price":                    shopxoFmtYuanFen(o.TotalAmount),
+		"total_price":              shopxoFmtYuanFen(o.TotalAmount),
+		"preferential_price":       "0.00",
+		"increase_price":           "0.00",
+		"pay_price":                shopxoFmtYuanFen(o.PayAmount),
+		"payment_id":               pid,
+		"payment_name":             shopxoPaymentNameByID(pid),
+		"is_under_line_text":       nil,
+		"user_note":                o.Remark,
+		"currency_data":            map[string]string{"currency_symbol": sym},
+		"items":                    items,
+		"operate_data":             oper,
+		"extension_data":           []interface{}{},
+		"is_can_launch_aftersale":  0,
+		"plugins_express_data":     0,
+		"express_data":             nil,
+		"plugins_delivery_data":    0,
+		"plugins_is_order_allot_button":         0,
+		"plugins_is_order_batch_button":         0,
+		"plugins_is_order_frequencycard_button": 0,
+		"plugins_ordergoodsform_data":           0,
+		"plugins_orderresources_data":           0,
+		"plugins_is_orderfeed_button":           0,
+		"plugins_intellectstools_data":          nil,
+		"add_time":                 o.CreatedAt.Format("2006-01-02 15:04:05"),
+		"confirm_time":             "",
+		"pay_time":                 "",
+		"delivery_time":            "",
+		"collect_time":             "",
+		"cancel_time":              "",
+		"close_time":               "",
+	}
+	if o.PaidAt != nil {
+		out["pay_time"] = o.PaidAt.Format("2006-01-02 15:04:05")
+	}
+	if o.ShippedAt != nil {
+		out["delivery_time"] = o.ShippedAt.Format("2006-01-02 15:04:05")
+	}
+	if o.CompletedAt != nil {
+		out["collect_time"] = o.CompletedAt.Format("2006-01-02 15:04:05")
+	}
+	if addr := shopxoAddressDataFromOrder(o); addr != nil {
+		out["address_data"] = addr
+	}
+	if o.OrderModel == model.OrderModelPickup && strings.TrimSpace(o.ExtractionCode) != "" {
+		out["extraction_data"] = map[string]interface{}{
+			"code": o.ExtractionCode,
+		}
+	}
+	return out
 }
 
 /**
@@ -86,14 +279,11 @@ func ShopXOOrderListRow(o *model.Order) map[string]interface{} {
 			"orderaftersale_btn_text": nil,
 		})
 	}
-	stName := shopxoOrderStatusName[o.Status]
-	if stName == "" {
-		stName = "未知"
-	}
+	sxSt, stName := shopxoShopXOStatusMeta(o.Status)
 	op := OrderOperateButtons(o)
 	return map[string]interface{}{
 		"id":                      o.ID,
-		"status":                  int(o.Status),
+		"status":                  sxSt,
 		"status_name":             stName,
 		"warehouse_name":          "",
 		"warehouse_url":           "",
@@ -106,7 +296,7 @@ func ShopXOOrderListRow(o *model.Order) map[string]interface{} {
 		"items":                   items,
 		"operate_data":            shopxoOperateDataInt(op),
 		"is_can_launch_aftersale": 0,
-		"order_model":             o.OrderModel,
+		"order_model":             int(o.OrderModel),
 		"weixin_collect_data":     "",
 		"plugins_express_data":    0,
 		"express_data":            nil,

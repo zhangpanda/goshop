@@ -47,11 +47,43 @@ func TestShopXOOrderListRow_Operate(t *testing.T) {
 		},
 	}
 	row := ShopXOOrderListRow(o)
+	if row["status"] != 1 {
+		t.Fatalf("expect ShopXO status 1 待付款, got %v", row["status"])
+	}
 	op, ok := row["operate_data"].(map[string]int)
 	if !ok {
 		t.Fatal("operate_data type")
 	}
 	if op["is_pay"] != 1 || op["is_cancel"] != 1 {
 		t.Fatalf("%v", op)
+	}
+}
+
+func TestShopXOOrderDetailView_Pending(t *testing.T) {
+	o := &model.Order{
+		ID:          1,
+		OrderNo:     "NO1",
+		Status:      model.OrderStatusPending,
+		TotalAmount: 100,
+		PayAmount:   100,
+		OrderModel:  model.OrderModelExpress,
+		Address:     `{"name":"a","phone":"138","province":"p","city":"c","district":"d","detail":"addr"}`,
+		Items: []model.OrderItem{
+			{ID: 1, GoodsID: 9, Title: "g", Image: "/i.jpg", SkuName: "规格A", Price: 100, Quantity: 1},
+		},
+	}
+	m := ShopXOOrderDetailView(o)
+	if m["status"] != 1 || m["pay_status"] != 0 {
+		t.Fatalf("status=%v pay_status=%v", m["status"], m["pay_status"])
+	}
+	if m["order_no"] != "NO1" {
+		t.Fatal()
+	}
+	op := m["operate_data"].(map[string]int)
+	if op["is_pay"] != 1 {
+		t.Fatal(op)
+	}
+	if m["address_data"] == nil {
+		t.Fatal("expected address_data")
 	}
 }

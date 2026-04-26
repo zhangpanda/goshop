@@ -628,8 +628,9 @@ func sxOrderDetail(c *gin.Context) {
 	if payRows == nil {
 		payRows = []map[string]interface{}{}
 	}
+	detail := service.ShopXOOrderDetailView(order)
 	response.OK(c, map[string]interface{}{
-		"data":               order,
+		"data":               detail,
 		"operate":            service.OrderOperateButtons(order),
 		"steps":              service.OrderStepData(order),
 		"payment_list":       payRows,
