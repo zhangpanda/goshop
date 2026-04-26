@@ -24,7 +24,7 @@ cd admin && npm run dev         # 管理后台 :3010（admin/admin123）
 cd web && npm run dev           # PC前台 :3000
 ```
 
-## 当前状态（v1.5.2, 2026-04-26）
+## 当前状态（v1.5.3, 2026-04-26）
 
 ### 核心数据
 | 指标 | 数值 |
@@ -110,6 +110,13 @@ cd web && npm run dev           # PC前台 :3000
 - **`scripts/integration_test.sh`**：在原有流程末尾增加 **ShopXO `order/pay` 多订单线下支付**（两单合并付款后 `status=1`）；若环境变量 **`GOSHOP_PAYMENT_SANDBOX=1`** 且配置开启沙盒，再跑 **多订单 `wechat_jsapi` + GET `/api/pay/sandbox/callback`**，校验 `PayLog` 合并回调后两单均已支付。
 - **手工回归**：生产或预发在反向代理 + HTTPS 下按 **`scripts/MANUAL_VERIFY_PROXY.md`** 逐项验收（与自动化互补）。
 
+#### 管理后台纠偏（v1.5.3）
+- **批量导出**：`ExportData`（`internal/service/extend.go`）支持请求体 **`ids`**，仅导出勾选行；**`BatchActions`** 改为 `fetch` 下载 CSV，增加 **`exportType`**（`orders` / `users` / `goods`），与 **`ExportButton`** 行为一致。订单 / 用户 / 商品列表已接入「导出选中」。
+- **用户批量操作**：新增 **`DELETE /admin/users/:id`**，实现为 **`AdminDisableUser`**（`status=0`，不物理删除，保留订单关联）；列表上按钮文案为 **批量禁用**，避免与真实删库混淆。
+- **售后列表**：移除无实际操作的 **`BatchActions`** 与行多选，避免「已选 N 条」无按钮。
+- **语言与货币**：管理端 **`GET/POST /admin/multilingual`**、**`GET/POST /admin/currency`**；前台菜单 **系统 → 语言与货币**（`admin/src/app/(dashboard)/locale/page.tsx`）。**`GetCurrencyConfig`** 从配置读取 **`currency_rate`**。
+- **角色与插件**：**`GET /admin/roles/:id/plugins`** + **`GetRolePluginIDs`**；RBAC 角色表增加 **「分配插件」**，对应 **`PUT /admin/roles/:id/plugins`**。**应用商店 Tab** 仍为占位，未改。
+
 ## 待办
 
 ### P3 - 未来
@@ -137,10 +144,14 @@ internal/service/logistics.go      # 物流轨迹(快递100)
 internal/middleware/admin_auth.go  # AdminAuth + AdminPower
 internal/handler/diyapi_compat.go # diyapi + attachmentapi（含 baseURL、attachmentApiCatch）
 internal/handler/shopxo_compat.go  # ShopXO 兼容（含多订单 order/pay）
+internal/service/extend.go         # 导出 CSV（含 ids）、多语言/货币配置
+internal/service/user.go         # AdminDisableUser
 ```
 
 ### 前端
 ```
+admin/src/app/(dashboard)/locale/page.tsx  # 语言与货币
+admin/src/components/BatchActions.tsx      # 批量删除/禁用/导出选中
 admin/src/lib/useIdMap.ts             # 通用ID→名称解析hook
 admin/src/components/ParamsEditor.tsx  # 商品参数结构化编辑器
 admin/src/components/JsonConfigEditor.tsx # JSON可视化配置
