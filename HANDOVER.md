@@ -1,0 +1,146 @@
+# GoShop 项目交接文档
+
+## 项目概述
+用 Go 重写 ShopXO v6.8.0（PHP电商系统），前后端分离架构。已开源发布。
+功能覆盖率 ~97%（仅缺 PHP 生态专属的包管理/在线升级）。
+
+## 仓库
+- GitHub: `git@github.com:zhangpanda/goshop.git`
+- Gitee: `git@gitee.com:rilegouasas/goshop.git`
+- 本地: `/Users/zhangtaifeng/Code/github.com/goshop`
+- ShopXO 源码: `/tmp/shopxo`（知识库ID: `e589d445-1a60-4d32-9234-d970bcad70d4`）
+- GoShop 知识库ID: `08781f0a-304e-47e5-b995-f790581ffb28`
+
+## 技术栈
+- 后端: Go 1.23 + Gin + GORM + MySQL + Redis(可选)
+- 管理后台: Next.js 15 + Ant Design 5（端口3010）
+- PC前台: Next.js 15 + Tailwind 4 + framer-motion（端口3000）
+- 手机端: 复用 ShopXO uni-app，兼容层对接
+
+## 启动
+```bash
+./bin/goshop                    # 后端 :8080（首次自动建表+seed）
+cd admin && npm run dev         # 管理后台 :3010（admin/admin123）
+cd web && npm run dev           # PC前台 :3000
+```
+
+## 当前状态（v1.5.1, 2026-04-26）
+
+### 核心数据
+| 指标 | 数值 |
+|------|------|
+| Go 后端代码 | ~1.7万行 |
+| API 路由 | 468（346路由 + 41 DIY + 81 ShopXO兼容） |
+| 数据库表 | 98张 |
+| 管理后台页面 | 69个 |
+| 管理后台组件 | 12个 |
+| PC前台页面 | 24个 |
+| Go 单元测试 | 42个 |
+| 集成测试脚本 | 3个（API/支付沙盒/分销） |
+
+### 本轮完成的全部工作
+
+#### Redis 可选
+- `pkg/cache` 抽象层：Cache 接口 + RedisCache + MemoryCache（带 Close/stop）
+- 未配置 Redis 自动 fallback 内存缓存
+
+#### 支付系统
+- 支付宝：5种场景驱动 + RSA2 验签回调 + json.Marshal 防注入
+- 支付沙盒：`payment.sandbox: true` 开启，包装真实驱动走完签名逻辑，只跳过 HTTP
+- 沙盒回调 `/api/pay/sandbox/callback` 模拟第三方通知
+
+#### 营销功能
+- 秒杀：gorm.Expr 原子扣库存 + 每人限购
+- 拼团：开团/参团/自动成团，gorm.Expr 原子操作
+- 分销：二级分销（佣金比例可配置），提现申请/审核，订单完成自动结算
+
+#### RBAC 权限（从样子货变为真实生效）
+- admin 路由拆为 14 个权限组，每组挂载 AdminPower 中间件
+- 超级管理员 `"*"` 自动通过所有检查
+
+#### 订单拆分
+- CreateOrder 先调 SplitOrderByWarehouse，多仓库自动拆单
+
+#### 短信 & 邮件（从空壳变为真实发送）
+- 短信：阿里云 SMS API（HMAC-SHA1 签名），未配置时优雅降级
+- 邮件：SMTP 发送（支持 465 SSL + 25/587 STARTTLS），邮件测试接口
+- 验证码：自动识别邮箱/手机号，走对应通道
+
+#### 验证码加固
+- 4位 → 6位（100万种组合）
+- IP 限速：同 IP 60秒内最多 5 次
+
+#### 管理后台 ID 解析（从裸数字变为显示名称）
+- 通用 hook：`useUserMap` + `useGoodsMap`（批量请求，50ms 合并，全局缓存）
+- 后端：`AdminGetUsers` 和 `GetGoodsList` 支持 `?ids=1,2,3` 批量查询
+- 修复 13 个页面：订单/售后/评价/浏览/收藏/购物车/消息/搜索记录/积分日志/支付日志/表单数据/用户地址/仓库商品
+- 分销管理页：添加分销商弹窗（搜索用户）、提现审核、佣金比例设置
+
+#### Bug 修复
+- 竞态：秒杀 sold / 拼团 joinCount / 钱包余额 → gorm.Expr
+- JSON 注入：支付宝 biz_content + 快递100 param → json.Marshal
+- nil 指针：微信 PayNotify
+- 参数校验：handler 中 ParseUint 错误处理
+- 错误处理：AutoMigrate / sqlDB 错误检查
+
+#### CI
+- GitHub Actions 加 MySQL 8.0 容器跑集成测试
+- Redis 不需要（内存缓存 fallback）
+
+#### 文档
+- docs/migration-from-shopxo.md — ShopXO v6.x 迁移指南
+- docs/api.md — 补充秒杀/拼团/分销/统一支付等新 API
+- docs/deployment.md — Redis 可选 + 支付宝配置
+- README.md 全面更新
+
+#### 支付与 ShopXO / DIY 兼容补充（同日后端提交）
+- **订单 `payment_id`**：`orders` 表增加字段，记录用户选用的支付方式主键；`UnifiedPayReq` 增加 `payment_id`（JSON）映射 `PaymentRecordID`，发起支付时回写订单；`PayLogSuccess` 在合并支付成功时亦回写子订单的 `payment_id`。
+- **合并支付**：`MultiOrderUnifiedPay`（`internal/service/pay_log.go`）支持多笔待付订单：线下/钱包批量更新；微信支付宝等先 `CreatePayLog`，第三方 `out_trade_no` 使用 **`PayLog.pay_no`**，金额为日志汇总实付。
+- **支付回调**：`HandlePayNotify` 先按 **`order_no`** 匹配单笔订单（与旧链路一致）；未命中则按 **`pay_no`** 调用 `PayLogSuccess`（合并支付）。
+- **ShopXO uni-app**：`order/pay` 支持多个 `ids`（或 `id` 逗号分隔），单笔仍走 `UnifiedPay`，多笔走 `MultiOrderUnifiedPay`。订单列表/详情中 `payment_id`、`payment_name` 优先取订单上的 `payment_id`，为 0 时回退 `DefaultPaymentIDForShopXO()`。
+- **DIY 管理端 URL**：`baseURL()` 识别反向代理 **`X-Forwarded-Proto`** / **`X-Forwarded-Host`**（取逗号分隔首段），避免 TLS 终止后仍生成 `http://` 错误链接。
+- **附件远程抓取**：`POST /api/attachmentapi/catch` 实现受限 HTTP 拉取（仅 http/https、拒绝常见内网解析结果、超时 20s、体 ≤5MB、白名单图片扩展名或 `Content-Type`），落盘至 `uploads/YYYY/MM/DD/` 并写入 **`Attachment`** 表；失败 URL 跳过，成功项放入响应 `data`。
+- **部署**：重启后端后 GORM `AutoMigrate` 会为 `orders` 增加 `payment_id` 列；若禁用自动迁移需自行 `ALTER TABLE` 对齐模型。
+
+## 待办
+
+### P3 - 未来
+1. **多语言前端** — i18n 国际化
+2. **性能优化** — 数据库索引、热点数据缓存
+3. **优雅关停** — 信号处理 + 请求排空
+4. **PayPal 对接** — 需海外商户账号
+
+## 关键文件
+
+### 后端
+```
+cmd/server/main.go                 # 入口
+pkg/cache/cache.go                 # 缓存抽象层(Redis/Memory)
+internal/router/router.go          # 路由(14个RBAC权限组)
+internal/service/payment_driver.go # 12种支付驱动 + 沙盒
+internal/service/distribution.go   # 分销(佣金结算/提现)
+internal/service/seckill.go        # 秒杀
+internal/service/group_buy.go      # 拼团
+internal/service/order.go          # 订单(含拆单)
+internal/service/pay_log.go        # PayLog、合并支付 MultiOrderUnifiedPay、PayLogSuccess
+internal/service/notify.go         # 短信(阿里云) + 邮件(SMTP)
+internal/service/logistics.go      # 物流轨迹(快递100)
+internal/middleware/admin_auth.go  # AdminAuth + AdminPower
+internal/handler/diyapi_compat.go # diyapi + attachmentapi（含 baseURL、attachmentApiCatch）
+internal/handler/shopxo_compat.go  # ShopXO 兼容（含多订单 order/pay）
+```
+
+### 前端
+```
+admin/src/lib/useIdMap.ts             # 通用ID→名称解析hook
+admin/src/components/ParamsEditor.tsx  # 商品参数结构化编辑器
+admin/src/components/JsonConfigEditor.tsx # JSON可视化配置
+admin/src/app/(dashboard)/distribution/page.tsx # 分销管理(3个Tab)
+```
+
+### 测试
+```
+scripts/integration_test.sh    # 30项API集成测试
+scripts/sandbox_pay_test.sh    # 10种支付方式沙盒测试
+scripts/distribution_test.sh   # 分销完整链路测试
+```

@@ -655,15 +655,15 @@ func sxOrderPay(c *gin.Context) {
 		idsStr = strings.TrimSpace(body.ID)
 	}
 	ids := parseUintSlice(idsStr)
-	if len(ids) != 1 {
-		response.Fail(c, http.StatusBadRequest, "当前仅支持单笔订单支付")
+	if len(ids) == 0 {
+		response.Fail(c, http.StatusBadRequest, "请选择订单")
 		return
 	}
 	if body.PaymentID == 0 {
 		response.Fail(c, http.StatusBadRequest, "请选择支付方式")
 		return
 	}
-	payload, outerMsg, err := service.ShopXOCompatUnifiedPay(userID, ids[0], body.PaymentID, body.OpenID, body.ReturnURL, c.ClientIP())
+	payload, outerMsg, err := service.ShopXOCompatUnifiedPay(userID, ids, body.PaymentID, body.OpenID, body.ReturnURL, c.ClientIP())
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return

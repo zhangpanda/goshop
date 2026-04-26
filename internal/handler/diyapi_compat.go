@@ -3,7 +3,12 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -108,10 +113,19 @@ func SetupDiyApiCompat(r *gin.Engine) {
 
 func baseURL(c *gin.Context) string {
 	scheme := "http"
-	if c.Request.TLS != nil {
+	if proto := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto")); proto != "" {
+		p := strings.ToLower(strings.Split(proto, ",")[0])
+		if p == "https" || p == "http" {
+			scheme = p
+		}
+	} else if c.Request.TLS != nil {
 		scheme = "https"
 	}
-	return scheme + "://" + c.Request.Host
+	host := c.Request.Host
+	if fh := strings.TrimSpace(c.GetHeader("X-Forwarded-Host")); fh != "" {
+		host = strings.TrimSpace(strings.Split(fh, ",")[0])
+	}
+	return scheme + "://" + host
 }
 
 func diyApiInit(c *gin.Context) {
@@ -406,15 +420,178 @@ func attachmentApiSave(c *gin.Context) {
 	response.OK(c, nil)
 }
 
+// catchAllowedExts 远程抓图允许的扩展名（与 diy 初始化 ueditor image 后缀对齐）
+var catchAllowedExts = map[string]bool{
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".bmp": true,
+}
+
+const catchMaxBodyBytes = 5 * 1024 * 1024
+
+/**
+ * normalizeCatchSource 将 attachmentapi/catch 的 source 规范为 URL 列表（字符串或嵌套数组）。
+ */
+func normalizeCatchSource(src interface{}) []string {
+	if src == nil {
+		return nil
+	}
+	switch v := src.(type) {
+	case string:
+		s := strings.TrimSpace(v)
+		if s == "" {
+			return nil
+		}
+		return []string{s}
+	case []interface{}:
+		var out []string
+		for _, it := range v {
+			out = append(out, normalizeCatchSource(it)...)
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+/**
+ * catchHostForbidden 拦截内网/回环地址，降低 SSRF 风险。
+ */
+func catchHostForbidden(host string) bool {
+	h := strings.ToLower(strings.TrimSpace(host))
+	if h == "" || h == "localhost" || strings.HasSuffix(h, ".localhost") {
+		return true
+	}
+	if ip := net.ParseIP(h); ip != nil {
+		return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
+	}
+	ips, err := net.LookupIP(h)
+	if err != nil || len(ips) == 0 {
+		return true
+	}
+	for _, ip := range ips {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() {
+			return true
+		}
+	}
+	return false
+}
+
+func extFromContentType(ct string) string {
+	ct = strings.ToLower(strings.TrimSpace(strings.Split(ct, ";")[0]))
+	switch ct {
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/gif":
+		return ".gif"
+	case "image/webp":
+		return ".webp"
+	case "image/bmp", "image/x-ms-bmp":
+		return ".bmp"
+	default:
+		return ""
+	}
+}
+
+/**
+ * catchRemoteImage 下载单张远程图片、校验大小与类型后落盘并写入 Attachment。
+ */
+func catchRemoteImage(categoryID uint, rawURL string) (*model.Attachment, error) {
+	rawURL = strings.TrimSpace(rawURL)
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return nil, fmt.Errorf("无效地址")
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return nil, fmt.Errorf("仅支持 http/https")
+	}
+	host := u.Hostname()
+	if catchHostForbidden(host) {
+		return nil, fmt.Errorf("禁止访问该主机")
+	}
+
+	client := &http.Client{Timeout: 20 * time.Second}
+	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "goshop-attachment-catch/1.0")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, catchMaxBodyBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > catchMaxBodyBytes {
+		return nil, fmt.Errorf("文件过大")
+	}
+
+	ext := strings.ToLower(filepath.Ext(u.Path))
+	if ext == "" || !catchAllowedExts[ext] {
+		ext = extFromContentType(resp.Header.Get("Content-Type"))
+	}
+	if ext == "" || !catchAllowedExts[ext] {
+		return nil, fmt.Errorf("不支持的图片类型")
+	}
+
+	dir := fmt.Sprintf("uploads/%s", time.Now().Format("2006/01/02"))
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, err
+	}
+	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+	dst := filepath.Join(dir, filename)
+	if err := os.WriteFile(dst, body, 0644); err != nil {
+		return nil, err
+	}
+
+	webPath := "/" + filepath.ToSlash(dst)
+	base := filepath.Base(u.Path)
+	if base == "" || base == "." || base == "/" {
+		base = "remote" + ext
+	}
+	att := model.Attachment{
+		CategoryID: categoryID,
+		Name:       base,
+		Path:       webPath,
+		Size:       int64(len(body)),
+		Ext:        strings.TrimPrefix(ext, "."),
+	}
+	if err := global.DB.Create(&att).Error; err != nil {
+		_ = os.Remove(dst)
+		return nil, err
+	}
+	return &att, nil
+}
+
 func attachmentApiCatch(c *gin.Context) {
 	var req struct {
 		Type       string      `json:"type"`
 		Source     interface{} `json:"source"`
 		CategoryID uint        `json:"category_id"`
 	}
-	c.ShouldBindJSON(&req)
-	// Remote image catch is complex; return stub for now
-	response.OK(c, []interface{}{})
+	_ = c.ShouldBindJSON(&req)
+	urls := normalizeCatchSource(req.Source)
+	if len(urls) == 0 {
+		response.OK(c, []interface{}{})
+		return
+	}
+	out := make([]interface{}, 0, len(urls))
+	for _, u := range urls {
+		att, err := catchRemoteImage(req.CategoryID, u)
+		if err != nil {
+			continue
+		}
+		out = append(out, att)
+	}
+	response.OK(c, out)
 }
 
 // ========== forminputapi ==========

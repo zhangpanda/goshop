@@ -370,11 +370,12 @@ func (d *SandboxDriver) Refund(ctx context.Context, req *RefundDriverReq) error 
 // ========== 统一支付入口 ==========
 
 type UnifiedPayReq struct {
-	OrderID    uint   `json:"order_id" binding:"required"`
-	PaymentKey string `json:"payment_key" binding:"required"` // wechat_jsapi, alipay_pc, offline 等
-	OpenID     string `json:"openid"`
-	ReturnURL  string `json:"return_url"`
-	ClientIP   string `json:"-"`
+	OrderID         uint   `json:"order_id" binding:"required"`
+	PaymentKey      string `json:"payment_key" binding:"required"` // wechat_jsapi, alipay_pc, offline 等
+	OpenID          string `json:"openid"`
+	ReturnURL       string `json:"return_url"`
+	ClientIP        string `json:"-"`
+	PaymentRecordID uint   `json:"payment_id"` // 支付方式表主键，回写订单
 }
 
 func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
@@ -385,6 +386,9 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 	if order.Status != model.OrderStatusPending {
 		return nil, errors.New("订单状态不允许支付")
 	}
+	if req.PaymentRecordID > 0 {
+		global.DB.Model(&order).Update("payment_id", req.PaymentRecordID)
+	}
 
 	driver, err := GetPaymentDriver(req.PaymentKey)
 	if err != nil {
@@ -394,7 +398,11 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 	// 线下支付：直接标记为待确认（管理员确认后变为已支付）
 	if req.PaymentKey == "offline" {
 		now := time.Now()
-		global.DB.Model(&order).Updates(map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now})
+		upd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
+		if req.PaymentRecordID > 0 {
+			upd["payment_id"] = req.PaymentRecordID
+		}
+		global.DB.Model(&order).Updates(upd)
 		AddOrderStatusHistory(order.ID, model.OrderStatusPending, model.OrderStatusPaid, "线下支付", "系统")
 		return &PayDriverResp{TradeNo: "OFFLINE_" + order.OrderNo}, nil
 	}
@@ -412,7 +420,11 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 		tx.First(&user, userID)
 		tx.Create(&model.WalletLog{UserID: userID, Amount: -order.PayAmount, Balance: user.WalletBalance, Type: "pay", RefID: order.ID, Remark: "订单支付"})
 		now := time.Now()
-		tx.Model(&order).Updates(map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now})
+		wupd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
+		if req.PaymentRecordID > 0 {
+			wupd["payment_id"] = req.PaymentRecordID
+		}
+		tx.Model(&order).Updates(wupd)
 		if err := tx.Commit().Error; err != nil {
 			return nil, fmt.Errorf("支付失败: %w", err)
 		}

@@ -43,21 +43,20 @@ func PayOrder(userID uint, req *PayOrderReq) (*jsapi.PrepayWithRequestPaymentRes
 	return resp, nil
 }
 
-// HandlePayNotify 处理支付回调，更新订单状态
-func HandlePayNotify(orderNo string, transactionID string) error {
+// HandlePayNotify 处理支付回调：先按订单号单笔；否则按 PayLog.pay_no（合并支付）
+func HandlePayNotify(outTradeNo string, transactionID string) error {
 	var order model.Order
-	if err := global.DB.Where("order_no = ?", orderNo).First(&order).Error; err != nil {
-		return errors.New("订单不存在")
+	if err := global.DB.Where("order_no = ?", outTradeNo).First(&order).Error; err == nil {
+		if order.Status != model.OrderStatusPending {
+			return nil
+		}
+		now := time.Now()
+		return global.DB.Model(&order).Updates(map[string]interface{}{
+			"status":  model.OrderStatusPaid,
+			"paid_at": &now,
+		}).Error
 	}
-	if order.Status != model.OrderStatusPending {
-		return nil // 已处理，幂等返回
-	}
-
-	now := time.Now()
-	return global.DB.Model(&order).Updates(map[string]interface{}{
-		"status":  model.OrderStatusPaid,
-		"paid_at": &now,
-	}).Error
+	return PayLogSuccess(outTradeNo, transactionID)
 }
 
 type RefundReq struct {

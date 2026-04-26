@@ -35,7 +35,6 @@ node_modules/
 nohup.out
 
 # Internal docs (not for public)
-HANDOVER.md
 AGENTS.md
 CLAUDE.md
 

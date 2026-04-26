@@ -31,6 +31,7 @@ type Order struct {
 	ExtractionCode  string      `json:"extraction_code" gorm:"size:6;comment:自提码"`
 	FictitiousValue string      `json:"fictitious_value" gorm:"type:text;comment:虚拟商品信息"`
 	Remark          string      `json:"remark" gorm:"size:255;comment:订单备注"`
+	PaymentID       uint        `json:"payment_id" gorm:"index;default:0;comment:支付方式ID(用户选用)"`
 	Address         string      `json:"address" gorm:"type:text;comment:收货地址快照JSON"`
 	Items           []OrderItem `json:"items,omitempty" gorm:"foreignKey:OrderID"`
 	PaidAt          *time.Time  `json:"paid_at" gorm:"comment:支付时间"`

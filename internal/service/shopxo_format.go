@@ -124,6 +124,16 @@ func shopxoPaymentNameByID(id uint) string {
 }
 
 /**
+ * shopxoOrderDisplayPaymentID 列表/详情展示：订单已记录的支付方式优先，否则回退默认。
+ */
+func shopxoOrderDisplayPaymentID(o *model.Order) uint {
+	if o != nil && o.PaymentID > 0 {
+		return o.PaymentID
+	}
+	return DefaultPaymentIDForShopXO()
+}
+
+/**
  * ShopXOOrderDetailView 构造 uni-app 订单详情页 data.data 所需字段（与 ShopXO 状态码对齐）。
  */
 func ShopXOOrderDetailView(o *model.Order) map[string]interface{} {
@@ -134,7 +144,7 @@ func ShopXOOrderDetailView(o *model.Order) map[string]interface{} {
 	paySt, payStName := shopxoPayStatusMeta(o)
 	op := OrderOperateButtons(o)
 	oper := shopxoOperateDataInt(op)
-	pid := DefaultPaymentIDForShopXO()
+	pid := shopxoOrderDisplayPaymentID(o)
 	omName := shopxoOrderModelName[o.OrderModel]
 	if omName == "" {
 		omName = "快递"
@@ -289,7 +299,7 @@ func ShopXOOrderListRow(o *model.Order) map[string]interface{} {
 		"warehouse_url":           "",
 		"warehouse_icon":          nil,
 		"is_under_line_text":      nil,
-		"payment_id":              DefaultPaymentIDForShopXO(),
+		"payment_id":              shopxoOrderDisplayPaymentID(o),
 		"total_price":             shopxoFmtYuanFen(o.PayAmount),
 		"buy_number_count":        buyCount,
 		"currency_data":           map[string]string{"currency_symbol": sym},
@@ -527,12 +537,15 @@ func ShopXOPayPayloadFromDriver(driverKey string, p *model.Payment, prep *PayDri
 }
 
 /**
- * ShopXOCompatUnifiedPay 供 uni-app /api.php?s=order/pay：单笔订单 + 支付方式表主键。
+ * ShopXOCompatUnifiedPay 供 uni-app /api.php?s=order/pay：支持单笔或多笔订单（ids）+ 支付方式表主键。
  * outerMsg 非空时 HTTP 外层使用自定义 msg（与线下支付弹窗文案对齐）。
  */
-func ShopXOCompatUnifiedPay(userID, orderID, paymentID uint, openID, returnURL, clientIP string) (map[string]interface{}, *string, error) {
+func ShopXOCompatUnifiedPay(userID uint, orderIDs []uint, paymentID uint, openID, returnURL, clientIP string) (map[string]interface{}, *string, error) {
 	if global.DB == nil {
 		return nil, nil, fmt.Errorf("数据库未初始化")
+	}
+	if len(orderIDs) == 0 {
+		return nil, nil, fmt.Errorf("请选择订单")
 	}
 	var pay model.Payment
 	if err := global.DB.First(&pay, paymentID).Error; err != nil {
@@ -545,13 +558,20 @@ func ShopXOCompatUnifiedPay(userID, orderID, paymentID uint, openID, returnURL, 
 	if keyErr != nil || strings.TrimSpace(driverKey) == "" {
 		driverKey = inferPaymentKeyFromPaymentName(pay.Name)
 	}
-	resp, err := UnifiedPay(userID, &UnifiedPayReq{
-		OrderID:    orderID,
-		PaymentKey: driverKey,
-		OpenID:     openID,
-		ReturnURL:  returnURL,
-		ClientIP:   clientIP,
-	})
+	var resp *PayDriverResp
+	var err error
+	if len(orderIDs) == 1 {
+		resp, err = UnifiedPay(userID, &UnifiedPayReq{
+			OrderID:         orderIDs[0],
+			PaymentKey:      driverKey,
+			OpenID:          openID,
+			ReturnURL:       returnURL,
+			ClientIP:        clientIP,
+			PaymentRecordID: paymentID,
+		})
+	} else {
+		resp, err = MultiOrderUnifiedPay(userID, orderIDs, driverKey, paymentID, openID, returnURL, clientIP)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
