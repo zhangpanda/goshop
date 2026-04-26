@@ -47,7 +47,7 @@ function ProductsInner() {
     if (categoryId) params.set('category_id', categoryId)
     if (orderBy) params.set('order_by', orderBy)
     params.set('page', String(page))
-    params.set('limit', String(limit))
+    params.set('page_size', String(limit))
     api.get<{ list: Goods[]; total: number }>(`/goods?${params}`).then(d => {
       setGoods(d.list || [])
       setTotal(d.total || 0)

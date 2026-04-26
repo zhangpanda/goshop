@@ -17,7 +17,7 @@ export default function Home() {
 
   useEffect(() => {
     api.get<Slide[]>('/slides').then(d => setSlides(d || [])).catch(() => {})
-    api.get<{ list: Goods[] }>('/goods?limit=6').then(d => setGoods(d.list || [])).catch(() => {})
+    api.get<{ list: Goods[] }>('/goods?page_size=6').then(d => setGoods(d.list || [])).catch(() => {})
   }, [])
 
   useEffect(() => {
