@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/zhangpanda/goshop)](go.mod)
 
-用 Go 重写的开源电商系统，**核心功能与数据模型高度对齐** ShopXO v6.8.0（整体覆盖率约 97%，PHP 生态专属能力与应用商店等仍为占位或规划项），前后端分离架构。
+用 Go 重写的开源电商系统，**核心功能与数据模型高度对齐** ShopXO v6.8.0（商家主路径覆盖率约 97%）。**插件在线市场、PHP 式在线升级与任意 PHP 插件运行时**不在产品规划内（管理端应用商店 Tab 仅为兼容占位；是否未来跟进 ShopXO 生态另定），前后端分离架构。
 
 > Go 后端代码为独立编写。DIY装修器和Form表单设计器复用 ShopXO 官方子项目（[shopxo-diy](https://github.com/gongfuxiang/shopxo-diy) / [shopxo-form](https://github.com/gongfuxiang/shopxo-form)，MIT），uni-app 移动端可直接对接（[shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)）。
 
@@ -132,7 +132,7 @@ goshop/
 | 数据 | 消息/支付日志/积分日志/退款日志/短信日志/邮件日志/错误日志/搜索记录/操作日志 |
 | 文章 | 文章管理/文章分类 |
 | 手机 | 首页导航/基础配置/小程序配置/用户中心导航/DIY装修 |
-| 应用 | 插件安装/卸载/配置；**应用商店为占位/规划中**（非 ShopXO 在线市场） |
+| 应用 | 插件安装/卸载/配置（元数据）；**应用商店 Tab 占位，无内置市场计划**（见 `HANDOVER.md` 产品边界） |
 | 仓库 | 仓库管理/仓库商品 |
 | 系统 | 系统配置(12分组77项)/商店信息/多语言与货币 |
 | 站点 | 站点设置/短信/SEO/邮箱/协议 |
@@ -160,7 +160,7 @@ goshop/
 | PC前台 | PHP模板渲染 | Next.js + Tailwind |
 | 性能 | 一般 | 高（Go原生并发） |
 | 部署 | PHP+Nginx+MySQL | 单二进制+MySQL（Redis可选） |
-| 功能覆盖 | 100%（PHP 模板 + 生态） | 核心约 97% 对齐（详见 `HANDOVER.md`） |
+| 功能覆盖 | 100%（PHP 模板 + 生态） | 商家主路径约 97%（**不含**插件市场/PHP 升级，见 `HANDOVER.md` 产品边界） |
 
 ## 贡献
 

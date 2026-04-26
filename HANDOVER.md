@@ -2,7 +2,11 @@
 
 ## 项目概述
 用 Go 重写 ShopXO v6.8.0（PHP电商系统），前后端分离架构。已开源发布。
-功能覆盖率 ~97%（仅缺 PHP 生态专属的包管理/在线升级）。
+功能覆盖率 ~97%（相对 ShopXO **商家主路径**；不含下文「产品边界」中刻意不对齐的能力）。
+
+## 产品边界（刻意不对齐 ShopXO）
+- **插件在线市场 / ShopXO 式应用商店**：**不计划**作为内置系统能力实现；管理端相关 Tab 仅为布局兼容或占位。**是否在未来单独跟进 ShopXO 生态变化**，由后续版本与产品决策另定，**不承诺**与官方商店同步。
+- **PHP 包管理 / 在线升级 / 运行任意 PHP 插件字节码**：不在产品范围内；发版与扩展走 Go 工程自有方式（API、配置、自建模块等）。
 
 ## 仓库
 - GitHub: `git@github.com:zhangpanda/goshop.git`
@@ -120,7 +124,7 @@ cd web && npm run dev           # PC前台 :3000
 - **用户批量操作**：新增 **`DELETE /admin/users/:id`**，实现为 **`AdminDisableUser`**（`status=0`，不物理删除，保留订单关联）；列表上按钮文案为 **批量禁用**，避免与真实删库混淆。
 - **售后列表**：移除无实际操作的 **`BatchActions`** 与行多选，避免「已选 N 条」无按钮。
 - **语言与货币**：管理端 **`GET/POST /admin/multilingual`**、**`GET/POST /admin/currency`**；前台菜单 **系统 → 语言与货币**（`admin/src/app/(dashboard)/locale/page.tsx`）。**`GetCurrencyConfig`** 从配置读取 **`currency_rate`**。
-- **角色与插件**：**`GET /admin/roles/:id/plugins`** + **`GetRolePluginIDs`**；RBAC 角色表增加 **「分配插件」**，对应 **`PUT /admin/roles/:id/plugins`**。**应用商店 Tab** 仍为占位，未改。
+- **角色与插件**：**`GET /admin/roles/:id/plugins`** + **`GetRolePluginIDs`**；RBAC 角色表增加 **「分配插件」**，对应 **`PUT /admin/roles/:id/plugins`**。**应用商店 Tab** 仍为占位（见「产品边界」，无内置市场计划）。
 
 ## 待办
 
