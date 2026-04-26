@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -115,8 +116,20 @@ func AdminGetUsers(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	keyword := c.Query("keyword")
+	idsStr := c.Query("ids")
 
 	db := global.DB.Model(&model.User{})
+	if idsStr != "" {
+		var ids []uint
+		for _, s := range strings.Split(idsStr, ",") {
+			if id, err := strconv.ParseUint(strings.TrimSpace(s), 10, 64); err == nil && id > 0 {
+				ids = append(ids, uint(id))
+			}
+		}
+		if len(ids) > 0 {
+			db = db.Where("id IN ?", ids)
+		}
+	}
 	if keyword != "" {
 		db = db.Where("username LIKE ? OR nickname LIKE ? OR phone LIKE ?",
 			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")

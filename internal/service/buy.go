@@ -129,18 +129,12 @@ func BuyGoodsCheck(goodsID, skuID uint, quantity int) error {
 
 // BuyDataStorage 购买数据临时存储（Redis）
 func BuyDataStorage(userID uint, data interface{}) error {
-	if global.RDB == nil {
-		return nil
-	}
 	b, _ := json.Marshal(data)
-	return global.RDB.Set(context.Background(), fmt.Sprintf("buy_data_%d", userID), b, 30*time.Minute).Err()
+	return global.Cache.Set(context.Background(), fmt.Sprintf("buy_data_%d", userID), string(b), 30*time.Minute)
 }
 
 func BuyDataRead(userID uint) (map[string]interface{}, error) {
-	if global.RDB == nil {
-		return nil, nil
-	}
-	val, err := global.RDB.Get(context.Background(), fmt.Sprintf("buy_data_%d", userID)).Result()
+	val, err := global.Cache.Get(context.Background(), fmt.Sprintf("buy_data_%d", userID))
 	if err != nil {
 		return nil, err
 	}
@@ -150,10 +144,7 @@ func BuyDataRead(userID uint) (map[string]interface{}, error) {
 }
 
 func BuyDataDelete(userID uint) {
-	if global.RDB == nil {
-		return
-	}
-	global.RDB.Del(context.Background(), fmt.Sprintf("buy_data_%d", userID))
+	global.Cache.Del(context.Background(), fmt.Sprintf("buy_data_%d", userID))
 }
 
 // SingleOrderPayBeginCheck 单订单支付前校验

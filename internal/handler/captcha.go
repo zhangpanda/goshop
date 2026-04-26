@@ -16,25 +16,38 @@ import (
 
 // AdminCaptcha 生成图片验证码
 func AdminCaptcha(c *gin.Context) {
-	code := fmt.Sprintf("%04d", rand.Intn(10000))
-	// 存到 Redis，5分钟过期
+	// 限速：同IP 60秒内最多5次
+	ipKey := fmt.Sprintf("captcha_rate:%s", c.ClientIP())
+	if count, _ := global.Cache.Get(c, ipKey); count != "" {
+		n := 0
+		fmt.Sscanf(count, "%d", &n)
+		if n >= 5 {
+			response.Fail(c, 429, "请求过于频繁，请稍后再试")
+			return
+		}
+		global.Cache.Set(c, ipKey, fmt.Sprintf("%d", n+1), 60*time.Second)
+	} else {
+		global.Cache.Set(c, ipKey, "1", 60*time.Second)
+	}
+
+	code := fmt.Sprintf("%06d", rand.Intn(1000000))
 	key := fmt.Sprintf("captcha:%s", c.Query("key"))
 	if key == "captcha:" {
 		key = fmt.Sprintf("captcha:%d", time.Now().UnixNano())
 	}
-	global.RDB.Set(c, key, code, 5*time.Minute)
+	global.Cache.Set(c, key, code, 5*time.Minute)
 
 	// 生成简单图片
-	img := image.NewRGBA(image.Rect(0, 0, 120, 40))
+	img := image.NewRGBA(image.Rect(0, 0, 160, 40))
 	// 背景
-	for x := 0; x < 120; x++ {
+	for x := 0; x < 160; x++ {
 		for y := 0; y < 40; y++ {
 			img.Set(x, y, color.RGBA{240, 240, 240, 255})
 		}
 	}
 	// 简单噪点
-	for i := 0; i < 100; i++ {
-		img.Set(rand.Intn(120), rand.Intn(40), color.RGBA{uint8(rand.Intn(200)), uint8(rand.Intn(200)), uint8(rand.Intn(200)), 255})
+	for i := 0; i < 150; i++ {
+		img.Set(rand.Intn(160), rand.Intn(40), color.RGBA{uint8(rand.Intn(200)), uint8(rand.Intn(200)), uint8(rand.Intn(200)), 255})
 	}
 	// 数字（简单像素字体）
 	digits := []byte(code)

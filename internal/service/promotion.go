@@ -20,11 +20,13 @@ type PromotionItemReq struct {
 	SKUID      uint  `json:"sku_id" binding:"required"`
 	PromoPrice int64 `json:"promo_price" binding:"required,min=1"`
 	PromoStock int   `json:"promo_stock" binding:"required,min=1"`
+	PerLimit   int   `json:"per_limit"`
 }
 
 func CreatePromotion(req *CreatePromotionReq) (*model.Promotion, error) {
 	promo := model.Promotion{
 		Name:      req.Name,
+		Type:      "promo",
 		StartTime: req.StartTime,
 		EndTime:   req.EndTime,
 		Status:    1,

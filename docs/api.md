@@ -44,6 +44,9 @@
 | GET | /api/brands | 品牌列表 | - |
 | GET | /api/coupons | 可领优惠券列表 | - |
 | GET | /api/promotions | 进行中的促销 | - |
+| GET | /api/seckills | 进行中的秒杀活动 | - |
+| GET | /api/group-buys | 进行中的拼团活动 | - |
+| GET | /api/group-orders/:id | 拼团详情（团员列表） | - |
 | GET | /api/search/hot | 热门搜索词 | - |
 | GET | /api/search/prices | 价格筛选区间 | - |
 
@@ -113,9 +116,23 @@
 
 | 方法 | 路径 | 说明 | 参数 |
 |------|------|------|------|
-| POST | /api/pay | 发起支付 | order_id, payment_id, openid |
+| POST | /api/pay | 发起支付（微信JSAPI） | order_id, openid |
+| POST | /api/pay/unified | 统一支付入口 | order_id, payment_key, openid, return_url |
 | POST | /api/pay/refund | 申请退款 | order_id, reason |
 | POST | /api/pay/notify | 微信支付回调（系统调用） | - |
+| POST | /api/pay/alipay-notify | 支付宝支付回调（系统调用，含RSA2验签） | - |
+| POST | /api/pay/log | 创建支付日志 | - |
+| GET | /api/pay/log | 支付日志列表 | - |
+
+> `payment_key` 可选值：`wechat_jsapi` / `wechat_h5` / `wechat_app` / `wechat_native` / `alipay_pc` / `alipay_h5` / `alipay_app` / `alipay_mini` / `wallet` / `offline`
+
+### 秒杀 & 拼团
+
+| 方法 | 路径 | 说明 | 参数 |
+|------|------|------|------|
+| POST | /api/seckill/:item_id/buy | 秒杀抢购 | - |
+| POST | /api/group/:item_id/open | 开团 | - |
+| POST | /api/group/:id/join | 参团 | - |
 
 ### 售后
 
@@ -207,6 +224,15 @@
 | POST | /api/admin/coupons | 创建优惠券 |
 | POST | /api/admin/promotions | 创建促销 |
 | PUT | /api/admin/reviews/:id/reply | 回复评价 |
+
+### 秒杀 & 拼团管理
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/admin/seckills | 秒杀活动列表 |
+| POST | /api/admin/seckills | 创建秒杀活动 |
+| GET | /api/admin/group-buys | 拼团活动列表 |
+| POST | /api/admin/group-buys | 创建拼团活动 |
 
 ### 系统配置
 

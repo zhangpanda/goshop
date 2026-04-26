@@ -10,10 +10,12 @@
 
 ## 特性
 
-- **Go 后端**：Gin + GORM + MySQL + Redis，308个API路由，12种支付驱动
+- **Go 后端**：Gin + GORM + MySQL，460+个API路由，12种支付驱动，Redis可选
+- **营销功能**：秒杀（乐观锁+限购）、拼团（自动成团）、优惠券、促销
 - **管理后台**：Next.js + Ant Design，68个页面，100%对齐ShopXO后台
 - **PC前台**：Next.js + Tailwind CSS，Apple风格UI
 - **手机端**：直接复用ShopXO uni-app，兼容层56/56接口通过
+- **缓存抽象**：Redis/内存缓存自动切换，无Redis也能运行
 - **DIY装修**：集成shopxo-diy可视化拖拽编辑器
 - **Form设计**：集成shopxo-form可视化表单设计器
 
@@ -35,7 +37,7 @@
 git clone https://github.com/zhangpanda/goshop.git
 cd goshop
 cp config.yaml.example config.yaml
-# 编辑 config.yaml，将 db.host 改为 mysql，redis.host 改为 redis
+# 编辑 config.yaml，将 db.host 改为 mysql（redis.host 可留空或改为 redis）
 docker compose up -d
 # 访问 http://localhost:8080
 ```
@@ -46,7 +48,7 @@ docker compose up -d
 - Go 1.21+
 - Node.js 18+
 - MySQL 5.7+
-- Redis 6+
+- Redis 6+（可选，不配置则使用内存缓存）
 
 ### 1. 启动后端
 ```bash
@@ -113,12 +115,12 @@ goshop/
 │   ├── handler/                # HTTP处理器 (34文件)
 │   ├── service/                # 业务逻辑 (48文件)
 │   ├── model/                  # 数据模型 (32文件, 90张表)
-│   ├── router/router.go        # 路由注册 (308路由)
+│   ├── router/router.go        # 路由注册 (460+路由)
 │   └── middleware/             # 中间件 (JWT/CORS/操作日志)
 ├── admin/                      # 管理后台 Next.js (68页面)
-├── web/                        # PC前台 Next.js (12页面)
+├── web/                        # PC前台 Next.js (24页面)
 ├── static/                     # DIY/Form构建产物
-├── pkg/                        # 公共包 (JWT/微信支付/响应)
+├── pkg/                        # 公共包 (JWT/缓存/微信支付/响应)
 ├── config.yaml                 # 配置文件
 └── go.mod
 ```
@@ -159,11 +161,11 @@ goshop/
 |------|--------|--------|
 | 语言 | PHP (ThinkPHP) | Go (Gin + GORM) |
 | 架构 | 前后端一体 | 前后端分离 |
-| 后端代码 | ~14.5万行 | ~1.3万行 |
+| 后端代码 | ~14.5万行 | ~1.7万行 |
 | 管理后台 | PHP模板渲染 | React + Ant Design |
 | PC前台 | PHP模板渲染 | Next.js + Tailwind |
 | 性能 | 一般 | 高（Go原生并发） |
-| 部署 | PHP+Nginx+MySQL | 单二进制+MySQL+Redis |
+| 部署 | PHP+Nginx+MySQL | 单二进制+MySQL（Redis可选） |
 | 功能覆盖 | 100% | 100% |
 
 ## 贡献
@@ -175,6 +177,7 @@ goshop/
 | 文档 | 说明 |
 |------|------|
 | [API 文档](docs/api.md) | 完整接口文档（公共/用户/管理后台/ShopXO 兼容） |
+| [ShopXO 迁移指南](docs/migration-from-shopxo.md) | 从 ShopXO 迁移数据到 GoShop |
 | [二次开发指南](docs/development.md) | 项目架构、添加接口/页面/支付方式的流程 |
 | [部署文档](docs/deployment.md) | Docker/手动/Systemd 部署 + Nginx 配置 |
 | [uni-app 对接指南](docs/uniapp-guide.md) | ShopXO uni-app 前端对接说明 |

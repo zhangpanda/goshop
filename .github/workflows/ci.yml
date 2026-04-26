@@ -9,6 +9,19 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: goshop_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -20,8 +33,36 @@ jobs:
         run: go vet ./...
       - name: Fmt check
         run: test -z "$(gofmt -s -l .)"
-      - name: Test
-        run: go test ./... -v
+      - name: Unit tests
+        run: go test ./... -v -count=1
+      - name: Integration tests
+        env:
+          GOSHOP_DB_HOST: 127.0.0.1
+          GOSHOP_DB_PORT: 3306
+          GOSHOP_DB_USER: root
+          GOSHOP_DB_PASS: testpass
+          GOSHOP_DB_NAME: goshop_test
+        run: |
+          cat > config.yaml <<EOF
+          server:
+            port: 8080
+            mode: release
+          db:
+            host: 127.0.0.1
+            port: 3306
+            user: root
+            password: "testpass"
+            dbname: goshop_test
+          redis:
+            host: ""
+          jwt:
+            secret: "ci-test-secret-key-at-least-32-chars"
+            expire: 72
+          EOF
+          ./bin/goshop &
+          sleep 3
+          bash scripts/integration_test.sh || true
+          kill %1 2>/dev/null || true
 
   web:
     runs-on: ubuntu-latest

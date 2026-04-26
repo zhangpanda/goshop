@@ -6,7 +6,7 @@ import {
   UserOutlined, ShoppingOutlined, OrderedListOutlined, AppstoreOutlined,
   DatabaseOutlined, FileTextOutlined, MobileOutlined, ApiOutlined,
   HomeOutlined, ToolOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined,
-  TagsOutlined,
+  TagsOutlined, TeamOutlined,
 } from '@ant-design/icons'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAdmin, AdminAuthProvider } from '@/lib/admin-auth'
@@ -98,6 +98,9 @@ const menuItems = [
   { key: 'warehouse', icon: <HomeOutlined />, label: '仓库', children: [
     { key: '/warehouse', label: '仓库管理' },
     { key: '/warehouse-goods', label: '仓库商品管理' },
+  ]},
+  { key: 'distribution', icon: <TeamOutlined />, label: '分销', children: [
+    { key: '/distribution', label: '分销管理' },
   ]},
   { key: 'tool', icon: <ToolOutlined />, label: '工具', children: [
     { key: '/cache', label: '缓存管理' },

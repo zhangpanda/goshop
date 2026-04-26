@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Table, Input, Modal, Form, Typography, Rate, message } from 'antd'
 import { api } from '@/lib/api'
+import { useUserMap } from '@/lib/useIdMap'
 
 interface Review { id: number; user_id: number; rating: number; content: string; reply: string; created_at: string }
 
@@ -10,6 +11,7 @@ export default function ReviewsPage() {
   const [goodsId, setGoodsId] = useState('')
   const [replyTarget, setReplyTarget] = useState<Review | null>(null)
   const [form] = Form.useForm()
+  const userMap = useUserMap(list.map(r => r.user_id))
 
   const load = (gid: string) => {
     if (!gid) return
@@ -24,7 +26,7 @@ export default function ReviewsPage() {
       <Table dataSource={list} rowKey="id"
         columns={[
           { title: 'ID', dataIndex: 'id', width: 60 },
-          { title: '用户ID', dataIndex: 'user_id', width: 80 },
+          { title: '用户', dataIndex: 'user_id', width: 120, render: (v: number) => userMap[v] || `#${v}` },
           { title: '评分', dataIndex: 'rating', width: 160, render: (v: number) => <Rate disabled value={v} allowHalf /> },
           { title: '内容', dataIndex: 'content', ellipsis: true },
           { title: '回复', dataIndex: 'reply', ellipsis: true },

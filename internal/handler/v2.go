@@ -140,6 +140,11 @@ func GenerateQRCode(c *gin.Context) {
 // ========== SQL控制台 ==========
 
 func SqlConsoleExecute(c *gin.Context) {
+	// 仅超级管理员可用
+	if !service.IsSuperAdmin(c.GetUint("admin_role_id")) {
+		response.Fail(c, http.StatusForbidden, "仅超级管理员可使用SQL控制台")
+		return
+	}
 	var req struct {
 		SQL string `json:"sql" binding:"required"`
 	}

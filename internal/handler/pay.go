@@ -41,13 +41,25 @@ func UnifiedPay(c *gin.Context) {
 	response.OK(c, resp)
 }
 
-// AlipayNotify 支付宝异步回调
+// AlipayNotify 支付宝异步回调（含RSA2验签）
 func AlipayNotify(c *gin.Context) {
-	orderNo := c.PostForm("out_trade_no")
-	tradeNo := c.PostForm("trade_no")
-	status := c.PostForm("trade_status")
+	if err := c.Request.ParseForm(); err != nil {
+		c.String(http.StatusOK, "fail")
+		return
+	}
+	params := make(map[string]string, len(c.Request.PostForm))
+	for k, v := range c.Request.PostForm {
+		if len(v) > 0 {
+			params[k] = v[0]
+		}
+	}
+	if !service.AlipayVerifySign(params, global.Cfg.Alipay.PublicKey) {
+		c.String(http.StatusOK, "fail")
+		return
+	}
+	status := params["trade_status"]
 	if status == "TRADE_SUCCESS" || status == "TRADE_FINISHED" {
-		if err := service.HandlePayNotify(orderNo, tradeNo); err != nil {
+		if err := service.HandlePayNotify(params["out_trade_no"], params["trade_no"]); err != nil {
 			c.String(http.StatusOK, "fail")
 			return
 		}
@@ -69,12 +81,43 @@ func PayNotify(c *gin.Context) {
 		return
 	}
 
+	if transaction.OutTradeNo == nil || transaction.TransactionId == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": "FAIL", "message": "缺少交易信息"})
+		return
+	}
+
 	if err := service.HandlePayNotify(*transaction.OutTradeNo, *transaction.TransactionId); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": "FAIL", "message": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": "SUCCESS", "message": "成功"})
+}
+
+// SandboxCallback 沙盒支付回调（模拟第三方回调，仅 payment.sandbox=true 时可用）
+func SandboxCallback(c *gin.Context) {
+	if !global.Cfg.Payment.Sandbox {
+		response.Fail(c, http.StatusForbidden, "沙盒模式未开启")
+		return
+	}
+	orderNo := c.Query("order_no")
+	tradeNo := c.Query("trade_no")
+	if orderNo == "" {
+		response.Fail(c, http.StatusBadRequest, "缺少 order_no")
+		return
+	}
+	if tradeNo == "" {
+		tradeNo = "SANDBOX_" + orderNo
+	}
+	if err := service.HandlePayNotify(orderNo, tradeNo); err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.OK(c, gin.H{
+		"message":  "沙盒支付成功",
+		"order_no": orderNo,
+		"trade_no": tradeNo,
+	})
 }
 
 func RefundOrder(c *gin.Context) {

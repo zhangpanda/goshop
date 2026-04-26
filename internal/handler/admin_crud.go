@@ -235,8 +235,18 @@ func WarehouseGoodsStatusUpdateHandler(c *gin.Context) { statusUpdate(c, &model.
 
 // ========== 邮件测试 ==========
 func EmailTestHandler(c *gin.Context) {
-	// TODO: 实际发送测试邮件
-	response.OK(c, gin.H{"msg": "测试邮件功能需配置SMTP"})
+	var req struct {
+		Email string `json:"email" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := service.SendEmail(req.Email, "GoShop 邮件测试", "这是一封测试邮件，如果您收到说明SMTP配置正确。"); err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"msg": "测试邮件已发送"})
 }
 
 // ========== 商品浏览/收藏/购物车 管理列表 ==========

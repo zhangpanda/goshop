@@ -1,6 +1,9 @@
 package service
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
 )
@@ -108,6 +111,7 @@ func CreateGoods(req *CreateGoodsReq) (*model.Goods, error) {
 type GoodsListReq struct {
 	CategoryID uint   `form:"category_id"`
 	Keyword    string `form:"keyword"`
+	IDs        string `form:"ids"` // 逗号分隔ID列表
 	Status     *int8  `form:"status"`
 	BrandID    uint   `form:"brand_id"`
 	MinPrice   int64  `form:"min_price"`
@@ -129,6 +133,17 @@ type GoodsListResp struct {
 func GetGoodsList(req *GoodsListReq) (*GoodsListResp, error) {
 	db := global.DB.Model(&model.Goods{})
 
+	if req.IDs != "" {
+		var ids []uint
+		for _, s := range strings.Split(req.IDs, ",") {
+			if id, err := strconv.ParseUint(strings.TrimSpace(s), 10, 64); err == nil && id > 0 {
+				ids = append(ids, uint(id))
+			}
+		}
+		if len(ids) > 0 {
+			db = db.Where("id IN ?", ids)
+		}
+	}
 	if req.CategoryID > 0 {
 		db = db.Where("category_id = ?", req.CategoryID)
 	}

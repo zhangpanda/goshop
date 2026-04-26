@@ -4,6 +4,7 @@ import { Table, Input, Tag, Space, Modal, Form, Typography, Tabs, Button, Card, 
 import { SearchOutlined } from '@ant-design/icons'
 import ExportButton from '@/components/ExportButton'
 import { api } from '@/lib/api'
+import { useUserMap } from '@/lib/useIdMap'
 import { useRouter } from 'next/navigation'
 import BatchActions from '@/components/BatchActions'
 import DetailDrawer from '@/components/DetailDrawer'
@@ -31,6 +32,7 @@ export default function OrdersPage() {
   const [form] = Form.useForm()
   const [shipForm] = Form.useForm()
   const router = useRouter()
+  const userMap = useUserMap(list.map(o => o.user_id))
 
   const load = useCallback(async (p = 1) => {
     const params = new URLSearchParams({ page: String(p), page_size: '20' })
@@ -59,7 +61,7 @@ export default function OrdersPage() {
     const addr = parseAddr(detail.address)
     return [
       { label: '订单编号', value: detail.order_no },
-      { label: '用户ID', value: detail.user_id },
+      { label: '用户', value: userMap[detail.user_id] || `#${detail.user_id}` },
       { label: '订单状态', value: (() => { const s = SM[detail.status]; return s ? <Tag color={s.color}>{s.text}</Tag> : detail.status })() },
       { label: '总金额', value: `¥${(detail.total_amount / 100).toFixed(2)}` },
       { label: '实付金额', value: `¥${(detail.pay_amount / 100).toFixed(2)}` },
@@ -115,7 +117,7 @@ export default function OrdersPage() {
         )}}
         columns={[
           { title: '订单号', dataIndex: 'order_no', width: 190, render: (v: string, r: Order) => <a onClick={() => router.push(`/orders/detail?id=${r.id}`)}>{v}</a> },
-          { title: '用户ID', dataIndex: 'user_id', width: 70 },
+          { title: '用户', dataIndex: 'user_id', width: 120, render: (v: number) => userMap[v] || `#${v}` },
           { title: '金额', dataIndex: 'pay_amount', width: 100, render: (v: number) => `¥${(v/100).toFixed(2)}` },
           { title: '状态', dataIndex: 'status', width: 80, render: (v: number) => { const s = SM[v]; return s ? <Tag color={s.color}>{s.text}</Tag> : v } },
           { title: '下单时间', dataIndex: 'created_at', width: 170, render: (v: string) => v ? new Date(v).toLocaleString('zh-CN') : '-' },

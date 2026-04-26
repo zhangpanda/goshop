@@ -15,7 +15,17 @@ func CreateOrder(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	order, err := service.CreateOrder(c.GetUint("user_id"), &req)
+	userID := c.GetUint("user_id")
+	// 尝试按仓库拆单
+	if orders, err := service.SplitOrderByWarehouse(userID, &req); err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	} else if len(orders) > 0 {
+		response.OK(c, orders)
+		return
+	}
+	// 不需要拆单，走单订单创建
+	order, err := service.CreateOrder(userID, &req)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return

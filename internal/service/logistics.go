@@ -1,10 +1,13 @@
 package service
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
@@ -51,18 +54,31 @@ func GetLogisticsTrack(orderID uint) (*TrackResult, error) {
 }
 
 func queryKuaidi100(key, com, num, name string) (*TrackResult, error) {
-	url := fmt.Sprintf("https://poll.kuaidi100.com/poll/query.do?customer=%s&sign=%s&param={\"com\":\"%s\",\"num\":\"%s\"}", key, key, com, num)
+	customer := GetConfig("logistics_api_customer")
+	if customer == "" {
+		customer = key
+	}
+	// 快递100 实时查询 API: POST https://poll.kuaidi100.com/poll/query.do
+	paramObj, _ := json.Marshal(map[string]string{"com": com, "num": num})
+	param := string(paramObj)
+	sign := md5Sign(param + key + customer)
+	form := url.Values{
+		"customer": {customer},
+		"sign":     {sign},
+		"param":    {param},
+	}
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(url)
+	resp, err := client.PostForm("https://poll.kuaidi100.com/poll/query.do", form)
 	if err != nil {
-		return &TrackResult{ExpressName: name, ExpressNo: num, Status: "查询失败", Traces: []TrackInfo{}}, nil
+		return &TrackResult{ExpressName: name, ExpressNo: num, Status: "查询失败"}, nil
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 
 	var result struct {
-		State string `json:"state"`
-		Data  []struct {
+		State   string `json:"state"`
+		Message string `json:"message"`
+		Data    []struct {
 			Time    string `json:"time"`
 			Context string `json:"context"`
 		} `json:"data"`
@@ -81,4 +97,10 @@ func queryKuaidi100(key, com, num, name string) (*TrackResult, error) {
 	}
 
 	return &TrackResult{ExpressName: name, ExpressNo: num, Status: status, Traces: traces}, nil
+}
+
+func md5Sign(s string) string {
+	h := md5.New()
+	h.Write([]byte(s))
+	return strings.ToUpper(fmt.Sprintf("%x", h.Sum(nil)))
 }

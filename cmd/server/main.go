@@ -26,7 +26,7 @@ func main() {
 		log.Fatalf("init db: %v", err)
 	}
 	// 自动建表
-	global.DB.AutoMigrate(
+	if err := global.DB.AutoMigrate(
 		&model.User{}, &model.Category{}, &model.Goods{}, &model.GoodsSKU{},
 		&model.Cart{}, &model.Address{}, &model.Order{}, &model.OrderItem{}, &model.OrderStatusHistory{},
 		&model.Coupon{}, &model.UserCoupon{}, &model.Promotion{}, &model.PromotionItem{},
@@ -60,11 +60,15 @@ func main() {
 		&model.Answer{},
 		&model.AppMini{}, &model.WalletLog{},
 		&model.AdminOperationLog{},
-	)
+		&model.GroupOrder{}, &model.GroupOrderMember{},
+		&model.Distributor{}, &model.CommissionLog{}, &model.WithdrawRequest{},
+	); err != nil {
+		log.Fatalf("auto migrate: %v", err)
+	}
 
-	// 初始化 Redis
+	// 初始化缓存（Redis 或内存）
 	if err := initialize.InitRedis(); err != nil {
-		log.Fatalf("init redis: %v", err)
+		log.Printf("warning: init cache: %v", err)
 	}
 
 	// 初始化默认管理员

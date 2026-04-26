@@ -149,7 +149,25 @@ func CheckPower(roleID uint, power string) bool {
 		return false
 	}
 	for _, p := range powers {
-		if p == power {
+		if p == "*" || p == power {
+			return true
+		}
+	}
+	return false
+}
+
+// IsSuperAdmin 判断角色是否为超级管理员（Powers包含"*"）
+func IsSuperAdmin(roleID uint) bool {
+	var role model.Role
+	if err := global.DB.First(&role, roleID).Error; err != nil {
+		return false
+	}
+	var powers []string
+	if err := json.Unmarshal([]byte(role.Powers), &powers); err != nil {
+		return false
+	}
+	for _, p := range powers {
+		if p == "*" {
 			return true
 		}
 	}

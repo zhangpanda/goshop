@@ -7,12 +7,17 @@ import (
 )
 
 type Config struct {
-	Server ServerConfig `yaml:"server"`
-	DB     DBConfig     `yaml:"db"`
-	Redis  RedisConfig  `yaml:"redis"`
-	JWT    JWTConfig    `yaml:"jwt"`
-	Wechat WechatConfig `yaml:"wechat"`
-	Alipay AlipayConfig `yaml:"alipay"`
+	Server  ServerConfig  `yaml:"server"`
+	DB      DBConfig      `yaml:"db"`
+	Redis   RedisConfig   `yaml:"redis"`
+	JWT     JWTConfig     `yaml:"jwt"`
+	Wechat  WechatConfig  `yaml:"wechat"`
+	Alipay  AlipayConfig  `yaml:"alipay"`
+	Payment PaymentConfig `yaml:"payment"`
+}
+
+type PaymentConfig struct {
+	Sandbox bool `yaml:"sandbox"` // 沙盒模式，所有支付直接返回成功
 }
 
 type AlipayConfig struct {

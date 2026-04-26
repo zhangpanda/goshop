@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Table, Tag, Space, Modal, Input, Typography, message, Card, Row, Col, Button, Tabs } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 import { api } from '@/lib/api'
+import { useUserMap } from '@/lib/useIdMap'
 import DetailDrawer from '@/components/DetailDrawer'
 import BatchActions from '@/components/BatchActions'
 
@@ -13,6 +14,7 @@ type AS = { id: number; order_id: number; order_detail_id: number; user_id: numb
 export default function AftersalePage() {
   const [list, setList] = useState<AS[]>([]); const [total, setTotal] = useState(0); const [page, setPage] = useState(1)
   const [status, setStatus] = useState(''); const [kw, setKw] = useState('')
+  const userMap = useUserMap(list.map(r => r.user_id))
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [detail, setDetail] = useState<AS | null>(null)
   const [refuseId, setRefuseId] = useState<number | null>(null); const [reason, setReason] = useState('')
@@ -45,7 +47,7 @@ export default function AftersalePage() {
         columns={[
           { title: 'ID', dataIndex: 'id', width: 60 },
           { title: '订单ID', dataIndex: 'order_id', width: 80, render: (v: number, r: AS) => <a onClick={() => setDetail(r)}>{v}</a> },
-          { title: '用户ID', dataIndex: 'user_id', width: 70 },
+          { title: '用户', dataIndex: 'user_id', width: 120, render: (v: number) => userMap[v] || `#${v}` },
           { title: '类型', dataIndex: 'type', width: 90, render: (v: number) => TM[v] || v },
           { title: '金额', dataIndex: 'price', width: 90, render: (v: number) => `¥${(v / 100).toFixed(2)}` },
           { title: '状态', dataIndex: 'status', width: 80, render: (v: number) => { const s = SM[v]; return s ? <Tag color={s.c}>{s.t}</Tag> : v } },
@@ -64,7 +66,7 @@ export default function AftersalePage() {
       />
       <DetailDrawer open={!!detail} onClose={() => setDetail(null)} title={`售后详情 #${detail?.id}`} width={700} items={detail ? [
         { label: '售后ID', value: detail.id }, { label: '订单ID', value: detail.order_id },
-        { label: '用户ID', value: detail.user_id }, { label: '商品ID', value: detail.goods_id },
+        { label: '用户', value: userMap[detail.user_id] || `#${detail.user_id}` }, { label: '商品', value: `#${detail.goods_id}` },
         { label: '类型', value: TM[detail.type] || detail.type },
         { label: '状态', value: (() => { const s = SM[detail.status]; return s ? <Tag color={s.c}>{s.t}</Tag> : detail.status })() },
         { label: '退款金额', value: `¥${(detail.price / 100).toFixed(2)}` },

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
@@ -21,8 +22,17 @@ func SendVerifyCode(account, typ string) error {
 		ExpireAt: time.Now().Add(5 * time.Minute),
 	}
 	global.DB.Create(&vc)
-	// 记录短信日志
-	global.DB.Create(&model.SmsLog{Phone: account, Content: fmt.Sprintf("验证码: %s", code), Type: typ, Status: 1})
+	// 发送短信或邮件
+	tpl := SmsTemplateValue(typ)
+	if tpl == "" {
+		tpl = typ
+	}
+	param := fmt.Sprintf(`{"code":"%s"}`, code)
+	if strings.Contains(account, "@") {
+		SendEmail(account, "验证码", fmt.Sprintf("您的验证码是：<b>%s</b>，5分钟内有效。", code))
+	} else {
+		SendSms(account, tpl, param)
+	}
 	return nil
 }
 

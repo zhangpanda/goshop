@@ -183,28 +183,24 @@ func UserLogout(userID uint) error {
 // ========== 缓存管理 ==========
 
 func ClearCache(cacheType string) error {
-	if global.RDB == nil {
-		return fmt.Errorf("Redis未配置")
-	}
 	ctx := context.Background()
 	switch cacheType {
 	case "all":
-		return global.RDB.FlushDB(ctx).Err()
+		return global.Cache.FlushDB(ctx)
 	default:
-		// 按前缀清除
-		iter := global.RDB.Scan(ctx, 0, cacheType+"*", 100).Iterator()
-		for iter.Next(ctx) {
-			global.RDB.Del(ctx, iter.Val())
+		keys, err := global.Cache.Keys(ctx, cacheType+"*")
+		if err != nil {
+			return err
 		}
-		return iter.Err()
+		if len(keys) > 0 {
+			return global.Cache.Del(ctx, keys...)
+		}
+		return nil
 	}
 }
 
 func GetCacheStats() map[string]interface{} {
-	if global.RDB == nil {
-		return map[string]interface{}{"status": "未配置"}
-	}
-	info, _ := global.RDB.Info(context.Background(), "memory", "keyspace").Result()
-	dbSize, _ := global.RDB.DBSize(context.Background()).Result()
+	info, _ := global.Cache.Info(context.Background())
+	dbSize, _ := global.Cache.DBSize(context.Background())
 	return map[string]interface{}{"db_size": dbSize, "info": info}
 }

@@ -39,6 +39,9 @@ func Setup(r *gin.Engine) {
 	api.GET("/goods/:id/photos", handler.GetGoodsPhotos)
 	api.GET("/coupons", handler.GetCouponList)
 	api.GET("/promotions", handler.GetActivePromotions)
+	api.GET("/seckills", handler.GetActiveSeckills)
+	api.GET("/group-buys", handler.GetActiveGroupBuys)
+	api.GET("/group-orders/:id", handler.GetGroupOrderDetail)
 	api.GET("/brands", handler.GetBrandList)
 	api.GET("/articles", handler.GetArticleList)
 	api.GET("/articles/:id", handler.GetArticleDetail)
@@ -87,6 +90,7 @@ func Setup(r *gin.Engine) {
 	// 支付回调
 	api.POST("/pay/notify", handler.PayNotify)
 	api.POST("/pay/alipay-notify", handler.AlipayNotify)
+	api.GET("/pay/sandbox/callback", handler.SandboxCallback)
 
 	// 公开安全接口
 	api.POST("/verify-code", handler.SendVerifyCode)
@@ -136,6 +140,20 @@ func Setup(r *gin.Engine) {
 		// 优惠券
 		auth.POST("/coupons/:id/receive", handler.ReceiveCoupon)
 		auth.GET("/my/coupons", handler.GetMyCoupons)
+
+		// 秒杀
+		auth.POST("/seckill/:item_id/buy", handler.SeckillBuy)
+
+		// 拼团
+		auth.POST("/group/:item_id/open", handler.OpenGroup)
+		auth.POST("/group/:id/join", handler.JoinGroup)
+
+		// 分销
+		auth.POST("/distribution/apply", handler.ApplyDistributor)
+		auth.GET("/distribution/me", handler.GetMyDistributor)
+		auth.GET("/distribution/team", handler.GetMyTeam)
+		auth.GET("/distribution/commission-logs", handler.GetMyCommissionLogs)
+		auth.POST("/distribution/withdraw", handler.RequestWithdraw)
 
 		// 收藏
 		auth.POST("/favorites/:id", handler.ToggleFavorite)
@@ -203,247 +221,299 @@ func Setup(r *gin.Engine) {
 	api.GET("/admin/captcha", handler.AdminCaptcha)
 
 	// 后台管理（使用 AdminAuth 中间件 + 操作日志）
-	admin := api.Group("/admin").Use(middleware.AdminAuth(), middleware.AdminOperationLog())
+	admin := api.Group("/admin")
+	admin.Use(middleware.AdminAuth(), middleware.AdminOperationLog())
 	{
 		admin.GET("/dashboard", handler.AdminDashboard)
+		admin.GET("/statistical", handler.AdminStatistical)
+		admin.GET("/system-info", handler.GetSystemInfo)
 
-		// 管理员管理
-		admin.POST("/admins", handler.CreateAdminHandler)
-		admin.GET("/admins", handler.GetAdminListHandler)
-		admin.PUT("/admins/:id/status", handler.UpdateAdminStatusHandler)
+		// ========== 权限管理 (Power.Index) ==========
+		rbac := admin.Group("").Use(middleware.AdminPower("Power.Index"))
+		{
+			rbac.POST("/admins", handler.CreateAdminHandler)
+			rbac.GET("/admins", handler.GetAdminListHandler)
+			rbac.GET("/admins/:id", handler.AdminDetailHandler)
+			rbac.PUT("/admins/:id/status", handler.UpdateAdminStatusHandler)
+			rbac.DELETE("/admins/:id", handler.AdminDeleteHandler)
+			rbac.POST("/roles", handler.CreateRoleHandler)
+			rbac.GET("/roles", handler.GetRoleListHandler)
+			rbac.GET("/roles/:id", handler.RoleDetailHandler)
+			rbac.PUT("/roles/:id", handler.UpdateRoleHandler)
+			rbac.DELETE("/roles/:id", handler.DeleteRoleHandler)
+			rbac.PUT("/roles/:id/status", handler.RoleStatusUpdateHandler)
+			rbac.POST("/powers", handler.CreatePowerHandler)
+			rbac.GET("/powers", handler.GetPowerTree)
+			rbac.PUT("/roles/:id/powers", handler.SaveRolePowers)
+			rbac.GET("/roles/:id/powers", handler.GetRolePowersHandler)
+			rbac.PUT("/roles/:id/plugins", handler.SaveRolePluginsHandler)
+		}
 
-		// 角色管理
-		admin.POST("/roles", handler.CreateRoleHandler)
-		admin.GET("/roles", handler.GetRoleListHandler)
-		admin.PUT("/roles/:id", handler.UpdateRoleHandler)
-		admin.DELETE("/roles/:id", handler.DeleteRoleHandler)
+		// ========== 商品管理 (Goods.Index) ==========
+		goods := admin.Group("").Use(middleware.AdminPower("Goods.Index"))
+		{
+			goods.POST("/goods", handler.CreateGoods)
+			goods.PUT("/goods/:id", handler.AdminUpdateGoods)
+			goods.DELETE("/goods/:id", handler.AdminDeleteGoods)
+			goods.PUT("/goods/:id/status", handler.AdminToggleGoodsStatus)
+			goods.PUT("/goods/:id/params", handler.SaveGoodsParams)
+			goods.PUT("/goods/:id/specs", handler.SaveGoodsSpecBase)
+			goods.PUT("/goods/:id/photos", handler.SaveGoodsPhotos)
+			goods.PUT("/goods/:id/categories", handler.SaveGoodsCategoryJoin)
+			goods.PUT("/goods/:id/content-app", handler.SaveGoodsContentAppHandler)
+			goods.POST("/categories", handler.CreateCategory)
+			goods.PUT("/categories/:id", handler.AdminUpdateCategory)
+			goods.DELETE("/categories/:id", handler.AdminDeleteCategory)
+			goods.PUT("/categories/:id/status", handler.CategoryStatusUpdate)
+			goods.PUT("/reviews/:id/reply", handler.ReplyReview)
+			goods.DELETE("/reviews/:id", handler.ReviewDeleteHandler)
+			goods.POST("/spec-templates", handler.CreateSpecTemplate)
+			goods.GET("/spec-templates", handler.GetSpecTemplateList)
+			goods.POST("/params-templates", handler.CreateParamsTemplate)
+			goods.GET("/params-templates", handler.GetParamsTemplateList)
+			goods.POST("/promotions", handler.CreatePromotion)
+			goods.PUT("/promotions/:id", handler.PromotionUpdateHandler)
+			goods.DELETE("/promotions/:id", handler.PromotionDeleteHandler)
+			goods.GET("/seckills", handler.GetSeckillList)
+			goods.POST("/seckills", handler.CreateSeckill)
+			goods.GET("/group-buys", handler.GetGroupBuyList)
+			goods.POST("/group-buys", handler.CreateGroupBuy)
+			goods.POST("/coupons", handler.CreateCoupon)
+			goods.PUT("/coupons/:id", handler.CouponUpdateHandler)
+			goods.DELETE("/coupons/:id", handler.CouponDeleteHandler)
+		}
 
-		// 商品管理
-		admin.POST("/goods", handler.CreateGoods)
-		admin.PUT("/goods/:id", handler.AdminUpdateGoods)
-		admin.DELETE("/goods/:id", handler.AdminDeleteGoods)
-		admin.PUT("/goods/:id/status", handler.AdminToggleGoodsStatus)
+		// ========== 订单管理 (Order.Index) ==========
+		order := admin.Group("").Use(middleware.AdminPower("Order.Index"))
+		{
+			order.GET("/orders", handler.AdminGetOrders)
+			order.PUT("/orders/:id/remark", handler.AdminUpdateOrderRemark)
+			order.POST("/orders/ship", handler.ShipOrder)
+			order.PUT("/orders/:id/cancel", handler.AdminCancelOrder)
+			order.PUT("/orders/:id/confirm", handler.AdminConfirmReceive)
+			order.DELETE("/orders/:id", handler.AdminDeleteOrder)
+			order.PUT("/orders/booking-confirm", handler.AdminBookingConfirm)
+			order.PUT("/orders/pay-underline", handler.AdminOrderPayUnderLineHandler)
+			order.GET("/orders/:id/logistics", handler.LogisticsTrackHandler)
+			order.GET("/order-service", handler.AdminOrderServiceList)
+			order.PUT("/order-service/:id/reply", handler.AdminReplyOrderService)
+			order.GET("/aftersale", handler.AdminAftersaleList)
+			order.PUT("/aftersale/:id/confirm", handler.AdminAftersaleConfirm)
+			order.PUT("/aftersale/:id/audit", handler.AdminAftersaleAudit)
+			order.PUT("/aftersale/:id/refuse", handler.AdminAftersaleRefuse)
+			order.DELETE("/aftersale/:id", handler.AdminAftersaleDelete)
+			order.PUT("/aftersale/:id/cancel", handler.AdminAftersaleCancel)
+		}
 
-		// 分类管理
-		admin.POST("/categories", handler.CreateCategory)
-		admin.PUT("/categories/:id", handler.AdminUpdateCategory)
-		admin.DELETE("/categories/:id", handler.AdminDeleteCategory)
+		// ========== 用户管理 (User.Index) ==========
+		user := admin.Group("").Use(middleware.AdminPower("User.Index"))
+		{
+			user.GET("/users", handler.AdminGetUsers)
+			user.PUT("/users/:id/status", handler.AdminUpdateUserStatus)
+			user.GET("/user-address", handler.UserAddressListHandler)
+			user.GET("/user-address/:id", handler.UserAddressDetailHandler)
+			user.PUT("/user-address/:id", handler.UserAddressSaveHandler)
+			user.DELETE("/user-address/:id", handler.UserAddressDeleteHandler)
+		}
 
-		// 订单管理
-		admin.GET("/orders", handler.AdminGetOrders)
-		admin.PUT("/orders/:id/remark", handler.AdminUpdateOrderRemark)
-		admin.POST("/orders/ship", handler.ShipOrder)
+		// ========== 网站管理 (WebSiteAdmin.Index) ==========
+		website := admin.Group("").Use(middleware.AdminPower("WebSiteAdmin.Index"))
+		{
+			website.POST("/slides", handler.CreateSlideHandler)
+			website.PUT("/slides/:id", handler.SlideUpdateHandler)
+			website.DELETE("/slides/:id", handler.SlideDeleteHandler)
+			website.PUT("/slides/:id/status", handler.SlideStatusUpdateHandler)
+			website.POST("/navigations", handler.CreateNavigationHandler)
+			website.PUT("/navigations/:id", handler.NavigationUpdateHandler)
+			website.DELETE("/navigations/:id", handler.NavigationDeleteHandler)
+			website.PUT("/navigations/:id/status", handler.NavigationStatusUpdateHandler)
+			website.POST("/links", handler.CreateLinkHandler)
+			website.PUT("/links/:id", handler.LinkUpdateHandler)
+			website.DELETE("/links/:id", handler.LinkDeleteHandler)
+			website.PUT("/links/:id/status", handler.LinkStatusUpdateHandler)
+			website.POST("/payments", handler.CreatePaymentHandler)
+			website.PUT("/payments/:id", handler.PaymentUpdateHandler)
+			website.DELETE("/payments/:id", handler.PaymentDeleteHandler)
+			website.PUT("/payments/:id/status", handler.PaymentStatusUpdateHandler)
+			website.POST("/custom-views", handler.CustomViewCreateHandler)
+			website.PUT("/custom-views/:id", handler.CustomViewUpdateHandler)
+			website.DELETE("/custom-views/:id", handler.CustomViewDeleteHandler)
+			website.PUT("/custom-views/:id/status", handler.CustomViewStatusUpdateHandler)
+			website.POST("/quick-nav", handler.QuickNavCreateHandler)
+			website.GET("/quick-nav", handler.QuickNavListHandler)
+			website.PUT("/quick-nav/:id", handler.QuickNavUpdateHandler)
+			website.DELETE("/quick-nav/:id", handler.QuickNavDeleteHandler)
+			website.PUT("/quick-nav/:id/status", handler.QuickNavStatusUpdateHandler)
+			website.GET("/shortcut-menus", handler.ShortcutMenuListHandler)
+			website.PUT("/shortcut-menus", handler.ShortcutMenuSaveHandler)
+			website.POST("/agreement", handler.AgreementSaveHandler)
+			website.GET("/attachments", handler.GetAttachmentList)
+			website.DELETE("/attachments/:id", handler.AttachmentDeleteHandler)
+			website.GET("/attachment-categories", handler.GetAttachmentCategoryList)
+			website.POST("/attachment-categories", handler.CreateAttachmentCategoryHandler)
+			website.DELETE("/attachment-categories/:id", handler.AttachmentCategoryDeleteHandler)
+			website.POST("/upload", handler.Upload)
+			website.POST("/express", handler.CreateExpressHandler)
+			website.GET("/express", handler.GetExpressList)
+			website.PUT("/express/:id", handler.ExpressUpdateHandler)
+			website.DELETE("/express/:id", handler.ExpressDeleteHandler)
+			website.POST("/regions", handler.RegionSaveHandler)
+			website.DELETE("/regions/:id", handler.RegionDeleteHandler)
+			website.DELETE("/screening-prices/:id", handler.ScreeningPriceDeleteHandler)
+			website.GET("/diy", handler.DiyListHandler)
+			website.POST("/diy", handler.DiyCreateHandler)
+			website.PUT("/diy/:id", handler.DiyUpdateHandler)
+			website.DELETE("/diy/:id", handler.DiyDeleteHandler)
+			website.GET("/designs", handler.DesignListHandler)
+			website.POST("/designs", handler.DesignCreateHandler)
+			website.PUT("/designs/:id", handler.DesignUpdateHandler)
+			website.GET("/layouts", handler.LayoutListHandler)
+			website.POST("/layouts", handler.LayoutSaveHandler)
+			website.GET("/themes", handler.ThemeListHandler)
+			website.POST("/themes", handler.ThemeCreateHandler)
+			website.POST("/themes/upload", handler.ThemeUploadHandler)
+			website.GET("/forms", handler.FormInputListHandler)
+			website.POST("/forms", handler.FormInputCreateHandler)
+			website.DELETE("/forms/:id", handler.FormInputDeleteHandler)
+			website.GET("/form-data", handler.FormInputDataListHandler)
+			website.PUT("/forms/:id/fields", handler.SaveFormFieldsHandler)
+			website.GET("/forms/:id/fields", handler.GetFormFieldsHandler)
+		}
 
-		// 用户管理
-		admin.GET("/users", handler.AdminGetUsers)
-		admin.PUT("/users/:id/status", handler.AdminUpdateUserStatus)
+		// ========== 品牌管理 (Brand.Index) ==========
+		brand := admin.Group("").Use(middleware.AdminPower("Brand.Index"))
+		{
+			brand.POST("/brands", handler.CreateBrand)
+			brand.PUT("/brands/:id", handler.BrandUpdateHandler)
+			brand.DELETE("/brands/:id", handler.BrandDeleteHandler)
+			brand.PUT("/brands/:id/status", handler.BrandStatusUpdateHandler)
+			brand.GET("/brands/:id", handler.BrandDetailHandler)
+			brand.POST("/brand-categories", handler.CreateBrandCategory)
+		}
 
-		// 优惠券管理
-		admin.POST("/coupons", handler.CreateCoupon)
-		admin.PUT("/coupons/:id", handler.CouponUpdateHandler)
-		admin.DELETE("/coupons/:id", handler.CouponDeleteHandler)
+		// ========== 仓库管理 (Warehouse.Index) ==========
+		wh := admin.Group("").Use(middleware.AdminPower("Warehouse.Index"))
+		{
+			wh.POST("/warehouses", handler.CreateWarehouse)
+			wh.GET("/warehouses", handler.GetWarehouseList)
+			wh.PUT("/warehouses/:id", handler.UpdateWarehouse)
+			wh.DELETE("/warehouses/:id", handler.DeleteWarehouse)
+			wh.POST("/warehouse-goods", handler.WarehouseGoodsAdd)
+			wh.GET("/warehouses/:id/goods", handler.WarehouseGoodsList)
+			wh.POST("/warehouse-goods-spec", handler.WarehouseGoodsSpecSave)
+			wh.DELETE("/warehouse-goods/:id", handler.WarehouseGoodsDeleteHandler)
+			wh.PUT("/warehouse-goods/:id/status", handler.WarehouseGoodsStatusUpdateHandler)
+			wh.GET("/inventory-logs", handler.GetInventoryLogList)
+		}
 
-		// 促销管理
-		admin.POST("/promotions", handler.CreatePromotion)
-		admin.PUT("/promotions/:id", handler.PromotionUpdateHandler)
-		admin.DELETE("/promotions/:id", handler.PromotionDeleteHandler)
+		// ========== 文章管理 (Article.Index) ==========
+		article := admin.Group("").Use(middleware.AdminPower("Article.Index"))
+		{
+			article.POST("/article-categories", handler.CreateArticleCategory)
+			article.DELETE("/article-categories/:id", handler.ArticleCategoryDeleteHandler)
+			article.POST("/articles", handler.CreateArticle)
+			article.PUT("/articles/:id", handler.ArticleUpdateHandler)
+			article.DELETE("/articles/:id", handler.ArticleDeleteHandler)
+			article.PUT("/articles/:id/status", handler.ArticleStatusUpdateHandler)
+			article.GET("/articles/:id", handler.ArticleDetailHandler)
+		}
 
-		// 评价管理
-		admin.PUT("/reviews/:id/reply", handler.ReplyReview)
+		// ========== APP管理 (App.Index) ==========
+		app := admin.Group("").Use(middleware.AdminPower("App.Index"))
+		{
+			app.POST("/app/home-nav", handler.AppHomeNavCreateHandler)
+			app.POST("/app/center-nav", handler.AppCenterNavCreateHandler)
+			app.PUT("/app/tabbar", handler.AppTabbarSaveHandler)
+			app.POST("/app-mini", handler.SaveAppMini)
+			app.GET("/app-mini", handler.GetAppMiniList)
+			app.DELETE("/app-mini/:id", handler.DeleteAppMini)
+		}
 
-		// 售后管理
-		admin.GET("/aftersale", handler.AdminAftersaleList)
-		admin.PUT("/aftersale/:id/confirm", handler.AdminAftersaleConfirm)
-		admin.PUT("/aftersale/:id/audit", handler.AdminAftersaleAudit)
-		admin.PUT("/aftersale/:id/refuse", handler.AdminAftersaleRefuse)
+		// ========== 数据/日志 (Data.Index) ==========
+		data := admin.Group("").Use(middleware.AdminPower("Data.Index"))
+		{
+			data.GET("/messages", handler.AdminMessageList)
+			data.DELETE("/messages/:id", handler.MessageDeleteHandler)
+			data.GET("/pay-logs", handler.AdminPayLogList)
+			data.GET("/pay-logs/:id", handler.PayLogDetailHandler)
+			data.PUT("/pay-logs/:id/close", handler.PayLogCloseHandler)
+			data.GET("/pay-request-logs", handler.AdminPayRequestLogList)
+			data.GET("/integral-logs", handler.AdminIntegralLogList)
+			data.GET("/refund-logs", handler.AdminGetRefundLogList)
+			data.GET("/error-logs", handler.GetErrorLogList)
+			data.DELETE("/error-logs/:id", handler.ErrorLogDeleteHandler)
+			data.DELETE("/error-logs-all", handler.ErrorLogAllDeleteHandler)
+			data.GET("/sms-logs", handler.SmsLogListHandler)
+			data.DELETE("/sms-logs", handler.SmsLogDeleteHandler)
+			data.GET("/email-logs", handler.EmailLogListHandler)
+			data.DELETE("/email-logs", handler.EmailLogDeleteHandler)
+			data.GET("/search-history", handler.AdminSearchHistoryList)
+			data.DELETE("/search-history/:id", handler.SearchHistoryDeleteHandler)
+			data.DELETE("/search-history-all", handler.SearchHistoryAllDeleteHandler)
+			data.GET("/operation-logs", handler.AdminOperationLogList)
+			data.GET("/goods-browse", handler.AdminGoodsBrowseList)
+			data.DELETE("/goods-browse/:id", handler.AdminGoodsBrowseDelete)
+			data.GET("/goods-favor", handler.AdminGoodsFavorList)
+			data.DELETE("/goods-favor/:id", handler.AdminGoodsFavorDelete)
+			data.GET("/goods-cart", handler.AdminGoodsCartList)
+			data.DELETE("/goods-cart/:id", handler.AdminGoodsCartDelete)
+		}
 
-		// 品牌管理
-		admin.POST("/brands", handler.CreateBrand)
+		// ========== 应用/插件 (Store.Index) ==========
+		store := admin.Group("").Use(middleware.AdminPower("Store.Index"))
+		{
+			store.GET("/plugins", handler.PluginList)
+			store.POST("/plugins", handler.PluginInstall)
+			store.PUT("/plugins/:id/uninstall", handler.PluginUninstall)
+			store.GET("/plugin-config", handler.PluginConfigGetHandler)
+			store.POST("/plugin-config", handler.PluginConfigSetHandler)
+		}
 
-		// 文章管理
-		admin.POST("/article-categories", handler.CreateArticleCategory)
-		admin.POST("/articles", handler.CreateArticle)
+		// ========== 系统配置 (Config.Index) ==========
+		cfg := admin.Group("").Use(middleware.AdminPower("Config.Index"))
+		{
+			cfg.GET("/config", handler.GetConfigGroup)
+			cfg.POST("/config", handler.SetConfigHandler)
+			cfg.POST("/multilingual", handler.SetMultilingualConfig)
+			cfg.POST("/currency", handler.SetCurrencyConfig)
+			cfg.GET("/site-config", handler.GetSiteConfigHandler)
+			cfg.POST("/site-config", handler.SaveSiteConfigHandler)
+			cfg.GET("/self-extraction-address", handler.GetSelfExtractionAddress)
+			cfg.POST("/self-extraction-address", handler.SaveSelfExtractionAddress)
+		}
 
-		// 规格模板
-		admin.POST("/spec-templates", handler.CreateSpecTemplate)
-		admin.GET("/spec-templates", handler.GetSpecTemplateList)
+		// ========== 站点设置 (Site.Index) ==========
+		site := admin.Group("").Use(middleware.AdminPower("Site.Index"))
+		{
+			site.GET("/seo", handler.SeoGetHandler)
+			site.POST("/seo", handler.SeoSaveHandler)
+			site.POST("/email-test", handler.EmailTestHandler)
+		}
 
-		// 参数模板
-		admin.POST("/params-templates", handler.CreateParamsTemplate)
-		admin.GET("/params-templates", handler.GetParamsTemplateList)
-		admin.PUT("/goods/:id/params", handler.SaveGoodsParams)
-		admin.PUT("/goods/:id/specs", handler.SaveGoodsSpecBase)
-		admin.PUT("/goods/:id/photos", handler.SaveGoodsPhotos)
+		// ========== 工具 (Tool.Index) ==========
+		tool := admin.Group("").Use(middleware.AdminPower("Tool.Index"))
+		{
+			tool.POST("/cache/clear", handler.ClearCache)
+			tool.GET("/cache/stats", handler.GetCacheStats)
+			tool.POST("/sql-console", handler.SqlConsoleExecute)
+		}
 
-		// 系统配置
-		admin.GET("/config", handler.GetConfigGroup)
-		admin.POST("/config", handler.SetConfigHandler)
-
-		// 幻灯片/导航/链接
-		admin.POST("/slides", handler.CreateSlideHandler)
-		admin.POST("/navigations", handler.CreateNavigationHandler)
-		admin.POST("/links", handler.CreateLinkHandler)
-
-		// 支付方式
-		admin.POST("/payments", handler.CreatePaymentHandler)
-
-		// 附件管理
-		admin.GET("/attachments", handler.GetAttachmentList)
-		admin.GET("/attachment-categories", handler.GetAttachmentCategoryList)
-		admin.POST("/attachment-categories", handler.CreateAttachmentCategoryHandler)
-
-		// 错误日志
-		admin.GET("/error-logs", handler.GetErrorLogList)
-
-		// 退款日志
-		admin.GET("/refund-logs", handler.AdminGetRefundLogList)
-
-		// 仓库管理
-		admin.POST("/warehouses", handler.CreateWarehouse)
-		admin.GET("/warehouses", handler.GetWarehouseList)
-		admin.PUT("/warehouses/:id", handler.UpdateWarehouse)
-		admin.DELETE("/warehouses/:id", handler.DeleteWarehouse)
-		admin.POST("/warehouse-goods", handler.WarehouseGoodsAdd)
-		admin.GET("/warehouses/:id/goods", handler.WarehouseGoodsList)
-		admin.POST("/warehouse-goods-spec", handler.WarehouseGoodsSpecSave)
-
-		// 快递公司
-		admin.POST("/express", handler.CreateExpressHandler)
-		admin.GET("/express", handler.GetExpressList)
-
-		// 库存日志
-		admin.GET("/inventory-logs", handler.GetInventoryLogList)
-
-		// 权限树
-		admin.POST("/powers", handler.CreatePowerHandler)
-		admin.GET("/powers", handler.GetPowerTree)
-		admin.PUT("/roles/:id/powers", handler.SaveRolePowers)
-		admin.GET("/roles/:id/powers", handler.GetRolePowersHandler)
-
-		// 品牌分类
-		admin.POST("/brand-categories", handler.CreateBrandCategory)
-
-		// 商品多分类
-		admin.PUT("/goods/:id/categories", handler.SaveGoodsCategoryJoin)
-
-		// 插件
-		admin.GET("/plugins", handler.PluginList)
-		admin.POST("/plugins", handler.PluginInstall)
-		admin.PUT("/plugins/:id/uninstall", handler.PluginUninstall)
-
-		// DIY页面
-		admin.GET("/diy", handler.DiyListHandler)
-		admin.POST("/diy", handler.DiyCreateHandler)
-		admin.PUT("/diy/:id", handler.DiyUpdateHandler)
-		admin.DELETE("/diy/:id", handler.DiyDeleteHandler)
-
-		// 自定义页面
-		admin.POST("/custom-views", handler.CustomViewCreateHandler)
-
-		// 主题
-		admin.GET("/themes", handler.ThemeListHandler)
-		admin.POST("/themes", handler.ThemeCreateHandler)
-		admin.POST("/themes/upload", handler.ThemeUploadHandler)
-		admin.POST("/upload", handler.Upload)
-
-		// 表单
-		admin.GET("/forms", handler.FormInputListHandler)
-		admin.POST("/forms", handler.FormInputCreateHandler)
-		admin.DELETE("/forms/:id", handler.FormInputDeleteHandler)
-		admin.GET("/form-data", handler.FormInputDataListHandler)
-
-		// APP导航
-		admin.POST("/app/home-nav", handler.AppHomeNavCreateHandler)
-		admin.POST("/app/center-nav", handler.AppCenterNavCreateHandler)
-		admin.PUT("/app/tabbar", handler.AppTabbarSaveHandler)
-
-		// 快捷菜单
-		admin.GET("/shortcut-menus", handler.ShortcutMenuListHandler)
-		admin.PUT("/shortcut-menus", handler.ShortcutMenuSaveHandler)
-
-		// 协议
-		admin.POST("/agreement", handler.AgreementSaveHandler)
-
-		// SEO
-		admin.GET("/seo", handler.SeoGetHandler)
-		admin.POST("/seo", handler.SeoSaveHandler)
-
-		// Design
-		admin.GET("/designs", handler.DesignListHandler)
-		admin.POST("/designs", handler.DesignCreateHandler)
-		admin.PUT("/designs/:id", handler.DesignUpdateHandler)
-
-		// Layout
-		admin.GET("/layouts", handler.LayoutListHandler)
-		admin.POST("/layouts", handler.LayoutSaveHandler)
-
-		// APP商品详情
-		admin.PUT("/goods/:id/content-app", handler.SaveGoodsContentAppHandler)
-
-		// 订单客服
-		admin.GET("/order-service", handler.AdminOrderServiceList)
-		admin.PUT("/order-service/:id/reply", handler.AdminReplyOrderService)
-
-		// 快捷导航
-		admin.POST("/quick-nav", handler.QuickNavCreateHandler)
-		admin.GET("/quick-nav", handler.QuickNavListHandler)
-
-		// 插件配置
-		admin.GET("/plugin-config", handler.PluginConfigGetHandler)
-		admin.POST("/plugin-config", handler.PluginConfigSetHandler)
-
-		// 角色插件权限
-		admin.PUT("/roles/:id/plugins", handler.SaveRolePluginsHandler)
-
-		// 表单字段
-		admin.PUT("/forms/:id/fields", handler.SaveFormFieldsHandler)
-		admin.GET("/forms/:id/fields", handler.GetFormFieldsHandler)
-
-		// 问答留言管理
+		// ========== 问答管理 ==========
 		admin.GET("/answers", handler.GetAnswerList)
 		admin.PUT("/answers/:id/reply", handler.AdminReplyAnswer)
 		admin.DELETE("/answers/:id", handler.AdminDeleteAnswer)
 
-		// 订单预约确认
-		admin.PUT("/orders/booking-confirm", handler.AdminBookingConfirm)
+		// ========== 分销管理 ==========
+		admin.GET("/distributors", handler.AdminDistributorList)
+		admin.POST("/distributors", handler.AdminCreateDistributor)
+		admin.GET("/withdraws", handler.AdminWithdrawList)
+		admin.PUT("/withdraws/:id/audit", handler.AdminAuditWithdraw)
 
-		// 数据导出
+		// ========== 数据导出 ==========
 		admin.POST("/export", handler.ExportData)
-
-		// 缓存管理
-		admin.POST("/cache/clear", handler.ClearCache)
-		admin.GET("/cache/stats", handler.GetCacheStats)
-
-		// 多语言配置
-		admin.POST("/multilingual", handler.SetMultilingualConfig)
-
-		// 货币配置
-		admin.POST("/currency", handler.SetCurrencyConfig)
-
-		// 完整统计
-		admin.GET("/statistical", handler.AdminStatistical)
-
-		// 小程序管理
-		admin.POST("/app-mini", handler.SaveAppMini)
-		admin.GET("/app-mini", handler.GetAppMiniList)
-		admin.DELETE("/app-mini/:id", handler.DeleteAppMini)
-
-		// 站点配置
-		admin.GET("/site-config", handler.GetSiteConfigHandler)
-		admin.POST("/site-config", handler.SaveSiteConfigHandler)
-		admin.GET("/self-extraction-address", handler.GetSelfExtractionAddress)
-		admin.POST("/self-extraction-address", handler.SaveSelfExtractionAddress)
-
-		// 动态表格通用查询
 		admin.POST("/form-table", handler.FormTableQueryHandler)
 
-		// SQL控制台
-		admin.POST("/sql-console", handler.SqlConsoleExecute)
-
-		// 系统信息
-		admin.GET("/system-info", handler.GetSystemInfo)
-
-		// 公开列表接口的admin镜像（供管理后台CrudPage使用）
+		// 公开列表接口的admin镜像（供管理后台CrudPage下拉选择用，仅需登录）
 		admin.GET("/article-categories", handler.GetArticleCategoryList)
 		admin.GET("/brand-categories", handler.GetBrandCategoryList)
 		admin.GET("/links", handler.GetLinkList)
@@ -457,150 +527,5 @@ func Setup(r *gin.Engine) {
 		admin.GET("/articles", handler.GetArticleList)
 		admin.GET("/app/home-nav", handler.AppHomeNavListHandler)
 		admin.GET("/app/center-nav", handler.AppCenterNavListHandler)
-
-		// 管理员确认线下收款
-		admin.PUT("/orders/pay-underline", handler.AdminOrderPayUnderLineHandler)
-
-		// 短信日志
-		admin.GET("/sms-logs", handler.SmsLogListHandler)
-		admin.DELETE("/sms-logs", handler.SmsLogDeleteHandler)
-
-		// 邮件日志
-		admin.GET("/email-logs", handler.EmailLogListHandler)
-		admin.DELETE("/email-logs", handler.EmailLogDeleteHandler)
-
-		// ========== 补全的CRUD操作 ==========
-
-		// 管理员补全
-		admin.GET("/admins/:id", handler.AdminDetailHandler)
-		admin.DELETE("/admins/:id", handler.AdminDeleteHandler)
-
-		// 角色补全
-		admin.GET("/roles/:id", handler.RoleDetailHandler)
-		admin.PUT("/roles/:id/status", handler.RoleStatusUpdateHandler)
-
-		// 分类状态
-		admin.PUT("/categories/:id/status", handler.CategoryStatusUpdate)
-
-		// 评论补全
-		admin.DELETE("/reviews/:id", handler.ReviewDeleteHandler)
-
-		// 订单补全
-		admin.PUT("/orders/:id/cancel", handler.AdminCancelOrder)
-		admin.PUT("/orders/:id/confirm", handler.AdminConfirmReceive)
-		admin.DELETE("/orders/:id", handler.AdminDeleteOrder)
-
-		// 售后补全
-		admin.DELETE("/aftersale/:id", handler.AdminAftersaleDelete)
-		admin.PUT("/aftersale/:id/cancel", handler.AdminAftersaleCancel)
-
-		// 品牌补全
-		admin.PUT("/brands/:id", handler.BrandUpdateHandler)
-		admin.DELETE("/brands/:id", handler.BrandDeleteHandler)
-		admin.PUT("/brands/:id/status", handler.BrandStatusUpdateHandler)
-		admin.GET("/brands/:id", handler.BrandDetailHandler)
-
-		// 文章补全
-		admin.PUT("/articles/:id", handler.ArticleUpdateHandler)
-		admin.DELETE("/articles/:id", handler.ArticleDeleteHandler)
-		admin.PUT("/articles/:id/status", handler.ArticleStatusUpdateHandler)
-		admin.GET("/articles/:id", handler.ArticleDetailHandler)
-		admin.DELETE("/article-categories/:id", handler.ArticleCategoryDeleteHandler)
-
-		// 幻灯片补全
-		admin.PUT("/slides/:id", handler.SlideUpdateHandler)
-		admin.DELETE("/slides/:id", handler.SlideDeleteHandler)
-		admin.PUT("/slides/:id/status", handler.SlideStatusUpdateHandler)
-
-		// 导航补全
-		admin.PUT("/navigations/:id", handler.NavigationUpdateHandler)
-		admin.DELETE("/navigations/:id", handler.NavigationDeleteHandler)
-		admin.PUT("/navigations/:id/status", handler.NavigationStatusUpdateHandler)
-
-		// 友情链接补全
-		admin.PUT("/links/:id", handler.LinkUpdateHandler)
-		admin.DELETE("/links/:id", handler.LinkDeleteHandler)
-		admin.PUT("/links/:id/status", handler.LinkStatusUpdateHandler)
-
-		// 快递补全
-		admin.PUT("/express/:id", handler.ExpressUpdateHandler)
-		admin.DELETE("/express/:id", handler.ExpressDeleteHandler)
-
-		// 支付方式补全
-		admin.PUT("/payments/:id", handler.PaymentUpdateHandler)
-		admin.DELETE("/payments/:id", handler.PaymentDeleteHandler)
-		admin.PUT("/payments/:id/status", handler.PaymentStatusUpdateHandler)
-
-		// 自定义页面补全
-		admin.PUT("/custom-views/:id", handler.CustomViewUpdateHandler)
-		admin.DELETE("/custom-views/:id", handler.CustomViewDeleteHandler)
-		admin.PUT("/custom-views/:id/status", handler.CustomViewStatusUpdateHandler)
-
-		// 快捷导航补全
-		admin.PUT("/quick-nav/:id", handler.QuickNavUpdateHandler)
-		admin.DELETE("/quick-nav/:id", handler.QuickNavDeleteHandler)
-		admin.PUT("/quick-nav/:id/status", handler.QuickNavStatusUpdateHandler)
-
-		// 附件补全
-		admin.DELETE("/attachments/:id", handler.AttachmentDeleteHandler)
-		admin.DELETE("/attachment-categories/:id", handler.AttachmentCategoryDeleteHandler)
-
-		// 搜索记录
-		admin.GET("/search-history", handler.AdminSearchHistoryList)
-		admin.DELETE("/search-history/:id", handler.SearchHistoryDeleteHandler)
-		admin.DELETE("/search-history-all", handler.SearchHistoryAllDeleteHandler)
-
-		// 错误日志补全
-		admin.DELETE("/error-logs/:id", handler.ErrorLogDeleteHandler)
-		admin.DELETE("/error-logs-all", handler.ErrorLogAllDeleteHandler)
-
-		// 消息补全
-		admin.GET("/messages", handler.AdminMessageList)
-		admin.DELETE("/messages/:id", handler.MessageDeleteHandler)
-
-		// 支付日志补全
-		admin.GET("/pay-logs", handler.AdminPayLogList)
-		admin.GET("/pay-logs/:id", handler.PayLogDetailHandler)
-		admin.PUT("/pay-logs/:id/close", handler.PayLogCloseHandler)
-
-		// 积分日志
-		admin.GET("/integral-logs", handler.AdminIntegralLogList)
-
-		// 支付请求日志
-		admin.GET("/pay-request-logs", handler.AdminPayRequestLogList)
-
-		// 地区补全
-		admin.POST("/regions", handler.RegionSaveHandler)
-		admin.DELETE("/regions/:id", handler.RegionDeleteHandler)
-
-		// 筛选价格补全
-		admin.DELETE("/screening-prices/:id", handler.ScreeningPriceDeleteHandler)
-
-		// 用户地址管理
-		admin.GET("/user-address", handler.UserAddressListHandler)
-		admin.GET("/user-address/:id", handler.UserAddressDetailHandler)
-		admin.PUT("/user-address/:id", handler.UserAddressSaveHandler)
-		admin.DELETE("/user-address/:id", handler.UserAddressDeleteHandler)
-
-		// 仓库商品补全
-		admin.DELETE("/warehouse-goods/:id", handler.WarehouseGoodsDeleteHandler)
-		admin.PUT("/warehouse-goods/:id/status", handler.WarehouseGoodsStatusUpdateHandler)
-
-		// 商品浏览/收藏/购物车管理
-		admin.GET("/goods-browse", handler.AdminGoodsBrowseList)
-		admin.DELETE("/goods-browse/:id", handler.AdminGoodsBrowseDelete)
-		admin.GET("/goods-favor", handler.AdminGoodsFavorList)
-		admin.DELETE("/goods-favor/:id", handler.AdminGoodsFavorDelete)
-		admin.GET("/goods-cart", handler.AdminGoodsCartList)
-		admin.DELETE("/goods-cart/:id", handler.AdminGoodsCartDelete)
-
-		// 邮件测试
-		admin.POST("/email-test", handler.EmailTestHandler)
-
-		// 操作审计日志
-		admin.GET("/operation-logs", handler.AdminOperationLogList)
-
-		// 物流轨迹查询
-		admin.GET("/orders/:id/logistics", handler.LogisticsTrackHandler)
 	}
 }

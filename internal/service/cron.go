@@ -53,6 +53,8 @@ func CronOrderAutoReceive(days int) (sucs, fail int) {
 		SendMessage(o.UserID, "订单已完成", "您的订单已自动确认收货", "order", o.ID)
 		// 订单完成奖励积分
 		OrderRewardPoints(o.UserID, o.ID, o.PayAmount)
+		// 分销佣金结算
+		SettleCommission(o.ID)
 		sucs++
 	}
 	return

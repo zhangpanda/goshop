@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 import ImageUpload from '@/components/ImageUpload'
 import SpecEditor from '@/components/SpecEditor'
+import ParamsEditor from '@/components/ParamsEditor'
 import RichEditor from '@/components/RichEditor'
 
 interface Cat { id: number; name: string; children?: Cat[] }
@@ -109,10 +110,8 @@ export default function GoodsEditPage() {
           )},
           { key: 'params', label: '商品参数', children: (
             <Card>
-              <Typography.Text type="secondary">商品参数将展示在商品详情页的参数Tab中</Typography.Text>
-              <Form.Item name="params_json" label="参数(JSON格式)">
-                <Input.TextArea rows={6} placeholder='[{"name":"品牌","value":"Apple"},{"name":"产地","value":"中国"}]' />
-              </Form.Item>
+              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>商品参数将展示在商品详情页的参数Tab中</Typography.Text>
+              <Form.Item name="params_json"><ParamsEditor /></Form.Item>
             </Card>
           )},
           { key: 'photo', label: '相册/视频', children: (

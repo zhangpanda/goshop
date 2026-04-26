@@ -12,10 +12,12 @@ db:
   password: ""        # MySQL 密码
   dbname: goshop      # 数据库名（需提前创建）
 
+# Redis（可选，不配置则使用内存缓存）
+# 生产环境建议配置 Redis 以支持多实例部署和持久化缓存
 redis:
-  host: 127.0.0.1     # Redis 地址（Docker 部署改为 redis）
+  host: ""            # 留空则自动使用内存缓存
   port: 6379
-  password: ""        # Redis 密码（无密码留空）
+  password: ""
   db: 0
 
 jwt:
@@ -31,3 +33,15 @@ wechat:
   serial_no: ""       # 商户证书序列号
   private_key: "cert/apiclient_key.pem"  # 商户私钥文件路径
   notify_url: "https://yourdomain.com/api/pay/notify"  # 支付回调地址（必须 HTTPS）
+
+# 支付宝支付（不需要可留空）
+alipay:
+  app_id: ""          # 支付宝应用 AppID
+  private_key: ""     # 应用私钥（RSA2, PKCS8 格式）
+  public_key: ""      # 支付宝公钥（用于验签回调）
+  notify_url: "https://yourdomain.com/api/pay/alipay/notify"  # 支付回调地址（必须 HTTPS）
+
+# 支付沙盒模式（开发/测试用）
+# 开启后所有支付方式直接返回成功，不走真实第三方
+payment:
+  sandbox: false      # true 开启沙盒，生产环境必须为 false

@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"github.com/zhangpanda/goshop/pkg/cache"
 	"github.com/zhangpanda/goshop/pkg/wechat"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
@@ -33,7 +34,10 @@ func InitDB() error {
 		return fmt.Errorf("connect db: %w", err)
 	}
 
-	sqlDB, _ := db.DB()
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("get sql db: %w", err)
+	}
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
@@ -44,6 +48,11 @@ func InitDB() error {
 
 func InitRedis() error {
 	cfg := global.Cfg.Redis
+	if cfg.Host == "" {
+		log.Println("Redis not configured, using in-memory cache")
+		global.Cache = cache.NewMemoryCache()
+		return nil
+	}
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
 		Password: cfg.Password,
@@ -54,10 +63,13 @@ func InitRedis() error {
 	defer cancel()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		return fmt.Errorf("connect redis: %w", err)
+		log.Printf("Redis connect failed (%v), falling back to in-memory cache", err)
+		global.Cache = cache.NewMemoryCache()
+		return nil
 	}
 
-	global.RDB = rdb
+	global.Cache = cache.NewRedisCache(rdb)
+	log.Println("Redis connected")
 	return nil
 }
 
@@ -152,6 +164,12 @@ func InitDefaultConfig() {
 		{Group: "weixin", Key: "common_app_mini_weixin_appsecret", Value: "", Desc: "微信小程序AppSecret"},
 		// alipay
 		{Group: "alipay", Key: "common_app_mini_alipay_appid", Value: "", Desc: "支付宝小程序AppID"},
+		// logistics
+		{Group: "logistics", Key: "logistics_api_key", Value: "", Desc: "快递100 API Key"},
+		{Group: "logistics", Key: "logistics_api_customer", Value: "", Desc: "快递100 Customer"},
+		// distribution
+		{Group: "distribution", Key: "distribution_rate_level1", Value: "10", Desc: "一级分销佣金比例(%)"},
+		{Group: "distribution", Key: "distribution_rate_level2", Value: "5", Desc: "二级分销佣金比例(%)"},
 	}
 	global.DB.Create(&configs)
 	log.Println("default config seeded:", len(configs), "items")

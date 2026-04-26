@@ -47,9 +47,14 @@ func ConfirmReceive(userID, orderID uint) error {
 		return errors.New("订单状态不允许确认收货")
 	}
 	now := time.Now()
-	return global.DB.Model(&order).Updates(map[string]interface{}{
+	if err := global.DB.Model(&order).Updates(map[string]interface{}{
 		"status": model.OrderStatusCompleted, "completed_at": &now,
-	}).Error
+	}).Error; err != nil {
+		return err
+	}
+	// 分销佣金结算
+	go SettleCommission(orderID)
+	return nil
 }
 
 func GetShipment(orderID uint) (*model.Shipment, error) {

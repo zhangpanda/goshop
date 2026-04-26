@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/wechat"
+	"gorm.io/gorm"
 )
 
 // PaymentDriver 支付驱动接口
@@ -82,21 +84,6 @@ func (d *WechatJSAPIDriver) Refund(ctx context.Context, req *RefundDriverReq) er
 	return err
 }
 
-// 类型别名避免循环引用
-type wechatPrepayReq = struct {
-	OrderNo     string
-	Description string
-	Amount      int64
-	OpenID      string
-}
-type wechatRefundReq = struct {
-	OrderNo  string
-	RefundNo string
-	Total    int64
-	Refund   int64
-	Reason   string
-}
-
 // ========== 微信H5支付 ==========
 
 type WechatH5Driver struct{}
@@ -129,6 +116,12 @@ func (d *AlipayDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverRe
 	if cfg.AppID == "" {
 		return nil, errors.New("支付宝未配置")
 	}
+	bizContent, _ := json.Marshal(map[string]interface{}{
+		"out_trade_no": req.OrderNo,
+		"total_amount": fmt.Sprintf("%.2f", float64(req.Amount)/100),
+		"subject":      req.Description,
+		"product_code": d.productCode(),
+	})
 	params := map[string]string{
 		"app_id":      cfg.AppID,
 		"method":      d.method(),
@@ -137,7 +130,7 @@ func (d *AlipayDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverRe
 		"timestamp":   time.Now().Format("2006-01-02 15:04:05"),
 		"version":     "1.0",
 		"notify_url":  cfg.NotifyURL,
-		"biz_content": fmt.Sprintf(`{"out_trade_no":"%s","total_amount":"%.2f","subject":"%s","product_code":"%s"}`, req.OrderNo, float64(req.Amount)/100, req.Description, d.productCode()),
+		"biz_content": string(bizContent),
 	}
 	if req.ReturnURL != "" {
 		params["return_url"] = req.ReturnURL
@@ -175,6 +168,12 @@ func (d *AlipayDriver) Refund(ctx context.Context, req *RefundDriverReq) error {
 	if cfg.AppID == "" {
 		return errors.New("支付宝未配置")
 	}
+	refundBiz, _ := json.Marshal(map[string]interface{}{
+		"out_trade_no":   req.OrderNo,
+		"refund_amount":  fmt.Sprintf("%.2f", float64(req.Refund)/100),
+		"out_request_no": req.RefundNo,
+		"refund_reason":  req.Reason,
+	})
 	params := map[string]string{
 		"app_id":      cfg.AppID,
 		"method":      "alipay.trade.refund",
@@ -182,7 +181,7 @@ func (d *AlipayDriver) Refund(ctx context.Context, req *RefundDriverReq) error {
 		"sign_type":   "RSA2",
 		"timestamp":   time.Now().Format("2006-01-02 15:04:05"),
 		"version":     "1.0",
-		"biz_content": fmt.Sprintf(`{"out_trade_no":"%s","refund_amount":"%.2f","out_request_no":"%s","refund_reason":"%s"}`, req.OrderNo, float64(req.Refund)/100, req.RefundNo, req.Reason),
+		"biz_content": string(refundBiz),
 	}
 	params["sign"] = alipaySign(params, cfg.PrivateKey)
 	// 发起退款请求
@@ -323,7 +322,49 @@ func GetPaymentDriver(name string) (PaymentDriver, error) {
 	if !ok {
 		return nil, fmt.Errorf("不支持的支付方式: %s", name)
 	}
+	if global.Cfg != nil && global.Cfg.Payment.Sandbox {
+		return &SandboxDriver{Name: name, Real: d}, nil
+	}
 	return d, nil
+}
+
+// ========== 沙盒驱动 ==========
+
+// SandboxDriver 包装真实驱动：走完参数构造和签名，但不依赖第三方返回
+type SandboxDriver struct {
+	Name string
+	Real PaymentDriver
+}
+
+func (d *SandboxDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverResp, error) {
+	tradeNo := fmt.Sprintf("SANDBOX_%s_%d", req.OrderNo, time.Now().UnixMilli())
+	callbackURL := fmt.Sprintf("/api/pay/sandbox/callback?order_no=%s&trade_no=%s", req.OrderNo, tradeNo)
+
+	// 尝试调用真实驱动的 Pay（验证参数构造+签名逻辑）
+	// 密钥未配置等情况会报错或 panic，沙盒模式下均忽略
+	realResp := d.tryRealPay(ctx, req)
+
+	resp := &PayDriverResp{
+		TradeNo: tradeNo,
+		PayURL:  callbackURL,
+	}
+	if realResp != nil {
+		resp.PrepayData = realResp.PrepayData
+		resp.QRCode = realResp.QRCode
+	}
+	return resp, nil
+}
+
+func (d *SandboxDriver) tryRealPay(ctx context.Context, req *PayDriverReq) (resp *PayDriverResp) {
+	defer func() { recover() }() //nolint // 沙盒容忍 panic（如 nil config）
+	resp, _ = d.Real.Pay(ctx, req)
+	return
+}
+
+func (d *SandboxDriver) Refund(ctx context.Context, req *RefundDriverReq) error {
+	defer func() { recover() }() //nolint
+	d.Real.Refund(ctx, req)      //nolint:errcheck
+	return nil
 }
 
 // ========== 统一支付入口 ==========
@@ -358,19 +399,23 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 		return &PayDriverResp{TradeNo: "OFFLINE_" + order.OrderNo}, nil
 	}
 
-	// 钱包支付：扣余额
+	// 钱包支付：原子扣余额
 	if req.PaymentKey == "wallet" {
-		var user model.User
-		global.DB.First(&user, userID)
-		if user.WalletBalance < order.PayAmount {
-			return nil, fmt.Errorf("钱包余额不足(余额%d分)", user.WalletBalance)
-		}
 		tx := global.DB.Begin()
-		tx.Model(&user).Update("wallet_balance", user.WalletBalance-order.PayAmount)
-		tx.Create(&model.WalletLog{UserID: userID, Amount: -order.PayAmount, Balance: user.WalletBalance - order.PayAmount, Type: "pay", RefID: order.ID, Remark: "订单支付"})
+		result := tx.Model(&model.User{}).Where("id = ? AND wallet_balance >= ?", userID, order.PayAmount).
+			Update("wallet_balance", gorm.Expr("wallet_balance - ?", order.PayAmount))
+		if result.RowsAffected == 0 {
+			tx.Rollback()
+			return nil, fmt.Errorf("钱包余额不足")
+		}
+		var user model.User
+		tx.First(&user, userID)
+		tx.Create(&model.WalletLog{UserID: userID, Amount: -order.PayAmount, Balance: user.WalletBalance, Type: "pay", RefID: order.ID, Remark: "订单支付"})
 		now := time.Now()
 		tx.Model(&order).Updates(map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now})
-		tx.Commit()
+		if err := tx.Commit().Error; err != nil {
+			return nil, fmt.Errorf("支付失败: %w", err)
+		}
 		AddOrderStatusHistory(order.ID, model.OrderStatusPending, model.OrderStatusPaid, "钱包支付", "系统")
 		return &PayDriverResp{TradeNo: "WALLET_" + order.OrderNo}, nil
 	}
@@ -446,4 +491,55 @@ func alipayEncode(params map[string]string) string {
 		first = false
 	}
 	return buf.String()
+}
+
+// AlipayVerifySign 验证支付宝回调签名（RSA2-SHA256）
+func AlipayVerifySign(params map[string]string, publicKeyPEM string) bool {
+	if publicKeyPEM == "" {
+		return false
+	}
+	sign, ok := params["sign"]
+	if !ok || sign == "" {
+		return false
+	}
+	// 构造待验签字符串（排除 sign 和 sign_type）
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		if k != "sign" && k != "sign_type" {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	var buf strings.Builder
+	for i, k := range keys {
+		if i > 0 {
+			buf.WriteByte('&')
+		}
+		buf.WriteString(k + "=" + params[k])
+	}
+	// 解码签名
+	sigBytes, err := base64.StdEncoding.DecodeString(sign)
+	if err != nil {
+		return false
+	}
+	// 解析公钥
+	block, _ := pem.Decode([]byte(publicKeyPEM))
+	if block == nil {
+		publicKeyPEM = "-----BEGIN PUBLIC KEY-----\n" + publicKeyPEM + "\n-----END PUBLIC KEY-----"
+		block, _ = pem.Decode([]byte(publicKeyPEM))
+	}
+	if block == nil {
+		return false
+	}
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return false
+	}
+	rsaPub, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		return false
+	}
+	h := sha256.New()
+	h.Write([]byte(buf.String()))
+	return rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, h.Sum(nil), sigBytes) == nil
 }
