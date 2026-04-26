@@ -12,7 +12,7 @@
 - GoShop 知识库ID: `08781f0a-304e-47e5-b995-f790581ffb28`
 
 ## 技术栈
-- 后端: Go 1.23 + Gin + GORM + MySQL + Redis(可选)
+- 后端: Go 1.25 + Gin + GORM + MySQL + Redis(可选)（以 `go.mod` 为准）
 - 管理后台: Next.js 15 + Ant Design 5（端口3010）
 - PC前台: Next.js 15 + Tailwind 4 + framer-motion（端口3000）
 - 手机端: 复用 ShopXO uni-app，兼容层对接
@@ -29,14 +29,17 @@ cd web && npm run dev           # PC前台 :3000
 ### 核心数据
 | 指标 | 数值 |
 |------|------|
-| Go 后端代码 | ~1.7万行 |
-| API 路由 | 468（346路由 + 41 DIY + 81 ShopXO兼容） |
-| 数据库表 | 98张 |
-| 管理后台页面 | 69个 |
-| 管理后台组件 | 12个 |
-| PC前台页面 | 24个 |
-| Go 单元测试 | 42个 |
-| 集成测试脚本 | 3个（API 含 ShopXO 多单/沙盒、支付沙盒、分销） |
+| Go 后端代码 | 17285 行（`internal`+`pkg`+`cmd`+`config`+`global`，不含 `*_test.go`） |
+| Gin HTTP 注册 | **392**（`internal/router/router.go` **350** + `diyapi_compat` **41** + `/api.php` **1**） |
+| ShopXO `api.php` | **81** 个 `s=` 动作（`routeMap`，单入口 `Any`） |
+| 数据库表 | **95**（`cmd/server/main.go` 中 `AutoMigrate` 的去重模型数） |
+| 管理后台页面 | **70**（`admin/src/app/**/page.tsx`） |
+| 管理后台组件 | **12**（`admin/src/components/*` 顶层文件） |
+| PC前台页面 | **24**（`web/src/app/**/page.tsx`） |
+| Go 单元测试 | **47**（`^func Test`，全仓 `*_test.go`） |
+| 集成/验收脚本 | **3**（`scripts/integration_test.sh`、`sandbox_pay_test.sh`、`distribution_test.sh`） |
+
+> 上表为对外文档的**权威口径**。更新实现后请跑 **`scripts/doc-metrics.sh`** 刷新数字，并同步 `README.md` / `docs/*`，避免漂移。
 
 ### 本轮完成的全部工作
 

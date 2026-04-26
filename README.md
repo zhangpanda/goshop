@@ -4,30 +4,24 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/zhangpanda/goshop)](go.mod)
 
-用 Go 重写的开源电商系统，100% 对齐 ShopXO v6.8.0 功能，前后端分离架构。
+用 Go 重写的开源电商系统，**核心功能与数据模型高度对齐** ShopXO v6.8.0（整体覆盖率约 97%，PHP 生态专属能力与应用商店等仍为占位或规划项），前后端分离架构。
 
 > Go 后端代码为独立编写。DIY装修器和Form表单设计器复用 ShopXO 官方子项目（[shopxo-diy](https://github.com/gongfuxiang/shopxo-diy) / [shopxo-form](https://github.com/gongfuxiang/shopxo-form)，MIT），uni-app 移动端可直接对接（[shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)）。
 
 ## 特性
 
-- **Go 后端**：Gin + GORM + MySQL，460+个API路由，12种支付驱动，Redis可选
+- **Go 后端**：Gin + GORM + MySQL，**392** 条 Gin 路由注册（`router.go` 350 + DIY/Form 41 + `/api.php` 1）；ShopXO uni-app **`s=` 动作 81**；12 种支付驱动，Redis 可选
 - **营销功能**：秒杀（乐观锁+限购）、拼团（自动成团）、优惠券、促销
-- **管理后台**：Next.js + Ant Design，68个页面，100%对齐ShopXO后台
+- **管理后台**：Next.js + Ant Design，70 个页面，后台能力对齐 ShopXO（详见 `HANDOVER.md`）
 - **PC前台**：Next.js + Tailwind CSS，Apple风格UI
-- **手机端**：直接复用ShopXO uni-app，兼容层56/56接口通过
+- **手机端**：直接复用 ShopXO uni-app，后端提供 ShopXO 风格兼容接口（**81** 个 `s=` 动作，见 `internal/handler/shopxo_compat.go`）
 - **缓存抽象**：Redis/内存缓存自动切换，无Redis也能运行
 - **DIY装修**：集成shopxo-diy可视化拖拽编辑器
 - **Form设计**：集成shopxo-form可视化表单设计器
 
 ## 截图预览
 
-| 首页 | 商品列表 |
-|------|----------|
-| ![首页](docs/screenshots/home.png) | ![商品列表](docs/screenshots/products.png) |
-
-| 商品详情 | 管理后台 |
-|----------|----------|
-| ![商品详情](docs/screenshots/product-detail.png) | ![管理后台](docs/screenshots/admin-login.png) |
+仓库内**未附带**静态预览图；克隆后启动 `web` / `admin` 与后端即可在本地查看界面。如需在 README 中展示截图，可自行截取后放入 `docs/screenshots/` 并在此引用。
 
 ## 快速开始
 
@@ -45,9 +39,9 @@ docker compose up -d
 ### 本地开发
 
 #### 环境要求
-- Go 1.21+
-- Node.js 18+
-- MySQL 5.7+
+- Go 1.25+（与 `go.mod` 保持一致）
+- Node.js 20+（与 Next.js 15 实践一致）
+- MySQL 5.7+ / 8.0+（推荐 8.0）
 - Redis 6+（可选，不配置则使用内存缓存）
 
 ### 1. 启动后端
@@ -112,12 +106,12 @@ npx vite build
 goshop/
 ├── cmd/server/main.go          # 入口
 ├── internal/
-│   ├── handler/                # HTTP处理器 (34文件)
-│   ├── service/                # 业务逻辑 (48文件)
-│   ├── model/                  # 数据模型 (32文件, 90张表)
-│   ├── router/router.go        # 路由注册 (460+路由)
+│   ├── handler/                # HTTP处理器 (约38个 Go 文件)
+│   ├── service/                # 业务逻辑 (约58个 Go 文件)
+│   ├── model/                  # 数据模型 (34个 Go 文件, 95张表，以 AutoMigrate / doc-metrics 为准)
+│   ├── router/router.go        # 路由注册 (350 条 Gin 注册 + 见 HANDOVER 合计 392)
 │   └── middleware/             # 中间件 (JWT/CORS/操作日志)
-├── admin/                      # 管理后台 Next.js (68页面)
+├── admin/                      # 管理后台 Next.js (70个页面)
 ├── web/                        # PC前台 Next.js (24页面)
 ├── static/                     # DIY/Form构建产物
 ├── pkg/                        # 公共包 (JWT/缓存/微信支付/响应)
@@ -138,9 +132,9 @@ goshop/
 | 数据 | 消息/支付日志/积分日志/退款日志/短信日志/邮件日志/错误日志/搜索记录/操作日志 |
 | 文章 | 文章管理/文章分类 |
 | 手机 | 首页导航/基础配置/小程序配置/用户中心导航/DIY装修 |
-| 应用 | 插件安装/卸载/配置/应用商店 |
+| 应用 | 插件安装/卸载/配置；**应用商店为占位/规划中**（非 ShopXO 在线市场） |
 | 仓库 | 仓库管理/仓库商品 |
-| 系统 | 系统配置(12分组77项)/商店信息 |
+| 系统 | 系统配置(12分组77项)/商店信息/多语言与货币 |
 | 站点 | 站点设置/短信/SEO/邮箱/协议 |
 | 权限 | 管理员/角色/权限分配 |
 | 工具 | 缓存管理/SQL控制台 |
@@ -151,7 +145,7 @@ goshop/
 
 ## 数据库
 
-- 90张表，全部有中文表注释和字段注释
+- **95** 张表（`AutoMigrate` 模型数；可运行 `scripts/doc-metrics.sh` 核对），表与字段含中文注释
 - 首次启动自动建表(AutoMigrate)
 - 自动初始化：默认管理员、系统配置(77项)、快递公司(14家)、省市区(3447条)
 
@@ -161,12 +155,12 @@ goshop/
 |------|--------|--------|
 | 语言 | PHP (ThinkPHP) | Go (Gin + GORM) |
 | 架构 | 前后端一体 | 前后端分离 |
-| 后端代码 | ~14.5万行 | ~1.7万行 |
+| 后端代码 | ~14.5万行 | ~1.73万行（见 `HANDOVER.md`） |
 | 管理后台 | PHP模板渲染 | React + Ant Design |
 | PC前台 | PHP模板渲染 | Next.js + Tailwind |
 | 性能 | 一般 | 高（Go原生并发） |
 | 部署 | PHP+Nginx+MySQL | 单二进制+MySQL（Redis可选） |
-| 功能覆盖 | 100% | 100% |
+| 功能覆盖 | 100%（PHP 模板 + 生态） | 核心约 97% 对齐（详见 `HANDOVER.md`） |
 
 ## 贡献
 
@@ -183,6 +177,7 @@ goshop/
 | [uni-app 对接指南](docs/uniapp-guide.md) | ShopXO uni-app 前端对接说明 |
 | [Web 前台](web/README.md) | PC 前台开发说明 |
 | [管理后台](admin/README.md) | 管理后台开发说明 |
+| [`scripts/doc-metrics.sh`](scripts/doc-metrics.sh) | 规模指标统计（路由/表/页面/测试数等），与 `HANDOVER.md` 对齐 |
 
 ## 开源协议
 

@@ -224,7 +224,7 @@ UPDATE goshop.brands SET logo = REPLACE(logo, '/static/upload/', '/uploads/') WH
 
 ### uni-app 手机端（改一行）
 
-GoShop 内置 ShopXO 兼容层，56 个接口全部兼容：
+GoShop 内置 ShopXO 兼容层，提供 **81** 个 `s=` 动作与官方 uni-app 对接（详见 `internal/handler/shopxo_compat.go` 与 `HANDOVER.md`）：
 
 ```javascript
 // shopxo-uniapp/common/config.js

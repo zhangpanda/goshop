@@ -146,7 +146,7 @@ server {
     server_name admin.yourdomain.com;
 
     location / {
-        proxy_pass http://127.0.0.1:3001;
+        proxy_pass http://127.0.0.1:3010;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }

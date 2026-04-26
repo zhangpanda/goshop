@@ -11,12 +11,12 @@ goshop/
 │   ├── initialize/                 # 初始化逻辑
 │   │   ├── init.go                 # DB/Redis/Admin/Config/Powers/Navigation
 │   │   └── seed.go                 # 展示数据（商品/文章/优惠券/轮播图）
-│   ├── model/                      # GORM 数据模型（90张表）
+│   ├── model/                      # GORM 数据模型（95 张表，以 AutoMigrate / scripts/doc-metrics.sh 为准）
 │   ├── service/                    # 业务逻辑层
 │   ├── handler/                    # HTTP 处理器（Controller）
-│   │   ├── shopxo_compat.go        # ShopXO uni-app 兼容层（56个接口）
+│   │   ├── shopxo_compat.go        # ShopXO uni-app 兼容层（81 个 s= 动作，见 HANDOVER.md）
 │   │   └── ...
-│   ├── router/router.go            # 路由注册（308条路由）
+│   ├── router/router.go            # 路由注册（350 条 Gin 注册；全站合计 392 见 HANDOVER.md）
 │   └── middleware/                  # 中间件
 │       ├── jwt.go                  # 用户 JWT 认证
 │       ├── admin_auth.go           # 管理员 JWT 认证

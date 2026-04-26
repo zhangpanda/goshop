@@ -258,7 +258,7 @@
 
 通过 `/api.php?s=controller/action` 调用，token 通过 `?token=xxx` 传递。
 
-支持 56 个 ShopXO 原生接口，详见 [uni-app 对接指南](uniapp-guide.md)。
+提供 **81** 个 ShopXO 风格 `s=` 动作（`routeMap`，详见 `internal/handler/shopxo_compat.go`），使用说明见 [uni-app 对接指南](uniapp-guide.md)。
 
 常用接口映射：
 
