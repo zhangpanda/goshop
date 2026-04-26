@@ -16,6 +16,7 @@ const menuItems = [
   { key: 'system', icon: <SettingOutlined />, label: '系统', children: [
     { key: '/config', label: '系统配置' },
     { key: '/store-info', label: '商店信息' },
+    { key: '/locale', label: '语言与货币' },
   ]},
   { key: 'site', icon: <GlobalOutlined />, label: '站点', children: [
     { key: '/site', label: '站点设置' },

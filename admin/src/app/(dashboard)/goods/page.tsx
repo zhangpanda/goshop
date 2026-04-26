@@ -58,7 +58,8 @@ export default function GoodsPage() {
       </Card>
 
       {/* 批量操作 */}
-      <BatchActions selectedIds={selectedIds} deleteUrl="/admin/goods" statusUrl="/admin/goods" onDone={() => load(page)} />
+      <BatchActions selectedIds={selectedIds} deleteUrl="/admin/goods" statusUrl="/admin/goods"
+        exportUrl="/admin/export" exportType="goods" onDone={() => load(page)} />
 
       {/* 列表 */}
       <Table dataSource={list} rowKey="id"

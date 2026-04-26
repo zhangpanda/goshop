@@ -151,6 +151,16 @@ func AdminUpdateUserStatus(c *gin.Context) {
 	response.OK(c, nil)
 }
 
+// AdminDeleteUserHandler 禁用用户（非物理删除，与前台订单数据兼容）。
+func AdminDeleteUserHandler(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := service.AdminDisableUser(uint(id)); err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.OK(c, nil)
+}
+
 // ========== 分类管理 ==========
 
 func AdminUpdateCategory(c *gin.Context) {

@@ -40,7 +40,9 @@ export default function UsersPage() {
         </Row>
       </Card>
 
-      <BatchActions selectedIds={selectedIds} deleteUrl="/admin/users" statusUrl="/admin/users" onDone={() => load(page)} />
+      <BatchActions selectedIds={selectedIds} deleteUrl="/admin/users" statusUrl="/admin/users"
+        deleteButtonText="批量禁用" deleteConfirmTitle="确认将选中用户设为禁用？（不删除数据，保留订单关联）"
+        exportUrl="/admin/export" exportType="users" onDone={() => load(page)} />
 
       <Table dataSource={list} rowKey="id"
         rowSelection={{ selectedRowKeys: selectedIds, onChange: keys => setSelectedIds(keys as number[]) }}

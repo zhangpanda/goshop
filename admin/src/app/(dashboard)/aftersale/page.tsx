@@ -5,7 +5,6 @@ import { SearchOutlined } from '@ant-design/icons'
 import { api } from '@/lib/api'
 import { useUserMap } from '@/lib/useIdMap'
 import DetailDrawer from '@/components/DetailDrawer'
-import BatchActions from '@/components/BatchActions'
 
 const TM: Record<number, string> = { 0: '仅退款', 1: '退货退款' }
 const SM: Record<number, { t: string; c: string }> = { 0: { t: '待确认', c: 'orange' }, 1: { t: '待退货', c: 'blue' }, 2: { t: '待审核', c: 'cyan' }, 3: { t: '已完成', c: 'green' }, 4: { t: '已拒绝', c: 'red' }, 5: { t: '已取消', c: 'default' } }
@@ -15,7 +14,6 @@ export default function AftersalePage() {
   const [list, setList] = useState<AS[]>([]); const [total, setTotal] = useState(0); const [page, setPage] = useState(1)
   const [status, setStatus] = useState(''); const [kw, setKw] = useState('')
   const userMap = useUserMap(list.map(r => r.user_id))
-  const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [detail, setDetail] = useState<AS | null>(null)
   const [refuseId, setRefuseId] = useState<number | null>(null); const [reason, setReason] = useState('')
 
@@ -24,7 +22,7 @@ export default function AftersalePage() {
     if (status) params.set('status', status)
     if (kw) params.set('keyword', kw)
     const res = await api.get<{ total: number; list: AS[] }>(`/admin/aftersale?${params}`)
-    setList(res.list || []); setTotal(res.total); setPage(p); setSelectedIds([])
+    setList(res.list || []); setTotal(res.total); setPage(p)
   }, [status, kw])
 
   useEffect(() => { load() }, [load])
@@ -40,9 +38,7 @@ export default function AftersalePage() {
           <Col><Button type="primary" onClick={() => load()}>查询</Button></Col>
         </Row>
       </Card>
-      <BatchActions selectedIds={selectedIds} onDone={() => load(page)} />
       <Table dataSource={list} rowKey="id"
-        rowSelection={{ selectedRowKeys: selectedIds, onChange: keys => setSelectedIds(keys as number[]) }}
         pagination={{ current: page, total, pageSize: 20, onChange: p => load(p), showTotal: t => `共 ${t} 条` }}
         columns={[
           { title: 'ID', dataIndex: 'id', width: 60 },

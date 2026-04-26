@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -71,7 +72,13 @@ func GetCurrencyConfig() *CurrencyConfig {
 	if name == "" {
 		name = "人民币"
 	}
-	return &CurrencyConfig{Symbol: symbol, Code: code, Rate: 1.0, Name: name}
+	rate := 1.0
+	if rs := GetConfig("currency_rate"); rs != "" {
+		if v, err := strconv.ParseFloat(rs, 64); err == nil && v > 0 {
+			rate = v
+		}
+	}
+	return &CurrencyConfig{Symbol: symbol, Code: code, Rate: rate, Name: name}
 }
 
 func SetCurrencyConfig(cfg *CurrencyConfig) {
@@ -118,6 +125,7 @@ type ExportReq struct {
 	Type    string `json:"type" binding:"required"` // orders, users, goods
 	Keyword string `json:"keyword"`
 	Status  *int8  `json:"status"`
+	IDs     []uint `json:"ids"` // 非空时仅导出这些 ID（与全表导出互斥）
 }
 
 func ExportData(w io.Writer, req *ExportReq) error {
@@ -129,7 +137,9 @@ func ExportData(w io.Writer, req *ExportReq) error {
 		writer.Write([]string{"订单号", "用户ID", "总金额", "实付金额", "状态", "创建时间"})
 		var list []model.Order
 		db := global.DB.Model(&model.Order{})
-		if req.Status != nil {
+		if len(req.IDs) > 0 {
+			db = db.Where("id IN ?", req.IDs)
+		} else if req.Status != nil {
 			db = db.Where("status = ?", *req.Status)
 		}
 		db.Order("id DESC").Limit(10000).Find(&list)
@@ -139,14 +149,22 @@ func ExportData(w io.Writer, req *ExportReq) error {
 	case "users":
 		writer.Write([]string{"ID", "用户名", "昵称", "手机", "积分", "状态", "注册时间"})
 		var list []model.User
-		global.DB.Order("id DESC").Limit(10000).Find(&list)
+		dbu := global.DB.Model(&model.User{})
+		if len(req.IDs) > 0 {
+			dbu = dbu.Where("id IN ?", req.IDs)
+		}
+		dbu.Order("id DESC").Limit(10000).Find(&list)
 		for _, u := range list {
 			writer.Write([]string{fmt.Sprint(u.ID), u.Username, u.Nickname, u.Phone, fmt.Sprint(u.Points), fmt.Sprint(u.Status), u.CreatedAt.Format(time.DateTime)})
 		}
 	case "goods":
 		writer.Write([]string{"ID", "标题", "分类ID", "状态", "销量", "创建时间"})
 		var list []model.Goods
-		global.DB.Order("id DESC").Limit(10000).Find(&list)
+		dbg := global.DB.Model(&model.Goods{})
+		if len(req.IDs) > 0 {
+			dbg = dbg.Where("id IN ?", req.IDs)
+		}
+		dbg.Order("id DESC").Limit(10000).Find(&list)
 		for _, g := range list {
 			writer.Write([]string{fmt.Sprint(g.ID), g.Title, fmt.Sprint(g.CategoryID), fmt.Sprint(g.Status), fmt.Sprint(g.SalesCount), g.CreatedAt.Format(time.DateTime)})
 		}

@@ -99,6 +99,19 @@ func SaveRolePlugins(roleID uint, pluginIDs []uint) error {
 	return nil
 }
 
+// GetRolePluginIDs 返回角色已绑定的插件 ID 列表。
+func GetRolePluginIDs(roleID uint) ([]uint, error) {
+	var rows []model.RolePlugins
+	if err := global.DB.Where("role_id = ?", roleID).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]uint, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.PluginID)
+	}
+	return out, nil
+}
+
 // FormTableUserFields
 func SaveFormFields(formID uint, fields []model.FormTableUserFields) error {
 	tx := global.DB.Begin()

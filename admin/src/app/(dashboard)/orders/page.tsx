@@ -102,7 +102,7 @@ export default function OrdersPage() {
         </Row>
       </Card>
 
-      <BatchActions selectedIds={selectedIds} deleteUrl="/admin/orders" exportUrl="/admin/export" onDone={() => load(page)} />
+      <BatchActions selectedIds={selectedIds} deleteUrl="/admin/orders" exportUrl="/admin/export" exportType="orders" onDone={() => load(page)} />
 
       <Table dataSource={list} rowKey="id"
         rowSelection={{ selectedRowKeys: selectedIds, onChange: keys => setSelectedIds(keys as number[]) }}

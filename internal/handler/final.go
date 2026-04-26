@@ -134,6 +134,16 @@ func PluginConfigSetHandler(c *gin.Context) {
 }
 
 // RolePlugins
+func GetRolePluginsHandler(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	ids, err := service.GetRolePluginIDs(uint(id))
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.OK(c, ids)
+}
+
 func SaveRolePluginsHandler(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var r struct {

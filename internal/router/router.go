@@ -246,6 +246,7 @@ func Setup(r *gin.Engine) {
 			rbac.GET("/powers", handler.GetPowerTree)
 			rbac.PUT("/roles/:id/powers", handler.SaveRolePowers)
 			rbac.GET("/roles/:id/powers", handler.GetRolePowersHandler)
+			rbac.GET("/roles/:id/plugins", handler.GetRolePluginsHandler)
 			rbac.PUT("/roles/:id/plugins", handler.SaveRolePluginsHandler)
 		}
 
@@ -310,6 +311,7 @@ func Setup(r *gin.Engine) {
 		{
 			user.GET("/users", handler.AdminGetUsers)
 			user.PUT("/users/:id/status", handler.AdminUpdateUserStatus)
+			user.DELETE("/users/:id", handler.AdminDeleteUserHandler)
 			user.GET("/user-address", handler.UserAddressListHandler)
 			user.GET("/user-address/:id", handler.UserAddressDetailHandler)
 			user.PUT("/user-address/:id", handler.UserAddressSaveHandler)
@@ -474,7 +476,9 @@ func Setup(r *gin.Engine) {
 		{
 			cfg.GET("/config", handler.GetConfigGroup)
 			cfg.POST("/config", handler.SetConfigHandler)
+			cfg.GET("/multilingual", handler.GetMultilingualConfig)
 			cfg.POST("/multilingual", handler.SetMultilingualConfig)
+			cfg.GET("/currency", handler.GetCurrencyConfig)
 			cfg.POST("/currency", handler.SetCurrencyConfig)
 			cfg.GET("/site-config", handler.GetSiteConfigHandler)
 			cfg.POST("/site-config", handler.SaveSiteConfigHandler)

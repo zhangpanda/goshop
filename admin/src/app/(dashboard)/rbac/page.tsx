@@ -1,10 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Tabs, Table, Button, Modal, Form, Input, Select, Space, Tree, TreeSelect, Typography, Switch, Popconfirm, message } from 'antd'
+import { Tabs, Table, Button, Modal, Form, Input, Select, Space, Tree, TreeSelect, Typography, Switch, Popconfirm, message, Checkbox } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { api } from '@/lib/api'
 
 interface Role { id: number; name: string; description: string }
+interface PluginRow { id: number; name: string; title: string; status: number }
 interface Power { id: number; name: string; parent_id: number; action: string; sort: number; children?: Power[] }
 interface Admin { id: number; username: string; role_id: number; status: number; created_at: string }
 interface TreeNode { key: number; title: string; children?: TreeNode[] }
@@ -23,6 +24,9 @@ export default function RBACPage() {
   const [adminOpen, setAdminOpen] = useState(false)
   const [permOpen, setPermOpen] = useState<Role | null>(null)
   const [checkedKeys, setCheckedKeys] = useState<number[]>([])
+  const [pluginOpen, setPluginOpen] = useState<Role | null>(null)
+  const [plugins, setPlugins] = useState<PluginRow[]>([])
+  const [pluginIds, setPluginIds] = useState<number[]>([])
   const [roleForm] = Form.useForm()
   const [powerForm] = Form.useForm()
   const [adminForm] = Form.useForm()
@@ -40,6 +44,21 @@ export default function RBACPage() {
     setPermOpen(r)
     try { const ids = await api.get<number[]>(`/admin/roles/${r.id}/powers`); setCheckedKeys(ids || []) }
     catch { setCheckedKeys([]) }
+  }
+
+  const openPlugins = async (r: Role) => {
+    setPluginOpen(r)
+    try {
+      const [plist, ids] = await Promise.all([
+        api.get<PluginRow[]>('/admin/plugins'),
+        api.get<number[]>(`/admin/roles/${r.id}/plugins`),
+      ])
+      setPlugins(Array.isArray(plist) ? plist : [])
+      setPluginIds(Array.isArray(ids) ? ids : [])
+    } catch {
+      setPlugins([])
+      setPluginIds([])
+    }
   }
 
   return (
@@ -68,9 +87,10 @@ export default function RBACPage() {
                 { title: 'ID', dataIndex: 'id', width: 60 },
                 { title: '名称', dataIndex: 'name' },
                 { title: '描述', dataIndex: 'description' },
-                { title: '操作', width: 200, render: (_: unknown, r: Role) => (
-                  <Space>
+                { title: '操作', width: 280, render: (_: unknown, r: Role) => (
+                  <Space wrap>
                     <a onClick={() => openPerm(r)}>分配权限</a>
+                    <a onClick={() => openPlugins(r)}>分配插件</a>
                     <Popconfirm title="确认删除?" onConfirm={async () => { await api.del(`/admin/roles/${r.id}`); loadRoles() }}>
                       <a style={{ color: 'red' }}>删除</a>
                     </Popconfirm>
@@ -114,6 +134,23 @@ export default function RBACPage() {
       }} forceRender>
         <Tree checkable treeData={toTreeData(powers)} defaultExpandAll
           checkedKeys={checkedKeys} onCheck={keys => setCheckedKeys(keys as number[])} />
+      </Modal>
+      <Modal title={`分配插件 - ${pluginOpen?.name}`} open={!!pluginOpen} onCancel={() => setPluginOpen(null)} onOk={async () => {
+        await api.put(`/admin/roles/${pluginOpen!.id}/plugins`, { plugin_ids: pluginIds })
+        message.success('已保存'); setPluginOpen(null)
+      }} forceRender>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+          勾选该角色可使用的应用插件（与 ShopXO 角色插件概念对齐；具体能力仍依赖业务是否读取此关联）。
+        </Typography.Paragraph>
+        <Checkbox.Group
+          value={pluginIds}
+          onChange={v => setPluginIds(v as number[])}
+          style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+          options={plugins.map(p => ({
+            value: p.id,
+            label: `${p.title || p.name} (${p.name})${p.status === 1 ? '' : ' · 未启用'}`,
+          }))}
+        />
       </Modal>
     </>
   )

@@ -74,3 +74,18 @@ func GetUserByID(id uint) (*model.User, error) {
 	}
 	return &user, nil
 }
+
+// AdminDisableUser 管理后台将用户设为禁用（不物理删除，保留订单等关联数据）。
+func AdminDisableUser(userID uint) error {
+	if userID == 0 {
+		return errors.New("无效用户")
+	}
+	res := global.DB.Model(&model.User{}).Where("id = ?", userID).Update("status", int8(0))
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("用户不存在")
+	}
+	return nil
+}
