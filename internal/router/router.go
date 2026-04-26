@@ -527,7 +527,7 @@ func Setup(r *gin.Engine) {
 		admin.GET("/brands", handler.GetBrandList)
 		admin.GET("/coupons", handler.GetCouponList)
 		admin.GET("/custom-views", handler.CustomViewListHandler)
-		admin.GET("/promotions", handler.GetActivePromotions)
+		admin.GET("/promotions", handler.AdminPromotionListHandler)
 		admin.GET("/articles", handler.GetArticleList)
 		admin.GET("/app/home-nav", handler.AppHomeNavListHandler)
 		admin.GET("/app/center-nav", handler.AppCenterNavListHandler)

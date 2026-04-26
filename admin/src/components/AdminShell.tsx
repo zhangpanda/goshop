@@ -6,7 +6,7 @@ import {
   UserOutlined, ShoppingOutlined, OrderedListOutlined, AppstoreOutlined,
   DatabaseOutlined, FileTextOutlined, MobileOutlined, ApiOutlined,
   HomeOutlined, ToolOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined,
-  TagsOutlined, TeamOutlined,
+  TagsOutlined, TeamOutlined, GiftOutlined,
 } from '@ant-design/icons'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAdmin, AdminAuthProvider } from '@/lib/admin-auth'
@@ -41,6 +41,12 @@ const menuItems = [
     { key: '/goods-cart', label: '商品购物车' },
     { key: '/goods-params-tpl', label: '商品参数模板' },
     { key: '/goods-spec-tpl', label: '商品规格模板' },
+  ]},
+  { key: 'marketing', icon: <GiftOutlined />, label: '营销', children: [
+    { key: '/coupons', label: '优惠券' },
+    { key: '/promotions', label: '促销' },
+    { key: '/seckills', label: '秒杀' },
+    { key: '/group-buys', label: '拼团' },
   ]},
   { key: 'order', icon: <OrderedListOutlined />, label: '订单', children: [
     { key: '/orders', label: '订单管理' },

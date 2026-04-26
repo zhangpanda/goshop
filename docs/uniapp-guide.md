@@ -310,3 +310,10 @@ export const getImageUrl = (path) => {
 2. **Token 过期**：默认 72 小时，可在 config.yaml 中调整
 3. **图片上传失败**：检查 uploads 目录权限，确保可写
 4. **支付失败**：确认 config.yaml 中微信支付配置正确，证书文件存在
+
+### APP 拉起小程序收银台（与 ShopXO `cashier/paydata` 对齐）
+
+1. 在后台新增支付方式，JSON 配置中设置 `"payment":"WeixinAppMini"`，可选 `"path":"pages/cashier/cashier"`（与官方 uni-app 收银台页一致）。名称含「APP小程序」也会被识别为同一模式。
+2. 用户在 **APP** 内对订单发起支付且选用该方式时，`order/pay` 在无 `openid` 时会创建 **PayLog**，响应 `data` 为 `weixinapp://...?order_no=<pay_no>`，用于打开小程序。
+3. 小程序收银台页调用 `wx.login` 取 `code`，请求 `GET/POST /api.php?s=cashier/paydata`，参数 **`authcode`**（即 code）、**`order_no`**（上一步的 pay_no）。服务端用 `authcode` 换 `openid`，且该 openid 须与订单用户已在库中绑定的微信一致（`user_platforms` 或 `users.open_id`）。
+4. 返回结构与 `order/pay` 的线上支付一致（含 `data` 内 `prepay_id` 等），供 `wx.requestPayment` 调起。

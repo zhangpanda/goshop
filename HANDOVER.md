@@ -31,7 +31,7 @@ cd web && npm run dev           # PC前台 :3000
 |------|------|
 | Go 后端代码 | 17285 行（`internal`+`pkg`+`cmd`+`config`+`global`，不含 `*_test.go`） |
 | Gin HTTP 注册 | **392**（`internal/router/router.go` **350** + `diyapi_compat` **41** + `/api.php` **1**） |
-| ShopXO `api.php` | **81** 个 `s=` 动作（`routeMap`，单入口 `Any`） |
+| ShopXO `api.php` | **82** 个 `s=` 动作（`routeMap`，单入口 `Any`） |
 | 数据库表 | **95**（`cmd/server/main.go` 中 `AutoMigrate` 的去重模型数） |
 | 管理后台页面 | **70**（`admin/src/app/**/page.tsx`） |
 | 管理后台组件 | **12**（`admin/src/components/*` 顶层文件） |
@@ -93,6 +93,7 @@ cd web && npm run dev           # PC前台 :3000
 - **集成 Job 内 `config.yaml`**：增加 `payment.sandbox: true`，并以 **`GOSHOP_PAYMENT_SANDBOX=1`** 调用 `scripts/integration_test.sh`，覆盖 **ShopXO 多订单 + 沙盒回调** 路径
 
 #### 文档
+- docs/shopxo-admin-parity.md — 管理端与 ShopXO 后台模块对齐清单（可核对）
 - docs/migration-from-shopxo.md — ShopXO v6.x 迁移指南
 - docs/api.md — 补充秒杀/拼团/分销/统一支付等新 API
 - docs/deployment.md — Redis 可选 + 支付宝配置 + **Nginx `X-Forwarded-Proto`** + **关闭 AutoMigrate 时 `orders.payment_id` 的 ALTER 示例**

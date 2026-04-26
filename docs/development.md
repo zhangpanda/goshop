@@ -14,7 +14,7 @@ goshop/
 │   ├── model/                      # GORM 数据模型（95 张表，以 AutoMigrate / scripts/doc-metrics.sh 为准）
 │   ├── service/                    # 业务逻辑层
 │   ├── handler/                    # HTTP 处理器（Controller）
-│   │   ├── shopxo_compat.go        # ShopXO uni-app 兼容层（81 个 s= 动作，见 HANDOVER.md）
+│   │   ├── shopxo_compat.go        # ShopXO uni-app 兼容层（82 个 s= 动作，见 HANDOVER.md）
 │   │   └── ...
 │   ├── router/router.go            # 路由注册（350 条 Gin 注册；全站合计 392 见 HANDOVER.md）
 │   └── middleware/                  # 中间件

@@ -258,7 +258,7 @@
 
 通过 `/api.php?s=controller/action` 调用，token 通过 `?token=xxx` 传递。
 
-提供 **81** 个 ShopXO 风格 `s=` 动作（`routeMap`，详见 `internal/handler/shopxo_compat.go`），使用说明见 [uni-app 对接指南](uniapp-guide.md)。
+提供 **82** 个 ShopXO 风格 `s=` 动作（`routeMap`，详见 `internal/handler/shopxo_compat.go`），使用说明见 [uni-app 对接指南](uniapp-guide.md)。
 
 常用接口映射：
 
@@ -271,3 +271,4 @@
 | api.php?s=cart/index | /api/cart | 购物车 |
 | api.php?s=order/index | /api/orders | 订单列表 |
 | api.php?s=search/index&keywords=xxx | /api/goods?keyword=xxx | 搜索 |
+| api.php?s=cashier/paydata | `/api.php?s=cashier/paydata` | 微信小程序收银台：参数 `authcode`（wx.login）、`order_no`（order/pay 返回的 PayLog `order_no`）；需用户已绑定与订单一致的微信 openid |

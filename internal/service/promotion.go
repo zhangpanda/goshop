@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
@@ -59,9 +60,35 @@ func CreatePromotion(req *CreatePromotionReq) (*model.Promotion, error) {
 func GetActivePromotions() ([]model.Promotion, error) {
 	var list []model.Promotion
 	now := time.Now()
-	err := global.DB.Where("status = 1 AND start_time <= ? AND end_time > ?", now, now).
+	err := global.DB.Where("type = ? AND status = 1 AND start_time <= ? AND end_time > ?", "promo", now, now).
 		Preload("Items").Find(&list).Error
 	return list, err
+}
+
+/**
+ * GetPromotionAdminList 管理后台：仅普通促销 type=promo，分页。
+ */
+func GetPromotionAdminList(page, pageSize int, keyword string) (int64, []model.Promotion, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	q := global.DB.Model(&model.Promotion{}).Where("type = ?", "promo")
+	if kw := strings.TrimSpace(keyword); kw != "" {
+		q = q.Where("name LIKE ?", "%"+kw+"%")
+	}
+	var total int64
+	q.Count(&total)
+	var list []model.Promotion
+	listQ := global.DB.Where("type = ?", "promo")
+	if kw := strings.TrimSpace(keyword); kw != "" {
+		listQ = listQ.Where("name LIKE ?", "%"+kw+"%")
+	}
+	err := listQ.Preload("Items").Order("id DESC").
+		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
+	return total, list, err
 }
 
 // GetPromoPrice 获取 SKU 的促销价，无促销返回 0

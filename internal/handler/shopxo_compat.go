@@ -215,6 +215,9 @@ var routeMap = map[string]gin.HandlerFunc{
 	"forminputdata/index":  sxFormInputDataIndex,
 	"forminputdata/save":   sxFormInputDataSave,
 	"forminputdata/delete": sxFormInputDataDelete,
+
+	// ===== cashier（微信小程序收银台，与 ShopXO Cashier::PayData 一致）=====
+	"cashier/paydata": sxCashierPayData,
 }
 
 // ===== handler实现 =====
@@ -683,6 +686,30 @@ func sxOrderPayCheck(c *gin.Context) {
 	}
 	response.OK(c, nil)
 }
+
+/**
+ * sxCashierPayData ShopXO cashier/paydata：小程序内用 wx.login 的 code 换 openid 后拉取 JSAPI 支付参数（需先通过 order/pay 创建 PayLog）。
+ */
+func sxCashierPayData(c *gin.Context) {
+	var body struct {
+		AuthCode string `form:"authcode" json:"authcode"`
+		OrderNo  string `form:"order_no" json:"order_no"`
+	}
+	_ = c.ShouldBind(&body)
+	if body.AuthCode == "" {
+		body.AuthCode = c.Query("authcode")
+	}
+	if body.OrderNo == "" {
+		body.OrderNo = c.Query("order_no")
+	}
+	payload, err := service.ShopXOCashierPayData(body.AuthCode, body.OrderNo)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.OK(c, payload)
+}
+
 func sxOrderCancel(c *gin.Context) {
 	id := getID(c)
 	if err := service.CancelOrder(c.GetUint("user_id"), id); err != nil {

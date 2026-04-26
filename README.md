@@ -10,11 +10,11 @@
 
 ## 特性
 
-- **Go 后端**：Gin + GORM + MySQL，**392** 条 Gin 路由注册（`router.go` 350 + DIY/Form 41 + `/api.php` 1）；ShopXO uni-app **`s=` 动作 81**；12 种支付驱动，Redis 可选
+- **Go 后端**：Gin + GORM + MySQL，**392** 条 Gin 路由注册（`router.go` 350 + DIY/Form 41 + `/api.php` 1）；ShopXO uni-app **`s=` 动作 82**；12 种支付驱动，Redis 可选
 - **营销功能**：秒杀（乐观锁+限购）、拼团（自动成团）、优惠券、促销
 - **管理后台**：Next.js + Ant Design，70 个页面，后台能力对齐 ShopXO（详见 `HANDOVER.md`）
 - **PC前台**：Next.js + Tailwind CSS，Apple风格UI
-- **手机端**：直接复用 ShopXO uni-app，后端提供 ShopXO 风格兼容接口（**81** 个 `s=` 动作，见 `internal/handler/shopxo_compat.go`）
+- **手机端**：直接复用 ShopXO uni-app，后端提供 ShopXO 风格兼容接口（**82** 个 `s=` 动作，见 `internal/handler/shopxo_compat.go`）
 - **缓存抽象**：Redis/内存缓存自动切换，无Redis也能运行
 - **DIY装修**：集成shopxo-diy可视化拖拽编辑器
 - **Form设计**：集成shopxo-form可视化表单设计器
@@ -175,6 +175,7 @@ goshop/
 | [二次开发指南](docs/development.md) | 项目架构、添加接口/页面/支付方式的流程 |
 | [部署文档](docs/deployment.md) | Docker/手动/Systemd 部署 + Nginx 配置 |
 | [uni-app 对接指南](docs/uniapp-guide.md) | ShopXO uni-app 前端对接说明 |
+| [ShopXO 后台对齐清单](docs/shopxo-admin-parity.md) | 管理端模块与 ShopXO 对照（已对齐 / 部分对齐 / 占位 / 不适用） |
 | [Web 前台](web/README.md) | PC 前台开发说明 |
 | [管理后台](admin/README.md) | 管理后台开发说明 |
 | [`scripts/doc-metrics.sh`](scripts/doc-metrics.sh) | 规模指标统计（路由/表/页面/测试数等），与 `HANDOVER.md` 对齐 |

@@ -1,14 +1,17 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"strings"
 
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"github.com/zhangpanda/goshop/pkg/wechat"
 )
 
 /**
@@ -430,6 +433,48 @@ func PaymentDriverKeyFromPayment(p *model.Payment) (string, error) {
 	return inferPaymentKeyFromPaymentName(p.Name), nil
 }
 
+/**
+ * paymentShopXOIsWeixinAppMini 是否与 ShopXO「微信APP小程序支付 / 收银台」插件一致（需 order/pay 无 openid 时走 PayLog + 拉起小程序）。
+ * 支付方式 JSON 可配置 `"payment":"WeixinAppMini"`，或在名称中含「APP小程序」。
+ */
+func paymentShopXOIsWeixinAppMini(p *model.Payment) bool {
+	if p == nil {
+		return false
+	}
+	n := p.Name
+	if strings.Contains(n, "APP小程序") || strings.Contains(n, "小程序收银") {
+		return true
+	}
+	raw := strings.TrimSpace(p.Config)
+	if raw == "" {
+		return false
+	}
+	var cfg map[string]interface{}
+	if json.Unmarshal([]byte(raw), &cfg) != nil {
+		return false
+	}
+	s, ok := cfg["payment"].(string)
+	return ok && strings.TrimSpace(s) == "WeixinAppMini"
+}
+
+/**
+ * shopxoCashierMiniPath 小程序收银台路径（与 ShopXO WeixinAppMini 配置 path 一致，默认 pages/cashier/cashier）。
+ */
+func shopxoCashierMiniPath(p *model.Payment) string {
+	const def = "pages/cashier/cashier"
+	if p == nil {
+		return def
+	}
+	var cfg map[string]interface{}
+	if json.Unmarshal([]byte(strings.TrimSpace(p.Config)), &cfg) != nil {
+		return def
+	}
+	if s, ok := cfg["path"].(string); ok && strings.TrimSpace(s) != "" {
+		return strings.TrimSpace(s)
+	}
+	return def
+}
+
 func shopxoPHPClassToDriverKey(class string) string {
 	switch class {
 	case "Weixin", "WeixinAppMini", "WeixinScanQrcode", "WeixinH5":
@@ -558,6 +603,30 @@ func ShopXOCompatUnifiedPay(userID uint, orderIDs []uint, paymentID uint, openID
 	if keyErr != nil || strings.TrimSpace(driverKey) == "" {
 		driverKey = inferPaymentKeyFromPaymentName(pay.Name)
 	}
+
+	// APP 拉起微信小程序收银台：与 ShopXO WeixinAppMini::Pay 一致，先建 PayLog，返回 weixinapp:// 链接；用户在小程序内调 cashier/paydata 完成 JSAPI 预下单。
+	if strings.TrimSpace(openID) == "" && driverKey == "wechat_jsapi" && paymentShopXOIsWeixinAppMini(&pay) {
+		pl, err := CreatePayLog(userID, orderIDs, paymentID, "shopxo")
+		if err != nil {
+			return nil, nil, err
+		}
+		path := shopxoCashierMiniPath(&pay)
+		payURL := fmt.Sprintf("weixinapp://%s?order_no=%s", path, url.QueryEscape(pl.PayNo))
+		payRow := map[string]interface{}{
+			"payment": ShopXOPluginNameFromDriverKey(driverKey),
+			"id":      pay.ID,
+			"name":    pay.Name,
+		}
+		return map[string]interface{}{
+			"is_success":      0,
+			"is_payment_type": 0,
+			"data":            payURL,
+			"order_id":        pl.ID,
+			"order_no":        pl.PayNo,
+			"payment":         payRow,
+		}, nil, nil
+	}
+
 	var resp *PayDriverResp
 	var err error
 	if len(orderIDs) == 1 {
@@ -585,4 +654,84 @@ func ShopXOCompatUnifiedPay(userID uint, orderIDs []uint, paymentID uint, openID
 		return p, &msg, nil
 	}
 	return ShopXOPayPayloadFromDriver(driverKey, &pay, resp, ""), nil, nil
+}
+
+/**
+ * cashierOpenIDBelongsToUser 校验小程序 openid 是否属于该支付单所属用户（UserPlatform 或 users.open_id）。
+ */
+func cashierOpenIDBelongsToUser(userID uint, openID string) bool {
+	if userID == 0 || strings.TrimSpace(openID) == "" {
+		return false
+	}
+	var n int64
+	global.DB.Model(&model.UserPlatform{}).Where("user_id = ? AND openid = ?", userID, openID).Count(&n)
+	if n > 0 {
+		return true
+	}
+	var u model.User
+	if err := global.DB.First(&u, userID).Error; err != nil {
+		return false
+	}
+	return u.OpenID == openID
+}
+
+/**
+ * ShopXOCashierPayData 对应 ShopXO api.php?s=cashier/paydata：用 authcode 换 openid 后对 PayLog 发起微信 JSAPI 预下单。
+ */
+func ShopXOCashierPayData(authCode, payNo string) (map[string]interface{}, error) {
+	authCode = strings.TrimSpace(authCode)
+	payNo = strings.TrimSpace(payNo)
+	if authCode == "" {
+		return nil, errors.New("authcode 不能为空")
+	}
+	if payNo == "" {
+		return nil, errors.New("order_no 不能为空")
+	}
+	if global.Cfg == nil || strings.TrimSpace(global.Cfg.Wechat.AppID) == "" {
+		return nil, errors.New("微信小程序未配置")
+	}
+	sess, err := wechat.Code2Session(global.Cfg.Wechat.AppID, global.Cfg.Wechat.AppSecret, authCode)
+	if err != nil {
+		return nil, err
+	}
+	openID := strings.TrimSpace(sess.OpenID)
+	if openID == "" {
+		return nil, errors.New("未获取到 openid")
+	}
+	var pl model.PayLog
+	if err := global.DB.Where("pay_no = ?", payNo).First(&pl).Error; err != nil {
+		return nil, errors.New("支付单不存在")
+	}
+	if pl.Status != 0 {
+		return nil, errors.New("支付单已处理")
+	}
+	if !cashierOpenIDBelongsToUser(pl.UserID, openID) {
+		return nil, errors.New("当前微信与订单用户不一致，请使用下单账号对应小程序登录")
+	}
+	var pay model.Payment
+	if err := global.DB.First(&pay, pl.PaymentID).Error; err != nil {
+		return nil, errors.New("支付方式不存在")
+	}
+	driverKey, _ := PaymentDriverKeyFromPayment(&pay)
+	if strings.TrimSpace(driverKey) == "" {
+		driverKey = inferPaymentKeyFromPaymentName(pay.Name)
+	}
+	driver, err := GetPaymentDriver(driverKey)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := driver.Pay(context.Background(), &PayDriverReq{
+		OrderNo:     pl.PayNo,
+		Description: "商城订单",
+		Amount:      pl.TotalPrice,
+		OpenID:      openID,
+		ClientIP:    "",
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := ShopXOPayPayloadFromDriver(driverKey, &pay, resp, "")
+	out["order_id"] = pl.ID
+	out["order_no"] = pl.PayNo
+	return out, nil
 }
