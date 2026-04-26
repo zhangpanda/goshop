@@ -85,6 +85,7 @@ func main() {
 
 	// 初始化展示数据
 	initialize.InitDefaultSeedData()
+	initialize.EnsureDefaultPayments()
 
 	// 初始化微信支付
 	if err := initialize.InitWechatPay(); err != nil {

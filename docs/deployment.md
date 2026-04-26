@@ -124,6 +124,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 
@@ -151,6 +152,20 @@ server {
     }
 }
 ```
+
+## 数据库：`orders.payment_id`（关闭 AutoMigrate 时）
+
+默认启动会执行 GORM `AutoMigrate`，会自动为 `orders` 表增加 `payment_id`（`uint`，默认 0，索引）。
+
+若生产环境**禁止自动迁移**，请手动执行与模型一致的 DDL（MySQL 示例）：
+
+```sql
+ALTER TABLE `orders`
+  ADD COLUMN `payment_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '支付方式ID(用户选用)' AFTER `remark`,
+  ADD INDEX `idx_orders_payment_id` (`payment_id`);
+```
+
+若列已存在，可省略本段。字段语义见 `internal/model/order.go` 中 `Order.PaymentID`。
 
 ## 生产环境检查清单
 

@@ -37,9 +37,9 @@ func SendSms(phone, templateCode, templateParam string) error {
 		"PhoneNumbers": phone, "SignName": signName,
 		"SignatureMethod": "HMAC-SHA1", "SignatureVersion": "1.0",
 		"SignatureNonce": fmt.Sprintf("%d%d", time.Now().UnixNano(), rand.Intn(9999)),
-		"TemplateCode": templateCode, "TemplateParam": templateParam,
+		"TemplateCode":   templateCode, "TemplateParam": templateParam,
 		"Timestamp": time.Now().UTC().Format("2006-01-02T15:04:05Z"),
-		"Version": "2017-05-25",
+		"Version":   "2017-05-25",
 	}
 	keys := make([]string, 0, len(params))
 	for k := range params {

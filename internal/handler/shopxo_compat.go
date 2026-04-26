@@ -69,7 +69,7 @@ var authRequiredRoutes = map[string]bool{
 	"useraddress/delete": true, "useraddress/setdefault": true, "useraddress/outsystemadd": true,
 	"personal/index": true, "personal/save": true, "personal/useravatarupload": true,
 	"safety/loginpwdupdate": true, "safety/logout": true,
-	"goods/favor":            true,
+	"goods/favor":          true,
 	"usergoodsfavor/index": true, "usergoodsfavor/cancel": true,
 	"usergoodsbrowse/index": true, "usergoodsbrowse/delete": true,
 	"usergoodscomments/save": true, "usergoodscomments/delete": true,

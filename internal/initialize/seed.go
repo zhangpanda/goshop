@@ -270,3 +270,19 @@ func InitDefaultSeedData() {
 	global.DB.Create(&slides)
 	log.Println("default slides seeded:", len(slides), "slides")
 }
+
+// EnsureDefaultPayments 在无支付方式时补全最小配置（ShopXO order/pay、列表展示依赖）
+func EnsureDefaultPayments() {
+	var c int64
+	global.DB.Model(&model.Payment{}).Count(&c)
+	if c > 0 {
+		return
+	}
+	payments := []model.Payment{
+		{Name: "线下支付", Logo: "", Config: `{"payment_key":"offline"}`, Sort: 100, Status: 1},
+		{Name: "微信支付", Logo: "", Config: `{"payment_key":"wechat_jsapi"}`, Sort: 90, Status: 1},
+		{Name: "支付宝", Logo: "", Config: `{"payment_key":"alipay_h5"}`, Sort: 80, Status: 1},
+	}
+	global.DB.Create(&payments)
+	log.Println("default payments ensured:", len(payments))
+}

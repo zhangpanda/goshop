@@ -2,6 +2,8 @@
 # GoShop 核心流程集成测试
 # 需要后端服务运行在 localhost:8080
 # 用法: ./scripts/integration_test.sh
+# 可选环境变量:
+#   GOSHOP_PAYMENT_SANDBOX=1 — 且 config payment.sandbox=true 时，额外跑「ShopXO 多订单 + 沙盒回调」
 
 set -e
 BASE="http://localhost:8080"
@@ -132,6 +134,77 @@ R=$(api "$BASE/api.php?s=goods/detail&goods_id=1")
 assert_code "ShopXO goods/detail" "0" "$(code "$R")"
 R=$(api "$BASE/api.php?s=base/common")
 assert_code "ShopXO base/common" "0" "$(code "$R")"
+
+echo ""
+echo "--- ShopXO order/pay 多订单线下支付 ---"
+R=$(api "$BASE/api/payments")
+PAY_OFFLINE=$(echo "$R" | python3 -c "import sys,json;d=json.load(sys.stdin);pid=0
+for p in d.get('data')or[]:
+  if'offline'in(p.get('config')or''):pid=p['id'];break
+print(pid)")
+if [ "$PAY_OFFLINE" = "0" ]; then
+  echo "  ❌ 无线下支付方式（需 EnsureDefaultPayments）"
+  FAIL=$((FAIL+1))
+else
+  R=$(api -X POST "$BASE/api/cart" -H "$AUTH" -H 'Content-Type: application/json' -d '{"goods_id":1,"sku_id":1,"quantity":1}')
+  CART_M1=$(echo "$R" | python3 -c "import sys,json;d=json.load(sys.stdin)['data'];print(d['id']if isinstance(d,dict)else d[0]['id'])")
+  R=$(api -X POST "$BASE/api/orders" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"address_id\":$ADDR_ID,\"cart_ids\":[$CART_M1]}")
+  O_M1=$(echo "$R" | python3 -c "import sys,json;x=json.load(sys.stdin)['data'];print(x[0]['id']if isinstance(x,list)else x['id'])")
+  R=$(api -X POST "$BASE/api/cart" -H "$AUTH" -H 'Content-Type: application/json' -d '{"goods_id":1,"sku_id":1,"quantity":1}')
+  CART_M2=$(echo "$R" | python3 -c "import sys,json;d=json.load(sys.stdin)['data'];print(d['id']if isinstance(d,dict)else d[0]['id'])")
+  R=$(api -X POST "$BASE/api/orders" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"address_id\":$ADDR_ID,\"cart_ids\":[$CART_M2]}")
+  O_M2=$(echo "$R" | python3 -c "import sys,json;x=json.load(sys.stdin)['data'];print(x[0]['id']if isinstance(x,list)else x['id'])")
+  R=$(api -X POST "$BASE/api.php?s=order/pay&token=${TOKEN}" -H 'Content-Type: application/json' -d "{\"ids\":\"${O_M1},${O_M2}\",\"payment_id\":${PAY_OFFLINE}}")
+  assert_code "ShopXO order/pay 多单 offline" "0" "$(code "$R")"
+  R=$(api "$BASE/api/orders/${O_M1}" -H "$AUTH")
+  ST1=$(echo "$R" | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['status'])")
+  assert_code "多单支付后订单1已付(status=1)" "1" "$ST1"
+  R=$(api "$BASE/api/orders/${O_M2}" -H "$AUTH")
+  ST2=$(echo "$R" | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['status'])")
+  assert_code "多单支付后订单2已付(status=1)" "1" "$ST2"
+fi
+
+if [ "${GOSHOP_PAYMENT_SANDBOX:-}" = "1" ]; then
+  echo ""
+  echo "--- ShopXO order/pay 多订单 + 沙盒回调 ---"
+  R=$(api "$BASE/api/payments")
+  PAY_WX=$(echo "$R" | python3 -c "import sys,json;d=json.load(sys.stdin);pid=0
+for p in d.get('data')or[]:
+  if'wechat_jsapi'in(p.get('config')or''):pid=p['id'];break
+print(pid)")
+  if [ "$PAY_WX" = "0" ]; then
+    echo "  ❌ 无 wechat_jsapi 支付方式"
+    FAIL=$((FAIL+1))
+  else
+    R=$(api -X POST "$BASE/api/cart" -H "$AUTH" -H 'Content-Type: application/json' -d '{"goods_id":1,"sku_id":1,"quantity":1}')
+    CART_S1=$(echo "$R" | python3 -c "import sys,json;d=json.load(sys.stdin)['data'];print(d['id']if isinstance(d,dict)else d[0]['id'])")
+    R=$(api -X POST "$BASE/api/orders" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"address_id\":$ADDR_ID,\"cart_ids\":[$CART_S1]}")
+    O_S1=$(echo "$R" | python3 -c "import sys,json;x=json.load(sys.stdin)['data'];print(x[0]['id']if isinstance(x,list)else x['id'])")
+    R=$(api -X POST "$BASE/api/cart" -H "$AUTH" -H 'Content-Type: application/json' -d '{"goods_id":1,"sku_id":1,"quantity":1}')
+    CART_S2=$(echo "$R" | python3 -c "import sys,json;d=json.load(sys.stdin)['data'];print(d['id']if isinstance(d,dict)else d[0]['id'])")
+    R=$(api -X POST "$BASE/api/orders" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"address_id\":$ADDR_ID,\"cart_ids\":[$CART_S2]}")
+    O_S2=$(echo "$R" | python3 -c "import sys,json;x=json.load(sys.stdin)['data'];print(x[0]['id']if isinstance(x,list)else x['id'])")
+    R=$(api -X POST "$BASE/api.php?s=order/pay&token=${TOKEN}" -H 'Content-Type: application/json' -d "{\"ids\":\"${O_S1},${O_S2}\",\"payment_id\":${PAY_WX}}")
+    assert_code "ShopXO order/pay 多单 wechat(沙盒)" "0" "$(code "$R")"
+    CB=$(echo "$R" | python3 -c "import sys,json
+d=json.load(sys.stdin).get('data')or{}
+x=d.get('data')
+print(x if isinstance(x,str)and x.startswith('/')else'')")
+    if [ -z "$CB" ]; then
+      echo "  ❌ 响应中无沙盒回调路径"
+      FAIL=$((FAIL+1))
+    else
+      R=$(api "$BASE$CB")
+      assert_code "沙盒回调 PayLog 多单" "0" "$(code "$R")"
+      R=$(api "$BASE/api/orders/${O_S1}" -H "$AUTH")
+      SS1=$(echo "$R" | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['status'])")
+      assert_code "沙盒后订单1已付" "1" "$SS1"
+      R=$(api "$BASE/api/orders/${O_S2}" -H "$AUTH")
+      SS2=$(echo "$R" | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['status'])")
+      assert_code "沙盒后订单2已付" "1" "$SS2"
+    fi
+  fi
+fi
 
 echo ""
 echo "=========================================="
