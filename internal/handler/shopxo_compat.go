@@ -485,7 +485,7 @@ func sxGoodsSpecDetail(c *gin.Context) {
 	spec := c.Query("spec")
 	resp, err := service.GoodsSpecDetail(id, spec)
 	if err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+		response.OK(c, map[string]interface{}{"spec": nil, "sku": nil})
 		return
 	}
 	response.OK(c, resp)
