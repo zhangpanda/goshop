@@ -19,7 +19,7 @@
 - 后端: Go 1.25 + Gin + GORM + MySQL + Redis(可选)（以 `go.mod` 为准）
 - 管理后台: Next.js 15 + Ant Design 5（端口3010）
 - PC前台: Next.js 15 + Tailwind 4 + framer-motion（端口3000）
-- 手机端: 复用 ShopXO uni-app，兼容层对接
+- 手机端: 可选 shopxo-uniapp 等 + 后端 `/api.php` 兼容层（见 `docs/uniapp-guide.md`）
 
 ## 启动
 ```bash

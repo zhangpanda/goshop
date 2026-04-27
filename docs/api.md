@@ -1,5 +1,7 @@
 # GoShop API 文档
 
+本文随开发迭代更新，**非**对外固定契约；生产接入请以路由与 handler 实现为准。
+
 基础地址：`http://localhost:8080`
 
 响应格式：`{"code": 0, "msg": "success", "data": {...}}`，code=0 表示成功。
@@ -256,9 +258,11 @@
 
 ## ShopXO 兼容接口
 
+> **ShopXO** 为独立项目；本节描述 GoShop 提供的 **`/api.php` 请求形态**，便于与常见 shopxo-uniapp 对接，**不声称**与对方任意发行版逐接口逐字段一致。
+
 通过 `/api.php?s=controller/action` 调用，token 通过 `?token=xxx` 传递。
 
-提供 **82** 个 ShopXO 风格 `s=` 动作（`routeMap`，详见 `internal/handler/shopxo_compat.go`），使用说明见 [uni-app 对接指南](uniapp-guide.md)。
+当前实现注册 **82** 个 `s=` 动作（`routeMap`，详见 `internal/handler/shopxo_compat.go`）；**边界行为以源码与测试为准**。使用说明见 [uni-app 对接指南](uniapp-guide.md)。
 
 常用接口映射：
 

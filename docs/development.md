@@ -176,7 +176,9 @@ export default function TagsPage() {
 
 ## ShopXO 兼容层
 
-`/api.php?s=controller/action` 入口由 `shopxo_compat.go` 处理，将 ShopXO 格式的请求转换为 GoShop 内部调用。
+> 此处「兼容」指 **HTTP 形态与移动端对接习惯**，便于衔接 shopxo-uniapp 等前端；GoShop 与 ShopXO 无代码隶属关系，行为以本仓库实现为准。
+
+`/api.php?s=controller/action` 入口由 `shopxo_compat.go` 处理，将 ShopXO 风格的请求映射为 GoShop 内部调用。
 
 如需添加新的兼容接口，在 `routeMap` 中注册即可：
 

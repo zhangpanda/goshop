@@ -137,7 +137,7 @@
 |------|------|------|
 | `/coupons` | **已对齐** | 优惠券。 |
 | `/promotions` | **已对齐** | 普通促销（`type=promo`），列表分页 + 关键词。 |
-| `/seckills` | **已对齐** | 秒杀列表与新建（SKU 行需手填商品/SKU ID）。 |
+| `/seckills` | **已对齐** | 秒杀列表与新建；活动 SKU 行内为**可搜索选商品 + 选 SKU**（见 `PromoGoodsSkuFields`）。 |
 | `/group-buys` | **已对齐** | 拼团列表与新建。 |
 
 ---

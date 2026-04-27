@@ -1,8 +1,10 @@
 # GoShop uni-app 前端对接指南
 
+> **ShopXO** / **shopxo-uniapp** 为独立开源项目；本文仅说明如何与 GoShop 后端对接，**不代表**官方合作或背书。
+
 ## 概述
 
-GoShop 后端 API 设计兼容 ShopXO 的 uni-app 前端，但接口路径和响应格式有差异，需要一个适配层。
+GoShop 提供 **`/api.php?s=...` 兼容入口**，便于沿用习惯使用 ShopXO 系 uni-app 前端的对接方式；**路径、字段与边界行为仍可能有差异**，通常需要下文适配层或按实际响应微调。
 
 本文档提供：
 1. API 适配层代码（直接复制到 uni-app 项目中使用）
@@ -311,9 +313,9 @@ export const getImageUrl = (path) => {
 3. **图片上传失败**：检查 uploads 目录权限，确保可写
 4. **支付失败**：确认 config.yaml 中微信支付配置正确，证书文件存在
 
-### APP 拉起小程序收银台（与 ShopXO `cashier/paydata` 对齐）
+### APP 拉起小程序收银台（`cashier/paydata`，与 ShopXO 系约定对照）
 
-1. 在后台新增支付方式，JSON 配置中设置 `"payment":"WeixinAppMini"`，可选 `"path":"pages/cashier/cashier"`（与官方 uni-app 收银台页一致）。名称含「APP小程序」也会被识别为同一模式。
+1. 在后台新增支付方式，JSON 配置中设置 `"payment":"WeixinAppMini"`，可选 `"path":"pages/cashier/cashier"`（与 shopxo-uniapp 常见收银台页路径一致）。名称含「APP小程序」也会被识别为同一模式。
 2. 用户在 **APP** 内对订单发起支付且选用该方式时，`order/pay` 在无 `openid` 时会创建 **PayLog**，响应 `data` 为 `weixinapp://...?order_no=<pay_no>`，用于打开小程序。
 3. 小程序收银台页调用 `wx.login` 取 `code`，请求 `GET/POST /api.php?s=cashier/paydata`，参数 **`authcode`**（即 code）、**`order_no`**（上一步的 pay_no）。服务端用 `authcode` 换 `openid`，且该 openid 须与订单用户已在库中绑定的微信一致（`user_platforms` 或 `users.open_id`）。
 4. 返回结构与 `order/pay` 的线上支付一致（含 `data` 内 `prepay_id` 等），供 `wx.requestPayment` 调起。

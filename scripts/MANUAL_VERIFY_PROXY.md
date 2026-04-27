@@ -1,5 +1,7 @@
 # 反向代理与支付 / DIY — 手工验收清单
 
+> 文中「ShopXO uni-app」指常见 shopxo-uniapp 请求路径，仅作验收场景说明。
+
 在**已配置 HTTPS 终止**（Nginx/Caddy 等）的真实域名下，按顺序粗测即可。Nginx 需转发：
 
 - `X-Forwarded-Proto`（通常为 `$scheme`）

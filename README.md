@@ -14,7 +14,7 @@
 - **营销功能**：秒杀（乐观锁+限购）、拼团（自动成团）、优惠券、促销
 - **管理后台**：Next.js + Ant Design，70 个页面；与 ShopXO 后台为**分级对照**（已对齐 / 部分 / 占位等，见 `docs/shopxo-admin-parity.md`）
 - **PC前台**：Next.js + Tailwind CSS，Apple风格UI
-- **手机端**：直接复用 ShopXO uni-app，后端提供 ShopXO 风格兼容接口（**82** 个 `s=` 动作，见 `internal/handler/shopxo_compat.go`）
+- **手机端**：可选用社区维护的 [shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)（需按 `docs/uniapp-guide.md` 配置）；后端提供 **`/api.php` 风格兼容入口**（当前 **82** 个 `s=` 动作，见 `internal/handler/shopxo_compat.go`），**不保证**与对方全部历史版本行为一致，以集成测试与真机为准。
 - **缓存抽象**：Redis/内存缓存自动切换，无Redis也能运行
 - **DIY装修**：集成shopxo-diy可视化拖拽编辑器
 - **Form设计**：集成shopxo-form可视化表单设计器
@@ -74,7 +74,7 @@ npm run dev
 
 ### 4. 对接uni-app手机端
 ```bash
-# 克隆ShopXO官方uni-app项目
+# 克隆 shopxo-uniapp（社区维护；与 GoShop 无隶属关系，仅对接参考）
 git clone https://github.com/gongfuxiang/shopxo-uniapp.git
 # 修改 common/config.js 中的 request_url 为 http://你的IP:8080
 # 用HBuilderX打开运行即可
@@ -171,7 +171,7 @@ goshop/
 
 | 文档 | 说明 |
 |------|------|
-| [API 文档](docs/api.md) | 完整接口文档（公共/用户/管理后台/ShopXO 兼容） |
+| [API 文档](docs/api.md) | 接口说明（公共/用户/管理后台及 `/api.php` 兼容；以源码为准） |
 | [ShopXO 迁移指南](docs/migration-from-shopxo.md) | 从 ShopXO 迁移数据到 GoShop |
 | [二次开发指南](docs/development.md) | 项目架构、添加接口/页面/支付方式的流程 |
 | [部署文档](docs/deployment.md) | Docker/手动/Systemd 部署 + Nginx 配置 |
