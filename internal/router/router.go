@@ -145,7 +145,7 @@ func Setup(r *gin.Engine) {
 		auth.POST("/seckill/:item_id/buy", handler.SeckillBuy)
 
 		// 拼团
-		auth.POST("/group/:item_id/open", handler.OpenGroup)
+		auth.POST("/group/:id/open", handler.OpenGroup)
 		auth.POST("/group/:id/join", handler.JoinGroup)
 
 		// 分销

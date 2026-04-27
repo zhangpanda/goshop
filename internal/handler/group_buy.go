@@ -44,7 +44,7 @@ func GetActiveGroupBuys(c *gin.Context) {
 }
 
 func OpenGroup(c *gin.Context) {
-	itemID, err := strconv.ParseUint(c.Param("item_id"), 10, 64)
+	itemID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil || itemID == 0 {
 		response.Fail(c, http.StatusBadRequest, "无效的商品ID")
 		return

@@ -28,12 +28,12 @@ cd admin && npm run dev         # 管理后台 :3010（admin/admin123）
 cd web && npm run dev           # PC前台 :3000
 ```
 
-## 当前状态（v1.5.3, 2026-04-27）
+## 当前状态（v1.5.4, 2026-04-27）
 
 ### 核心数据
 | 指标 | 数值 |
 |------|------|
-| Go 后端代码 | **17555** 行（`internal`+`pkg`+`cmd`+`config`+`global`，不含 `*_test.go`） |
+| Go 后端代码 | **17579** 行（`internal`+`pkg`+`cmd`+`config`+`global`，不含 `*_test.go`） |
 | Gin HTTP 注册 | **392**（`internal/router/router.go` **350** + `diyapi_compat` **41** + `/api.php` **1**） |
 | ShopXO `api.php` | **82** 个 `s=` 动作（`routeMap`，单入口 `Any`） |
 | 数据库表 | **95**（`cmd/server/main.go` 中 `AutoMigrate` 的去重模型数） |
@@ -41,6 +41,7 @@ cd web && npm run dev           # PC前台 :3000
 | 管理后台组件 | **13**（`admin/src/components/*` 顶层文件） |
 | PC前台页面 | **24**（`web/src/app/**/page.tsx`） |
 | Go 单元测试 | **55**（`^func Test`，全仓 `*_test.go`） |
+| Playwright E2E | **34**（`admin/e2e/*.spec.ts`：full-flow 19 + deep-flow 10 + marketing 4 + screenshots 1） |
 | 自动化脚本 | **4**（`scripts/deep_test.sh` 本地；`integration_test.sh`；`sandbox_pay_test.sh`；`distribution_test.sh`） |
 
 > 上表为对外文档的**权威口径**。更新实现后请跑 **`scripts/doc-metrics.sh`** 刷新数字，并同步 `README.md` / `docs/*`，避免漂移。
@@ -112,6 +113,13 @@ cd web && npm run dev           # PC前台 :3000
 - **附件远程抓取**：`POST /api/attachmentapi/catch` 实现受限 HTTP 拉取（仅 http/https、拒绝常见内网解析结果、超时 20s、体 ≤5MB、白名单图片扩展名或 `Content-Type`），落盘至 `uploads/YYYY/MM/DD/` 并写入 **`Attachment`** 表；失败 URL 跳过，成功项放入响应 `data`。
 - **部署**：重启后端后 GORM `AutoMigrate` 会为 `orders` 增加 `payment_id` 列；若禁用自动迁移需自行 `ALTER TABLE` 对齐模型（见 `docs/deployment.md`）。
 
+#### Playwright E2E 全流程浏览器测试（v1.5.4）
+- **full-flow（19 用例）**：登录 → 仪表盘统计卡片 → 商品分类/商品管理/订单/用户/文章/优惠券/促销/售后/系统配置/站点设置/权限管理/导航/支付/操作日志/分销/缓存 → 侧边栏导航交互 → 退出登录
+- **deep-flow（10 用例）**：分类 CRUD（新增→编辑→删除）、商品搜索+详情抽屉、订单 Tab 切换+搜索、用户搜索、秒杀/拼团弹窗开关、系统配置表单保存、仪表盘时间范围切换、文章/权限新增弹窗
+- **helpers.ts**：登录函数带重试（偶发 token 失效自动重试一次）
+- **next.config.js**：添加 `allowedDevOrigins: ['127.0.0.1']` 解决 Next.js 16 阻止 127.0.0.1 跨域 HMR 导致 E2E 白屏
+- **Bug 修复**：`/api/group/:item_id/open` 与 `/api/group/:id/join` 路由参数名冲突导致 gin panic，统一为 `:id`
+
 #### 管理后台纠偏（v1.5.3）
 - **批量导出**：`ExportData`（`internal/service/extend.go`）支持请求体 **`ids`**，仅导出勾选行；**`BatchActions`** 改为 `fetch` 下载 CSV，增加 **`exportType`**（`orders` / `users` / `goods`），与 **`ExportButton`** 行为一致。订单 / 用户 / 商品列表已接入「导出选中」。
 - **用户批量操作**：新增 **`DELETE /admin/users/:id`**，实现为 **`AdminDisableUser`**（`status=0`，不物理删除，保留订单关联）；列表上按钮文案为 **批量禁用**，避免与真实删库混淆。
@@ -139,8 +147,8 @@ cd web && npm run dev           # PC前台 :3000
 - **集成**：`scripts/integration_test.sh` **失败即整 job 失败**（已移除 `|| true`）。
 
 ### 当前工程水准（自评，便于预期对齐）
-- **较强**：支付面与 ShopXO 兼容、默认数据补全策略、CI（含 race）与集成脚本、文档化指标脚本。
-- **仍薄**：大量 **handler 测试依赖真实库仍为 Skip**；秒杀/拼团/分销/售后等 **长链路自动化覆盖不足**；生产级 **观测、优雅关停、真实三方对账** 仍待加强（与下表待办一致）。
+- **较强**：支付面与 ShopXO 兼容、默认数据补全策略、CI（含 race）与集成脚本、文档化指标脚本、**Playwright E2E 34 用例覆盖全部核心页面与 CRUD 交互**。
+- **仍薄**：大量 **handler 测试依赖真实库仍为 Skip**；秒杀/拼团/分销/售后等 **长链路端到端自动化覆盖不足**（E2E 验证了页面加载与弹窗交互，但未覆盖完整下单→支付→发货→售后链路）；生产级 **观测、优雅关停、真实三方对账** 仍待加强（与下表待办一致）。
 
 **手工回归**：反向代理 + HTTPS 仍按 **`scripts/MANUAL_VERIFY_PROXY.md`** 与自动化互补。
 
@@ -189,10 +197,15 @@ admin/src/app/(dashboard)/distribution/page.tsx # 分销管理(3个Tab)
 
 ### 测试
 ```
+admin/e2e/full-flow.spec.ts       # 全流程 E2E（19 用例：登录→19 页面加载→导航→退出）
+admin/e2e/deep-flow.spec.ts       # 深度交互 E2E（10 用例：CRUD/搜索/弹窗/详情抽屉/时间切换）
+admin/e2e/admin-marketing.spec.ts # 营销模块 E2E（4 用例）
+admin/e2e/helpers.ts              # 登录辅助（带重试）
+admin/run-e2e.sh                  # 一键启动后端+前端+跑 E2E
 scripts/deep_test.sh               # 本地深度：go vet + go test（排除 node_modules）；可选 GOSHOP_TEST_RACE=1
 scripts/integration_test.sh      # 核心 API + ShopXO 多单线下；BASE 可覆盖；可选 GOSHOP_PAYMENT_SANDBOX=1 跑多单沙盒回调
 scripts/MANUAL_VERIFY_PROXY.md   # 反代/HTTPS 下手工验收清单（非脚本）
 scripts/sandbox_pay_test.sh      # 全渠道沙盒轮询（含 PayPal/当面付）+ 钱包边界
 scripts/distribution_test.sh     # 分销完整链路测试
-.github/workflows/ci.yml       # gofmt（排除 node_modules）/ vet+test 同 deep_test / -race / 集成（payment.sandbox）
+.github/workflows/ci.yml       # gofmt（排除 node_modules）/ vet+test 同 deep_test / -race / 集成（payment.sandbox）/ admin-e2e
 ```
