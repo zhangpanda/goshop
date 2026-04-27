@@ -4,29 +4,39 @@
 
 ## 概述
 
-GoShop 提供 **`/api.php?s=...` 兼容入口**，便于沿用习惯使用 ShopXO 系 uni-app 前端的对接方式；**路径、字段与边界行为仍可能有差异**，通常需要下文适配层或按实际响应微调。
+GoShop 支持两种 uni-app 对接方式，**不要混用**：
 
-本文档提供：
-1. API 适配层代码（直接复制到 uni-app 项目中使用）
-2. 各模块对接说明
-3. 微信小程序登录+支付完整流程
+| 方案 | 说明 | 本文位置 |
+|------|------|----------|
+| **方案 A：GoShop 原生 REST** | 请求形如 `https://域名/api/...`，`Authorization: Bearer <token>`，与 Go 侧路由一致。 | 第 1～3 节 |
+| **方案 B：shopxo-uniapp + `api.php`** | 请求形如 `https://域名/api.php?s=模块/方法`，沿用 ShopXO 系前端的拼 URL 方式；依赖 `shopxo_compat` 兼容层。 | 第 4 节 |
+
+**方案 A 的 `utils/request.js` 与方案 B 的官方前端不是同一套**：不能只改 `BASE_URL` 就指望官方 shopxo-uniapp 走 REST；官方项目默认走 **方案 B**。
 
 ---
 
-## 1. API 适配层
+## 1. API 适配层（方案 A：原生 REST）
 
 将以下文件放到 uni-app 项目的 `utils/` 目录下：
 
 ### utils/request.js
 
 ```javascript
-const BASE_URL = 'http://localhost:8080/api'  // 开发环境，上线改为你的域名
+/**
+ * GoShop 原生 REST 前缀（含 `/api`），须与部署路径一致。
+ * 与 `uploadFile` 等共用，避免误用 `request.BASE_URL`（默认导出函数上不存在该属性）。
+ */
+export const API_BASE = 'http://localhost:8080/api'  // 开发环境，上线改为你的域名
 
+/**
+ * @param {{ url: string, method?: string, data?: object, header?: Record<string, string> }} options
+ * @returns {Promise<unknown>}
+ */
 const request = (options) => {
   return new Promise((resolve, reject) => {
     const token = uni.getStorageSync('token')
     uni.request({
-      url: BASE_URL + options.url,
+      url: API_BASE + options.url,
       method: options.method || 'GET',
       data: options.data,
       header: {
@@ -57,7 +67,7 @@ export default request
 ### utils/api.js
 
 ```javascript
-import request from './request'
+import request, { API_BASE } from './request'
 
 // ========== 用户 ==========
 export const wxLogin = (data) => request({ url: '/wx/login', method: 'POST', data })
@@ -128,7 +138,7 @@ export const readAllMessages = () => request({ url: '/messages/read-all', method
 export const uploadFile = (filePath) => {
   return new Promise((resolve, reject) => {
     uni.uploadFile({
-      url: request.BASE_URL + '/upload',
+      url: API_BASE + '/upload',
       filePath,
       name: 'file',
       header: { 'Authorization': `Bearer ${uni.getStorageSync('token')}` },
@@ -144,7 +154,7 @@ export const uploadFile = (filePath) => {
 
 ---
 
-## 2. 微信小程序登录流程
+## 2. 微信小程序登录流程（方案 A）
 
 ```javascript
 // pages/login/login.vue
@@ -179,7 +189,7 @@ export default {
 
 ---
 
-## 3. 微信支付流程
+## 3. 微信支付流程（方案 A）
 
 ```javascript
 import { createOrder, payOrder } from '@/utils/api'
@@ -225,34 +235,39 @@ async function checkout(addressId, cartIds, userCouponId) {
 
 ---
 
-## 4. ShopXO uni-app 前端适配要点
+## 4. 方案 B：shopxo-uniapp（`api.php`）适配要点
 
-如果你直接使用 ShopXO 的 uni-app 前端源码，需要做以下修改：
+若使用官方 **[shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)**，前端通过 `get_request_url` 拼接：
 
-### 4.1 修改 API 基础地址
+`request_url` + `'api'` + `'.php?s='` + `控制器/方法`（见该项目 `App.vue`）。
 
-找到 ShopXO 前端的请求配置文件，将 API 地址改为 GoShop 后端地址：
+因此 **`request_url` 必须是站点根地址，且建议以 `/` 结尾**（官方示例：`https://d1.shopxo.vip/`）。设为 `http://host:8080/api` 会导致路径错误（例如拼出 `.../apiapi.php`）。
+
+### 4.1 修改 API 根地址（官方仓库）
+
+在 **`App.vue`** → `globalData.data` 中修改：
 
 ```javascript
-// 通常在 common/config.js 或 utils/request.js
-const BASE_URL = 'http://your-goshop-server:8080/api'
+request_url: 'https://your-goshop-domain.com/',
 ```
 
-### 4.2 接口路径映射
+部署上需保证该域名下能访问 GoShop 的 **`/api.php`**（与兼容层路由一致）。未实现或行为不一致的 `s=` 动作需改前端或扩展 `shopxo_compat`。
 
-ShopXO 原始接口和 GoShop 接口的对应关系：
+### 4.2 接口路径对照（仅当你重写为方案 A REST 时参考）
 
-| ShopXO 接口 | GoShop 接口 | 说明 |
+下表表示 **业务含义** 上的 REST 对应关系，供**自写/uni 改造为原生 REST** 时查阅；**不是** shopxo-uniapp 默认请求的 URL（默认仍是 `api.php?s=...`）。
+
+| 常见 ShopXO 风格 | GoShop REST（方案 A） | 说明 |
 |---|---|---|
-| /api/user/login | /api/login | 登录 |
-| /api/user/reg | /api/register | 注册 |
-| /api/plugins/weixinminiprogram/... | /api/wx/login | 微信登录 |
-| /api/goods/index | /api/goods | 商品列表 |
-| /api/goods/detail | /api/goods/:id | 商品详情 |
-| /api/cart/index | /api/cart | 购物车 |
-| /api/buy/add | /api/orders | 创建订单 |
-| /api/order/index | /api/orders | 订单列表 |
-| /api/pay/index | /api/pay | 发起支付 |
+| user/login | POST `/api/login` | 账号登录 |
+| user/reg | POST `/api/register` | 注册 |
+| 微信小程序插件 | POST `/api/wx/login` | 以实际路由为准 |
+| goods/index | GET `/api/goods` | 商品列表 |
+| goods/detail | GET `/api/goods/:id` | 商品详情 |
+| cart/index | GET `/api/cart` | 购物车 |
+| buy/add | POST `/api/orders` | 创建订单 |
+| order/index | GET `/api/orders` | 订单列表 |
+| pay/index | POST `/api/pay` | 发起支付 |
 
 ### 4.3 响应格式差异
 
@@ -279,17 +294,14 @@ export const formatPrice = (price) => {
 }
 ```
 
+兼容层返回若仍为「元」等 ShopXO 习惯，以实际 JSON 为准，必要时在方案 B 中单独适配。
+
 ### 4.5 图片路径
 
-GoShop 上传的图片路径格式为 `/uploads/2026/04/24/xxx.jpg`，前端需要拼接完整 URL：
+GoShop 上传的图片路径格式为 `/uploads/.../xxx.jpg`。
 
-```javascript
-export const getImageUrl = (path) => {
-  if (!path) return ''
-  if (path.startsWith('http')) return path
-  return BASE_URL.replace('/api', '') + path
-}
-```
+- **方案 A**：静态资源域名通常与 API 同源时，可用站点根 + 相对路径，例如 `API_BASE.replace(/\/api\/?$/, '') + path`。
+- **方案 B**：与 shopxo-uniapp 的 `request_url` / `static_url` 一致，相对路径拼到站点根（参见官方 `App.vue` 中 `static_url`）。
 
 ---
 

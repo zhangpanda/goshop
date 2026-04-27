@@ -99,7 +99,7 @@ cd web && npm run dev           # PC前台 :3000
 
 #### 文档
 - docs/shopxo-admin-parity.md — 管理端与 ShopXO 后台模块对齐清单（可核对）
-- docs/migration-from-shopxo.md — ShopXO v6.x 迁移指南
+- docs/migration-from-shopxo.md — ShopXO v6.x 迁移指南（SQL 与 `config/shopxo.sql` 表结构对齐，含 SKU / 订单明细 / 订单地址 JSON）
 - docs/api.md — 补充秒杀/拼团/分销/统一支付等新 API
 - docs/deployment.md — Redis 可选 + 支付宝配置 + **Nginx `X-Forwarded-Proto`** + **关闭 AutoMigrate 时 `orders.payment_id` 的 ALTER 示例**
 - README.md 全面更新

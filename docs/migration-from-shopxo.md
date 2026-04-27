@@ -1,273 +1,430 @@
 # ShopXO 迁移到 GoShop 指南
 
-## 适用版本
+## 适用版本与结构依据
 
-- **ShopXO v6.x**（本文档基于 v6.8.0 编写和验证）
-- 表前缀默认 `sxo_`（安装时可自定义，下文以 `sxo_` 为例）
-- v5.x 及更早版本表结构差异较大，需自行调整 SQL
+- **ShopXO v6.x**（下文 SQL 按 **v6.8** 官方库表核对）
+- 表前缀默认 `sxo_`（安装时可自定义，全文以 `sxo_` 为例）
+- **表结构依据**：本地可参考 `/tmp/shopxo/config/shopxo.sql`（或官方包内 `config/shopxo.sql`）；执行前仍建议对你方真实库 `SHOW CREATE TABLE` 抽查
 
-> GoShop 在数据模型上与 ShopXO v6.8.0 常见库表做过对照，便于迁移；应用代码为独立实现。
+> GoShop 为独立实现；迁移仅解决「数据落库」问题，业务规则以后端代码为准。
 
-## 迁移概览
+## 重要说明（执行前必读）
 
-| 步骤 | 内容 | 难度 |
-|------|------|------|
-| 1 | 数据库迁移（SQL 脚本） | 中 |
-| 2 | 密码兼容处理 | 低 |
-| 3 | 上传文件迁移 | 低 |
-| 4 | uni-app 前端切换 | 低（改一行配置） |
+1. **推荐执行顺序**见文末「建议迁移顺序」；违反顺序可能导致外键或逻辑不一致（若你库上启用了外键）。
+2. **方案 B（md5 兼容登录）**：当前仓库 `User` 无 `salt`/`old_pwd`，登录未实现 md5 回退，需自研（见「第二步」）。
+3. **管理员**：`admins.password` 为 bcrypt；ShopXO 为 `login_pwd`+`login_salt`（md5），须重置密码。**状态码与 ShopXO 相反**：ShopXO `0=正常,1=无效` → GoShop `1=正常,0=禁用`。
+4. **订单地址**：ShopXO v6.8 **没有** `sxo_order.address_data` 字段，快照在 **`sxo_order_address`**，须 JOIN 或子查询拼 JSON。
+5. **商品分类**：`sxo_goods` **无** `category_id`，分类在 **`sxo_goods_category_join`**（多对多）；GoShop `goods.category_id` 为单值，文中取 **每个商品最小 `category_id`**，若需「主分类」请按业务改子查询。
+6. **相册**：`sxo_goods.images` 为**封面单图**；多图在 **`sxo_goods_photo`**。文中用 **`GROUP_CONCAT(JSON_QUOTE(...) ORDER BY …)` + `CAST(… AS JSON)`** 生成有序 JSON 数组（兼容 **MySQL 8/9**；`JSON_ARRAYAGG(expr ORDER BY …)` 在部分环境会报语法错误）。
+7. **已退款订单**：ShopXO 用 `pay_status` 等区分部分退款，GoShop 有状态「已退款」。若需精细映射，请在 `sxo_order` 上增加对 `pay_status` 的 `CASE`（文中给出口子）。
 
 ## 核心差异对照
 
-| 差异项 | ShopXO v6.8.0 | GoShop |
-|--------|---------------|--------|
-| 表前缀 | `sxo_`（可自定义） | 无前缀 |
-| 金额单位 | 元（decimal） | 分（int64） |
-| 时间格式 | Unix 时间戳（int） | datetime |
+| 差异项 | ShopXO v6.8 | GoShop |
+|--------|-------------|--------|
+| 表前缀 | `sxo_` | 无前缀 |
+| 金额 | 元（decimal） | 分（int64） |
+| 时间 | Unix 时间戳 | `datetime` |
 | 用户密码 | `md5(salt + pwd)` | bcrypt |
-| 用户状态 | 0=正常, 1=禁言, 2=禁登 | 0=禁用, 1=正常 |
-| 订单状态 | 0待确认,1待支付,2待发货,3待收货,4完成,5取消,6关闭 | 0待付款,1待发货,2待收货,3完成,4取消,5退款 |
-| 管理员密码字段 | `login_pwd` + `login_salt` | `password`(bcrypt) |
+| 用户状态 | 0正常,1禁言,2禁登 | 0禁用,1正常 |
+| 订单 status | 0待确认,1待支付,2待发货,3待收货,4完成,5取消,6关闭 | 0待付款,1待发货,2待收货,3完成,4取消,5退款… |
+| 管理员状态 | 0正常,1无效 | 0禁用,1正常 |
+| 管理员密码 | `login_pwd` + `login_salt` | `password`(bcrypt) |
 
 ## 前置条件
 
-- GoShop 已部署并首次启动过（自动建表）
-- 能访问 ShopXO 的 MySQL 数据库
-- **先在测试环境跑一遍，确认无误再操作生产数据**
+- GoShop 已首次启动并完成自动建表
+- 可访问 ShopXO 的 MySQL（**先在测试库验证**）
+- 下文默认：`shopxo` = 源库，`goshop` = 目标库；按需替换库名与前缀
+- **本机演练**：可在空库上导入 `config/shopxo.sql` 与 `mysqldump --no-data` 的 GoShop 结构后，对照修改并执行仓库内 **`scripts/run_shopxo_migration_local_test.sql`**（将库名替换为你的测试库）。若当前 `orders` 表尚无 `payment_id` 列，需先 `ALTER TABLE` 与模型一致。
+
+---
 
 ## 第一步：数据库迁移
 
-以下 SQL 假设 ShopXO 库名 `shopxo`、表前缀 `sxo_`，GoShop 库名 `goshop`。
-
-> 如果你的 ShopXO 表前缀不是 `sxo_`，全局替换即可。
-
-### 1.1 用户
+### 1.1 用户（`sxo_user`）
 
 ```sql
 INSERT INTO goshop.users (id, username, password, nickname, phone, avatar, points, locking_integral, status, created_at, updated_at)
 SELECT
-  id, username, '',
-  IF(nickname = '', username, nickname),
-  mobile, avatar,
-  integral, locking_integral,
-  CASE WHEN status = 0 THEN 1 ELSE 0 END,  -- ShopXO 0=正常 → GoShop 1=正常
-  FROM_UNIXTIME(IF(add_time=0, UNIX_TIMESTAMP(), add_time)),
-  FROM_UNIXTIME(IF(upd_time=0, add_time, upd_time))
+  id,
+  username,
+  '',
+  IFNULL(NULLIF(TRIM(nickname), ''), username),
+  mobile,
+  avatar,
+  integral,
+  locking_integral,
+  CASE WHEN status = 0 THEN 1 ELSE 0 END,
+  FROM_UNIXTIME(IF(add_time = 0, UNIX_TIMESTAMP(), add_time)),
+  FROM_UNIXTIME(IF(IFNULL(upd_time, 0) = 0, add_time, upd_time))
 FROM shopxo.sxo_user
-WHERE is_delete_time = 0;
+WHERE IFNULL(is_delete_time, 0) = 0;
 ```
 
-### 1.2 商品分类
+### 1.2 商品分类（`sxo_goods_category`）
 
 ```sql
 INSERT INTO goshop.categories (id, parent_id, name, icon, sort, status, created_at, updated_at)
-SELECT id, pid, name, IFNULL(icon, ''), IFNULL(sort, 0),
+SELECT
+  id, pid, name, IFNULL(icon, ''),
+  IFNULL(sort, 0),
   IFNULL(is_enable, 1),
-  FROM_UNIXTIME(IF(add_time=0, UNIX_TIMESTAMP(), add_time)),
-  FROM_UNIXTIME(IF(upd_time=0, add_time, upd_time))
+  FROM_UNIXTIME(IF(add_time = 0, UNIX_TIMESTAMP(), add_time)),
+  FROM_UNIXTIME(IF(IFNULL(upd_time, 0) = 0, add_time, upd_time))
 FROM shopxo.sxo_goods_category;
 ```
 
-### 1.3 商品
+### 1.3 商品（`sxo_goods` + 分类关联 + 相册）
+
+**说明**：`sort` 对应 ShopXO 的 `sort_level`；`give_integral`、`access_count` 一并迁入（与 `internal/model/goods.go` 一致）。
+
+**相册 JSON（MySQL 8）**：无相册行时退化为仅含封面的单元素数组。
 
 ```sql
--- 注意：金额 × 100 从元转分
-INSERT INTO goshop.goods (id, title, subtitle, category_id, brand_id, main_image, images, detail, status, sort, sales_count, created_at, updated_at)
-SELECT id, title, simple_desc, IFNULL(category_id, 0), IFNULL(brand_id, 0),
-  images, IFNULL(photo, ''), IFNULL(content_web, ''),
-  IFNULL(is_shelves, 0), IFNULL(sort, 0), IFNULL(sales_count, 0),
-  FROM_UNIXTIME(IF(add_time=0, UNIX_TIMESTAMP(), add_time)),
-  FROM_UNIXTIME(IF(upd_time=0, add_time, upd_time))
-FROM shopxo.sxo_goods;
+INSERT INTO goshop.goods (
+  id, title, subtitle, category_id, brand_id, main_image, images, detail,
+  status, sort, sales_count, access_count, give_integral, created_at, updated_at
+)
+SELECT
+  g.id,
+  g.title,
+  IFNULL(g.simple_desc, ''),
+  IFNULL(cj.category_id, 0),
+  IFNULL(g.brand_id, 0),
+  IFNULL(g.images, ''),
+  COALESCE(
+    (SELECT CAST(CONCAT('[', GROUP_CONCAT(JSON_QUOTE(p.images) ORDER BY IFNULL(p.sort, 0), p.id SEPARATOR ','), ']') AS JSON)
+     FROM shopxo.sxo_goods_photo p
+     WHERE p.goods_id = g.id AND IFNULL(p.is_show, 1) = 1),
+    CASE WHEN IFNULL(g.images, '') <> '' THEN JSON_ARRAY(g.images) ELSE JSON_ARRAY() END
+  ),
+  IFNULL(g.content_web, ''),
+  IFNULL(g.is_shelves, 0),
+  IFNULL(g.sort_level, 0),
+  IFNULL(g.sales_count, 0),
+  IFNULL(g.access_count, 0),
+  IFNULL(g.give_integral, 0),
+  FROM_UNIXTIME(IF(g.add_time = 0, UNIX_TIMESTAMP(), g.add_time)),
+  FROM_UNIXTIME(IF(IFNULL(g.upd_time, 0) = 0, g.add_time, g.upd_time))
+FROM shopxo.sxo_goods g
+LEFT JOIN (
+  SELECT goods_id, MIN(category_id) AS category_id
+  FROM shopxo.sxo_goods_category_join
+  GROUP BY goods_id
+) cj ON cj.goods_id = g.id
+WHERE IFNULL(g.is_delete_time, 0) = 0;
 ```
 
-### 1.4 订单
+### 1.4 商品 SKU（`sxo_goods_spec_base` + `sxo_goods_spec_value`）
+
+**保留 ShopXO 的 `sxo_goods_spec_base.id`** 作为 `goshop.goods_skus.id`，便于与订单行、历史数据对齐。
+
+`name`：将该规格下所有 `sxo_goods_spec_value.value` 用 ` / ` 拼接（与 ShopXO 展示习惯接近）。
 
 ```sql
--- 金额 × 100；状态映射：ShopXO(0待确认→1待支付→2待发货→3待收货→4完成→5取消→6关闭)
--- GoShop(0待付款→1待发货→2待收货→3完成→4取消)
-INSERT INTO goshop.orders (id, order_no, user_id, total_amount, pay_amount, status, remark, address, created_at, updated_at, paid_at, shipped_at, completed_at)
-SELECT id, order_no, user_id,
-  ROUND(total_price * 100), ROUND(pay_price * 100),
-  CASE status
-    WHEN 0 THEN 0  -- 待确认 → 待付款
-    WHEN 1 THEN 0  -- 待支付 → 待付款
-    WHEN 2 THEN 1  -- 待发货
-    WHEN 3 THEN 2  -- 待收货
-    WHEN 4 THEN 3  -- 已完成
-    WHEN 5 THEN 4  -- 已取消
-    WHEN 6 THEN 4  -- 已关闭 → 已取消
-    ELSE 0
+INSERT INTO goshop.goods_skus (
+  id, goods_id, name, price, stock, image, specs, coding, status, created_at, updated_at
+)
+SELECT
+  b.id,
+  b.goods_id,
+  IFNULL(NULLIF(GROUP_CONCAT(DISTINCT v.value ORDER BY v.id SEPARATOR ' / '), ''), '默认'),
+  ROUND(b.price * 100),
+  IFNULL(b.inventory, 0),
+  '',
+  NULL,
+  IFNULL(b.coding, ''),
+  1,
+  FROM_UNIXTIME(IF(b.add_time = 0, UNIX_TIMESTAMP(), b.add_time)),
+  FROM_UNIXTIME(IF(b.add_time = 0, UNIX_TIMESTAMP(), b.add_time))
+FROM shopxo.sxo_goods_spec_base b
+LEFT JOIN shopxo.sxo_goods_spec_value v
+  ON v.goods_spec_base_id = b.id AND v.goods_id = b.goods_id
+GROUP BY b.id, b.goods_id, b.price, b.inventory, b.coding, b.add_time;
+```
+
+**无多规格商品**：ShopXO 可能没有 `sxo_goods_spec_base` 行，但订单仍按「单 SKU」计价。为 **`sku_id` 可解析**，插入占位 SKU（**人工约定 ID**：`100000000 + goods_id`，与下文订单明细一致；请确保不与现有 `spec_base.id` 冲突，一般官方演示数据 spec id 远小于 1e8）。
+
+```sql
+INSERT INTO goshop.goods_skus (
+  id, goods_id, name, price, stock, image, specs, coding, status, created_at, updated_at
+)
+SELECT
+  100000000 + g.id,
+  g.id,
+  '默认',
+  ROUND(g.min_price * 100),
+  IFNULL(g.inventory, 0),
+  '',
+  NULL,
+  IFNULL(g.coding, ''),
+  1,
+  FROM_UNIXTIME(IF(g.add_time = 0, UNIX_TIMESTAMP(), g.add_time)),
+  FROM_UNIXTIME(IF(IFNULL(g.upd_time, 0) = 0, g.add_time, g.upd_time))
+FROM shopxo.sxo_goods g
+WHERE IFNULL(g.is_delete_time, 0) = 0
+  AND NOT EXISTS (
+    SELECT 1 FROM shopxo.sxo_goods_spec_base b WHERE b.goods_id = g.id
+  );
+```
+
+### 1.5 订单（`sxo_order` + `sxo_order_address`）
+
+**地址快照**：拼成 JSON 写入 `orders.address`（字段名按常见约定；若 GoShop 前端有固定 schema，请与其对齐）。
+
+**可选**：若 `pay_status = 2`（已退款）且业务希望落入 GoShop「已退款」，可扩展下面 `CASE`（示例：在 `status = 4` 已完成且已退款时映射为 `5`，需按你方财务规则调整）。
+
+```sql
+INSERT INTO goshop.orders (
+  id, order_no, user_id, total_amount, pay_amount, status, remark, address,
+  payment_id, order_model,
+  created_at, updated_at, paid_at, shipped_at, completed_at
+)
+SELECT
+  o.id,
+  o.order_no,
+  o.user_id,
+  ROUND(o.total_price * 100),
+  ROUND(o.pay_price * 100),
+  CASE
+    WHEN IFNULL(o.pay_status, 0) = 2 THEN 5
+    ELSE CASE o.status
+      WHEN 0 THEN 0
+      WHEN 1 THEN 0
+      WHEN 2 THEN 1
+      WHEN 3 THEN 2
+      WHEN 4 THEN 3
+      WHEN 5 THEN 4
+      WHEN 6 THEN 4
+      ELSE 0
+    END
   END,
-  user_note,
-  IFNULL(address_data, ''),
-  FROM_UNIXTIME(IF(add_time=0, UNIX_TIMESTAMP(), add_time)),
-  FROM_UNIXTIME(IF(upd_time=0, add_time, upd_time)),
-  IF(pay_time > 0, FROM_UNIXTIME(pay_time), NULL),
-  IF(delivery_time > 0, FROM_UNIXTIME(delivery_time), NULL),
-  IF(collect_time > 0, FROM_UNIXTIME(collect_time), NULL)
-FROM shopxo.sxo_order;
+  IFNULL(o.user_note, ''),
+  IFNULL(
+    (SELECT JSON_OBJECT(
+      'name', oa.name,
+      'phone', oa.tel,
+      'province', oa.province_name,
+      'city', oa.city_name,
+      'district', oa.county_name,
+      'detail', oa.address
+    )
+    FROM shopxo.sxo_order_address oa
+    WHERE oa.order_id = o.id
+    ORDER BY oa.id ASC
+    LIMIT 1),
+    ''
+  ),
+  IFNULL(o.payment_id, 0),
+  IFNULL(o.order_model, 0),
+  FROM_UNIXTIME(IF(o.add_time = 0, UNIX_TIMESTAMP(), o.add_time)),
+  FROM_UNIXTIME(IF(IFNULL(o.upd_time, 0) = 0, o.add_time, o.upd_time)),
+  IF(o.pay_time > 0, FROM_UNIXTIME(o.pay_time), NULL),
+  IF(o.delivery_time > 0, FROM_UNIXTIME(o.delivery_time), NULL),
+  IF(o.collect_time > 0, FROM_UNIXTIME(o.collect_time), NULL)
+FROM shopxo.sxo_order o
+WHERE IFNULL(o.is_delete_time, 0) = 0;
 ```
 
-### 1.5 收货地址
+> **注意**：`pay_status = 2`（已退款）统一映射为 GoShop `status = 5`（已退款）。若存在「部分退款」等复杂状态，请结合 `sxo_order_aftersale` 与业务规则单独调整。
+
+### 1.6 订单明细（`sxo_order_detail` → `order_items`）
+
+**`sku_id` 解析**：
+
+1. `spec_coding` 非空时，优先匹配 `sxo_goods_spec_base.coding`；
+2. 否则取该商品最小 `spec_base.id`；
+3. 仍无（无规格商品）→ `100000000 + goods_id`（与 1.4 占位 SKU 一致）。
+
+```sql
+INSERT INTO goshop.order_items (
+  id, order_id, goods_id, sku_id, title, image, sku_name, price, quantity, created_at
+)
+SELECT
+  d.id,
+  d.order_id,
+  d.goods_id,
+  COALESCE(
+    (SELECT b1.id FROM shopxo.sxo_goods_spec_base b1
+     WHERE b1.goods_id = d.goods_id AND b1.coding = d.spec_coding AND IFNULL(d.spec_coding, '') <> ''
+     LIMIT 1),
+    (SELECT MIN(b2.id) FROM shopxo.sxo_goods_spec_base b2 WHERE b2.goods_id = d.goods_id),
+    100000000 + d.goods_id
+  ),
+  IFNULL(d.title, ''),
+  IFNULL(d.images, ''),
+  IFNULL(NULLIF(TRIM(d.spec), ''), IFNULL(d.spec_desc, '')),
+  ROUND(d.price * 100),
+  IFNULL(d.buy_number, 0),
+  FROM_UNIXTIME(IF(d.add_time = 0, UNIX_TIMESTAMP(), d.add_time))
+FROM shopxo.sxo_order_detail d;
+```
+
+若部分历史行 `spec_coding` 与库内不一致导致匹配失败，会回退到 `MIN(id)` 或占位 id；迁移后请 **抽样核对** 订单明细价格与规格名。
+
+### 1.7 收货地址（`sxo_user_address`）
+
+v6.8 中 **`province` / `city` / `county` 为 `sxo_region.id`**，不是文字；**无** `province_name`、**无** `is_delete_time`。名称请 **`LEFT JOIN sxo_region`**（与 `sxo_order_address` 存 `*_name` 不同）。
 
 ```sql
 INSERT INTO goshop.addresses (id, user_id, name, phone, province, city, district, detail, is_default, created_at, updated_at)
-SELECT id, user_id, name, tel,
-  IFNULL(province_name, ''), IFNULL(city_name, ''), IFNULL(county_name, ''),
-  IFNULL(address, ''), IFNULL(is_default, 0),
-  FROM_UNIXTIME(IF(add_time=0, UNIX_TIMESTAMP(), add_time)),
-  FROM_UNIXTIME(IF(upd_time=0, add_time, upd_time))
-FROM shopxo.sxo_user_address
-WHERE is_delete_time = 0;
+SELECT
+  ua.id,
+  ua.user_id,
+  ua.name,
+  ua.tel,
+  IFNULL(rp.name, ''),
+  IFNULL(rc.name, ''),
+  IFNULL(rd.name, ''),
+  IFNULL(ua.address, ''),
+  IFNULL(ua.is_default, 0),
+  FROM_UNIXTIME(IF(ua.add_time = 0, UNIX_TIMESTAMP(), ua.add_time)),
+  FROM_UNIXTIME(IF(IFNULL(ua.upd_time, 0) = 0, ua.add_time, ua.upd_time))
+FROM shopxo.sxo_user_address ua
+LEFT JOIN shopxo.sxo_region rp ON rp.id = ua.province
+LEFT JOIN shopxo.sxo_region rc ON rc.id = ua.city
+LEFT JOIN shopxo.sxo_region rd ON rd.id = ua.county;
 ```
 
-### 1.6 品牌 / 文章 / 管理员
+### 1.8 品牌 / 文章 / 管理员
 
 ```sql
--- 品牌
+-- 品牌（sxo_brand）
 INSERT INTO goshop.brands (id, name, logo, sort, status, created_at, updated_at)
-SELECT id, name, IFNULL(logo, ''), IFNULL(sort, 0), IFNULL(is_enable, 1),
-  FROM_UNIXTIME(IF(add_time=0, UNIX_TIMESTAMP(), add_time)),
-  FROM_UNIXTIME(IF(upd_time=0, add_time, upd_time))
+SELECT
+  id, name, IFNULL(logo, ''), IFNULL(sort, 0), IFNULL(is_enable, 1),
+  FROM_UNIXTIME(IF(add_time = 0, UNIX_TIMESTAMP(), add_time)),
+  FROM_UNIXTIME(IF(IFNULL(upd_time, 0) = 0, add_time, upd_time))
 FROM shopxo.sxo_brand;
 
--- 文章
-INSERT INTO goshop.articles (id, title, content, category_id, cover, status, sort, created_at, updated_at)
-SELECT id, title, IFNULL(content, ''), IFNULL(article_category_id, 0),
-  IFNULL(image, ''), IFNULL(is_enable, 1), IFNULL(sort, 0),
-  FROM_UNIXTIME(IF(add_time=0, UNIX_TIMESTAMP(), add_time)),
-  FROM_UNIXTIME(IF(upd_time=0, add_time, upd_time))
+-- 文章（sxo_article 无 sort 列，用 0；is_enable → status：1 发布 / 0 草稿）
+INSERT INTO goshop.articles (
+  id, title, content, category_id, cover, access_count, sort, status, created_at, updated_at
+)
+SELECT
+  id,
+  title,
+  IFNULL(content, ''),
+  IFNULL(article_category_id, 0),
+  IFNULL(cover, ''),
+  IFNULL(access_count, 0),
+  0,
+  IF(IFNULL(is_enable, 1) = 1, 1, 0),
+  FROM_UNIXTIME(IF(add_time = 0, UNIX_TIMESTAMP(), add_time)),
+  FROM_UNIXTIME(IF(IFNULL(upd_time, 0) = 0, add_time, upd_time))
 FROM shopxo.sxo_article;
 
--- 管理员（密码留空，见第二步）
+-- 管理员：password 须后续 bcrypt 更新；status 反转
 INSERT INTO goshop.admins (id, username, password, nickname, role_id, status, created_at, updated_at)
-SELECT id, username, '', IFNULL(mobile, username), IFNULL(role_id, 1), status,
-  FROM_UNIXTIME(IF(add_time=0, UNIX_TIMESTAMP(), add_time)),
-  FROM_UNIXTIME(IF(upd_time=0, add_time, upd_time))
+SELECT
+  id,
+  username,
+  '',
+  IFNULL(NULLIF(TRIM(mobile), ''), username),
+  IFNULL(role_id, 1),
+  CASE WHEN status = 0 THEN 1 ELSE 0 END,
+  FROM_UNIXTIME(IF(add_time = 0, UNIX_TIMESTAMP(), add_time)),
+  FROM_UNIXTIME(IF(IFNULL(upd_time, 0) = 0, add_time, upd_time))
 FROM shopxo.sxo_admin;
 ```
 
+---
+
 ## 第二步：密码兼容
 
-ShopXO 密码：`md5(salt + 明文密码)`，存在 `pwd` 和 `salt` 两个字段。
-GoShop 密码：`bcrypt(明文密码)`，存在 `password` 一个字段。
-
-md5 不可逆，无法直接转换。两种方案：
-
-### 方案 A：强制重置（推荐，零代码改动）
-
-迁移后通知用户通过「忘记密码」重置。管理员可在后台手动设置密码。
+ShopXO 用户：`pwd` + `salt`（md5）。GoShop：`password`（bcrypt）。**须**方案 A 重置或方案 B 自改代码（见旧版说明，此处不重复）。
 
 ```sql
--- 给管理员设一个临时密码（bcrypt hash of "admin123"）
+-- 管理员临时密码示例（bcrypt of "admin123"，仅演示）
 UPDATE goshop.admins SET password = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy' WHERE id = 1;
 ```
 
-### 方案 B：兼容登录（渐进迁移，需改代码）
+### 方案 B（未内置）：模型 + 登录补丁（示意）
 
-在 User model 加两个临时字段，登录时先试 bcrypt，失败再试 md5，成功后自动升级：
+若需 md5 渐进迁移，仍可按此前文档在 `users` 表增加 `salt`、`old_pwd` 并在 `Login` 中 bcrypt 失败后校验 md5；**当前仓库未包含此逻辑**。
 
-```go
-// internal/model/user.go — 临时增加
-Salt   string `json:"-" gorm:"size:32;comment:ShopXO迁移salt"`
-OldPwd string `json:"-" gorm:"column:old_pwd;size:32;comment:ShopXO迁移md5密码"`
-```
-
-```sql
--- 把 ShopXO 的 salt 和 pwd 写入临时字段
-ALTER TABLE goshop.users ADD COLUMN salt VARCHAR(32) DEFAULT '' AFTER password;
-ALTER TABLE goshop.users ADD COLUMN old_pwd VARCHAR(32) DEFAULT '' AFTER salt;
-
-UPDATE goshop.users u
-JOIN shopxo.sxo_user su ON u.id = su.id
-SET u.salt = su.salt, u.old_pwd = su.pwd;
-```
-
-在登录逻辑中 bcrypt 校验失败后加兼容：
-
-```go
-// internal/service/user.go Login 函数中，bcrypt 失败后：
-if user.Salt != "" && user.OldPwd != "" {
-    md5Hash := fmt.Sprintf("%x", md5.Sum([]byte(user.Salt+req.Password)))
-    if md5Hash == user.OldPwd {
-        // 自动升级为 bcrypt
-        newHash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-        global.DB.Model(&user).Updates(map[string]interface{}{
-            "password": string(newHash), "salt": "", "old_pwd": "",
-        })
-        // 继续正常登录...
-    }
-}
-```
-
-所有用户登录一次后 salt/old_pwd 自动清空，之后可删除这两个字段。
+---
 
 ## 第三步：文件迁移
-
-ShopXO 上传文件在 `public/static/upload/` 或 `public/static/plugins/`。
 
 ```bash
 cp -r /path/to/shopxo/public/static/upload/* /path/to/goshop/uploads/
 ```
-
-批量替换数据库中的图片路径：
 
 ```sql
 UPDATE goshop.goods SET main_image = REPLACE(main_image, '/static/upload/', '/uploads/') WHERE main_image LIKE '%/static/upload/%';
 UPDATE goshop.goods SET images = REPLACE(images, '/static/upload/', '/uploads/') WHERE images LIKE '%/static/upload/%';
 UPDATE goshop.articles SET cover = REPLACE(cover, '/static/upload/', '/uploads/') WHERE cover LIKE '%/static/upload/%';
 UPDATE goshop.brands SET logo = REPLACE(logo, '/static/upload/', '/uploads/') WHERE logo LIKE '%/static/upload/%';
+UPDATE goshop.order_items SET image = REPLACE(image, '/static/upload/', '/uploads/') WHERE image LIKE '%/static/upload/%';
+-- 若 specs / JSON 内嵌路径，需单独脚本处理
 ```
 
-## 第四步：前端切换
+---
 
-### uni-app 手机端（改一行）
+## 第四步：uni-app / 前端
 
-GoShop 内置 `/api.php` 兼容层，当前实现 **82** 个 `s=` 动作，便于与常见 shopxo-uniapp 对接（详见 `internal/handler/shopxo_compat.go` 与 `HANDOVER.md`；**非** ShopXO 官方组件）：
+- **shopxo-uniapp**：改 `App.vue` → `globalData.data.request_url` 为 GoShop 站点根（尾斜杠），详见 `docs/uniapp-guide.md` **方案 B**。
+- **PC/管理端**：使用 GoShop 自带前端，不迁 PHP 模板。
 
-```javascript
-// shopxo-uniapp/common/config.js
-request_url: 'https://your-goshop-domain.com'
+---
+
+## 建议迁移顺序
+
+1. `users` → `categories` → `brands`
+2. `goods`（含分类子查询、相册）
+3. `goods_skus`（先 `spec_base`，再「无规格占位」）
+4. `addresses`
+5. `orders`（含 `order_address` JSON）
+6. `order_items`
+7. `articles`
+8. `admins`
+9. 文件与路径替换、重置密码、`AUTO_INCREMENT`（如下）
+
+### 迁移后自增
+
+对曾手工指定 `id` 插入的表，将 `AUTO_INCREMENT` 设为 **`MAX(id) + 1`**，避免新数据主键冲突。不同 MySQL 版本对 `ALTER TABLE … = (子查询)` 支持不一，建议在客户端对每张表执行：
+
+```sql
+SELECT MAX(id) + 1 AS next_ai FROM goshop.users;
+-- 然后将 users 表的 AUTO_INCREMENT 设为查询结果（例如在 Workbench / phpMyAdmin 中改表选项）
 ```
 
-### PC 前台 & 管理后台
+至少检查：`users`、`categories`、`goods`、`goods_skus`、`orders`、`order_items`、`addresses`、`articles`、`admins`、`brands`。
 
-GoShop 自带全新前端，无需迁移 ShopXO 的 PHP 模板。
+---
 
 ## 迁移检查清单
 
-- [ ] 确认 ShopXO 版本为 v6.x
-- [ ] 确认表前缀（默认 `sxo_`，自定义的需替换 SQL 中的前缀）
-- [ ] 用户数量一致（排除已删除用户）
-- [ ] 商品数量一致，图片能正常显示
-- [ ] 订单数量一致，金额正确（元→分，检查几条对比）
-- [ ] 订单状态映射正确
-- [ ] 管理员能登录后台
-- [ ] 上传文件已复制，路径已替换
-- [ ] uni-app 能正常访问（如使用）
-- [ ] 测试下单、支付、发货全流程
+- [ ] 源库版本与 `shopxo.sql` / 真实 `SHOW CREATE TABLE` 一致
+- [ ] 用户、分类、商品、SKU、订单主从、地址条数抽样一致
+- [ ] 金额（元→分）、订单与明细行 `price * quantity` 与主表核对
+- [ ] 无规格商品的 `100000000+goods_id` SKU 与订单明细能对应
+- [ ] 管理员可登录；用户密码策略已落地
+- [ ] 图片路径、相册 JSON（`GROUP_CONCAT`+`JSON_QUOTE` 方案）已验证
+- [ ] uni-app / 收银台（若使用）与 `shopxo_compat` 行为已联调
 
-## 不迁移的内容
+---
 
-以下 ShopXO 功能/数据不需要迁移（GoShop 会自动初始化）：
+## 不迁移的内容（示例）
 
-- **系统配置**（`sxo_config`）— GoShop 首次启动自动生成 77 项配置
-- **权限节点**（`sxo_power`）— GoShop 自动初始化
-- **省市区**（`sxo_region`）— GoShop 自动初始化
-- **PHP 插件** — 不兼容，GoShop 有独立的功能实现
-- **PHP 主题模板** — GoShop 使用 React/Next.js 前端
+- `sxo_config`、`sxo_power`、`sxo_region` 等由 GoShop 初始化或另行对接
+- PHP 插件、主题模板
+- 售后、优惠券、营销等扩展表：按需另写 SQL，不在本文范围
+
+---
 
 ## 常见问题
 
-**Q: v5.x 能迁移吗？**
-A: 表结构有差异（字段名、状态码），需要自行对照调整 SQL。核心思路一样。
+**Q: v5.x 能迁吗？**  
+A: 表名/字段可能不同，请对照你库 DDL 改 SQL。
 
-**Q: 迁移后 ShopXO 还能用吗？**
-A: 可以。迁移是读取 ShopXO 数据写入 GoShop，不修改原库。可以并行运行一段时间。
+**Q: 多分类商品只迁了一个 category_id？**  
+A: 是的；多对多需改 GoShop 模型或选定业务规则后再迁。
 
-**Q: 订单金额有小数怎么办？**
-A: `ROUND(price * 100)` 会四舍五入到分。如果原始数据有 0.001 元这种精度，会丢失。
+**Q: 占位 SKU id `1e8+goods_id` 会冲突吗？**  
+A: 在 spec_base id 远小于 1e8 的常规数据下安全；若你方 spec id 已超界，请改用更大前缀并在 1.4 / 1.6 同步修改。
 
-**Q: 自定义表前缀怎么处理？**
-A: 把 SQL 中所有 `sxo_` 替换为你的实际前缀即可。
+**Q: 旧文档里的 `address_data`、`category_id`、`photo` 列？**  
+A: 均 **不是** v6.8 `sxo_goods` / `sxo_order` 的标准列，已按 `/tmp/shopxo/config/shopxo.sql` 更正。
