@@ -28,20 +28,20 @@ cd admin && npm run dev         # 管理后台 :3010（admin/admin123）
 cd web && npm run dev           # PC前台 :3000
 ```
 
-## 当前状态（v1.5.3, 2026-04-26）
+## 当前状态（v1.5.3, 2026-04-27）
 
 ### 核心数据
 | 指标 | 数值 |
 |------|------|
-| Go 后端代码 | 17285 行（`internal`+`pkg`+`cmd`+`config`+`global`，不含 `*_test.go`） |
+| Go 后端代码 | **17555** 行（`internal`+`pkg`+`cmd`+`config`+`global`，不含 `*_test.go`） |
 | Gin HTTP 注册 | **392**（`internal/router/router.go` **350** + `diyapi_compat` **41** + `/api.php` **1**） |
 | ShopXO `api.php` | **82** 个 `s=` 动作（`routeMap`，单入口 `Any`） |
 | 数据库表 | **95**（`cmd/server/main.go` 中 `AutoMigrate` 的去重模型数） |
-| 管理后台页面 | **70**（`admin/src/app/**/page.tsx`） |
-| 管理后台组件 | **12**（`admin/src/components/*` 顶层文件） |
+| 管理后台页面 | **72**（`admin/src/app/**/page.tsx`） |
+| 管理后台组件 | **13**（`admin/src/components/*` 顶层文件） |
 | PC前台页面 | **24**（`web/src/app/**/page.tsx`） |
-| Go 单元测试 | **47**（`^func Test`，全仓 `*_test.go`） |
-| 集成/验收脚本 | **3**（`scripts/integration_test.sh`、`sandbox_pay_test.sh`、`distribution_test.sh`） |
+| Go 单元测试 | **55**（`^func Test`，全仓 `*_test.go`） |
+| 自动化脚本 | **4**（`scripts/deep_test.sh` 本地；`integration_test.sh`；`sandbox_pay_test.sh`；`distribution_test.sh`） |
 
 > 上表为对外文档的**权威口径**。更新实现后请跑 **`scripts/doc-metrics.sh`** 刷新数字，并同步 `README.md` / `docs/*`，避免漂移。
 
@@ -90,12 +90,10 @@ cd web && npm run dev           # PC前台 :3000
 - 参数校验：handler 中 ParseUint 错误处理
 - 错误处理：AutoMigrate / sqlDB 错误检查
 
-#### CI
-- GitHub Actions 加 MySQL 8.0 容器跑集成测试
-- `admin-e2e` Job：`GOSHOP_E2E=1` 启动后端 + Playwright 跑管理端营销等用例（见 `admin/e2e/`）
+#### CI（概要）
+- GitHub Actions：MySQL 8.0 服务容器、后端 build/vet/**fmt（仅项目内 `.go`，排除 web/admin `node_modules`）**/test/**`-race`**、集成脚本；`admin-e2e` 为 **`GOSHOP_E2E=1`** + Playwright（见 `admin/e2e/`）。**细则与 2026-04 变更**见下文 **「工程与测试近况」**。
 - Redis 不需要（内存缓存 fallback）
-- **Fmt**：CI 执行 `gofmt -s -l .`，提交前本地可跑 `gofmt -s -w .` 避免失败
-- **集成 Job 内 `config.yaml`**：增加 `payment.sandbox: true`，并以 **`GOSHOP_PAYMENT_SANDBOX=1`** 调用 `scripts/integration_test.sh`，覆盖 **ShopXO 多订单 + 沙盒回调** 路径
+- **集成 Job**：`payment.sandbox: true`，并以 **`GOSHOP_PAYMENT_SANDBOX=1`** 调用 `scripts/integration_test.sh`（**失败即失败**，不再吞掉退出码）
 
 #### 文档
 - docs/shopxo-admin-parity.md — 管理端与 ShopXO 后台模块对齐清单（可核对）
@@ -114,17 +112,37 @@ cd web && npm run dev           # PC前台 :3000
 - **附件远程抓取**：`POST /api/attachmentapi/catch` 实现受限 HTTP 拉取（仅 http/https、拒绝常见内网解析结果、超时 20s、体 ≤5MB、白名单图片扩展名或 `Content-Type`），落盘至 `uploads/YYYY/MM/DD/` 并写入 **`Attachment`** 表；失败 URL 跳过，成功项放入响应 `data`。
 - **部署**：重启后端后 GORM `AutoMigrate` 会为 `orders` 增加 `payment_id` 列；若禁用自动迁移需自行 `ALTER TABLE` 对齐模型（见 `docs/deployment.md`）。
 
-#### CI 与集成测试补充（v1.5.2）
-- **`EnsureDefaultPayments()`**（`internal/initialize/seed.go`，在 `main` 中 `InitDefaultSeedData` 之后调用）：新库一次性插入 **12 条**默认渠道；**老库**在启动时按 `PaymentDriverKeyFromPayment` 解析已有行的驱动 key，**仅插入当前缺失的** `payment_key`（不覆盖、不删改已有配置），与 `payment_driver.go` 注册名对齐。
-- **`scripts/integration_test.sh`**：校验 **`GET /api/payments`** 含上述 `payment_key`；对首单走 **`POST /api/pay/unified` 线下支付**；另建一单测取消。末尾仍有 **ShopXO `order/pay` 多订单线下**；若 **`GOSHOP_PAYMENT_SANDBOX=1`** 且 `payment.sandbox=true`，再跑多订单微信沙盒回调。
-- **手工回归**：生产或预发在反向代理 + HTTPS 下按 **`scripts/MANUAL_VERIFY_PROXY.md`** 逐项验收（与自动化互补）。
-
 #### 管理后台纠偏（v1.5.3）
 - **批量导出**：`ExportData`（`internal/service/extend.go`）支持请求体 **`ids`**，仅导出勾选行；**`BatchActions`** 改为 `fetch` 下载 CSV，增加 **`exportType`**（`orders` / `users` / `goods`），与 **`ExportButton`** 行为一致。订单 / 用户 / 商品列表已接入「导出选中」。
 - **用户批量操作**：新增 **`DELETE /admin/users/:id`**，实现为 **`AdminDisableUser`**（`status=0`，不物理删除，保留订单关联）；列表上按钮文案为 **批量禁用**，避免与真实删库混淆。
 - **售后列表**：移除无实际操作的 **`BatchActions`** 与行多选，避免「已选 N 条」无按钮。
 - **语言与货币**：管理端 **`GET/POST /admin/multilingual`**、**`GET/POST /admin/currency`**；前台菜单 **系统 → 语言与货币**（`admin/src/app/(dashboard)/locale/page.tsx`）。**`GetCurrencyConfig`** 从配置读取 **`currency_rate`**。
 - **角色与插件**：**`GET /admin/roles/:id/plugins`** + **`GetRolePluginIDs`**；RBAC 角色表增加 **「分配插件」**，对应 **`PUT /admin/roles/:id/plugins`**。**应用商店 Tab** 仍为占位（见「产品边界」，无内置市场计划）。
+
+## 工程与测试近况（2026-04-27）
+
+### 默认支付与数据
+- **`EnsureDefaultPayments()`**（`internal/initialize/seed.go`，`main` 在 `InitDefaultSeedData` 之后调用）：新库写入 **12 条**默认渠道（与 `payment_driver.go` 注册名一致）；**老库**按 `PaymentDriverKeyFromPayment` 解析已有行，**只补缺失的** `payment_key`，不覆盖已有配置。
+- **单测**：`internal/initialize/seed_payments_backfill_test.go` 等使用 **独立内存 SQLite**（`gorm.io/driver/sqlite`）验证全量/幂等/仅 offline/旧式「微信支付」名称推断等，避免 `file::memory:?cache=shared` 串库。
+
+### 单测与本地脚本
+- **支付 / ShopXO**：`GetPaymentDriver` 沙盒包装、`ShopXOPluginNameFromDriverKey`、名称推断 `payment_key` 等表驱动用例（`internal/service/*_test.go`）。
+- **`scripts/deep_test.sh`**：`go vet` + `go test`（包列表排除 `/node_modules/`）；可选 **`GOSHOP_TEST_RACE=1`** 跑 `-race`（与 CI 一致思路）。
+- **`scripts/integration_test.sh`**：环境变量 **`BASE`** 覆盖 API 根地址；`curl` **连接/总超时**；启动前探测 **`GET …/api/site-config`**；校验 **12 个 `payment_key`**、**REST 线下 unified**、多单 ShopXO、可选 **`GOSHOP_PAYMENT_SANDBOX=1`** 沙盒回调。
+- **`scripts/sandbox_pay_test.sh`**：轮询渠道含 **当面付、PayPal** 等；钱包单独测余额边界。
+
+### CI（`.github/workflows/ci.yml`）
+- 后端 **`setup-go` 1.25**（与 `go.mod` 一致）。
+- **`gofmt -s`**：仅扫描仓库内 `*.go`，排除 `web/node_modules`、`admin/node_modules`。
+- **`go vet` / `go test`**：包列表 `go list ./... | grep -v '/node_modules/'`（避免本地 `npm i` 后误入依赖里的 Go 包）。
+- **`go test -race -timeout 5m`** 独立一步。
+- **集成**：`scripts/integration_test.sh` **失败即整 job 失败**（已移除 `|| true`）。
+
+### 当前工程水准（自评，便于预期对齐）
+- **较强**：支付面与 ShopXO 兼容、默认数据补全策略、CI（含 race）与集成脚本、文档化指标脚本。
+- **仍薄**：大量 **handler 测试依赖真实库仍为 Skip**；秒杀/拼团/分销/售后等 **长链路自动化覆盖不足**；生产级 **观测、优雅关停、真实三方对账** 仍待加强（与下表待办一致）。
+
+**手工回归**：反向代理 + HTTPS 仍按 **`scripts/MANUAL_VERIFY_PROXY.md`** 与自动化互补。
 
 ## 待办
 
@@ -133,13 +151,15 @@ cd web && npm run dev           # PC前台 :3000
 2. **性能优化** — 数据库索引、热点数据缓存
 3. **优雅关停** — 信号处理 + 请求排空
 4. **PayPal 对接** — 需海外商户账号
+5. **测试纵深** — handler 层 testcontainers 或固定夹具 DB；核心业务场景覆盖率目标化
 
 ## 关键文件
 
 ### 后端
 ```
-cmd/server/main.go                 # 入口（含 EnsureDefaultPayments）
-internal/initialize/seed.go        # 商品等 seed + EnsureDefaultPayments
+cmd/server/main.go                      # 入口（含 EnsureDefaultPayments）
+internal/initialize/seed.go             # 商品等 seed + EnsureDefaultPayments（老库增量补渠道）
+internal/initialize/seed_payments_*_test.go  # 支付种子与 SQLite 补全单测
 pkg/cache/cache.go                 # 缓存抽象层(Redis/Memory)
 internal/router/router.go          # 路由(14个RBAC权限组)
 internal/service/payment_driver.go # 12种支付驱动 + 沙盒
