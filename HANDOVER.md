@@ -115,7 +115,7 @@ cd web && npm run dev           # PC前台 :3000
 - **部署**：重启后端后 GORM `AutoMigrate` 会为 `orders` 增加 `payment_id` 列；若禁用自动迁移需自行 `ALTER TABLE` 对齐模型（见 `docs/deployment.md`）。
 
 #### CI 与集成测试补充（v1.5.2）
-- **`EnsureDefaultPayments()`**（`internal/initialize/seed.go`，在 `main` 中 `InitDefaultSeedData` 之后调用）：当库中**没有任何** `payments` 记录时，自动插入 **12 条**默认渠道（线下、钱包、微信 JSAPI/H5/APP/扫码、支付宝 H5/PC/APP/小程序、当面付、PayPal），与 `payment_driver.go` 注册名一一对应；**已有数据的库不会自动补行**，需后台手工新增或清表后重建。
+- **`EnsureDefaultPayments()`**（`internal/initialize/seed.go`，在 `main` 中 `InitDefaultSeedData` 之后调用）：新库一次性插入 **12 条**默认渠道；**老库**在启动时按 `PaymentDriverKeyFromPayment` 解析已有行的驱动 key，**仅插入当前缺失的** `payment_key`（不覆盖、不删改已有配置），与 `payment_driver.go` 注册名对齐。
 - **`scripts/integration_test.sh`**：校验 **`GET /api/payments`** 含上述 `payment_key`；对首单走 **`POST /api/pay/unified` 线下支付**；另建一单测取消。末尾仍有 **ShopXO `order/pay` 多订单线下**；若 **`GOSHOP_PAYMENT_SANDBOX=1`** 且 `payment.sandbox=true`，再跑多订单微信沙盒回调。
 - **手工回归**：生产或预发在反向代理 + HTTPS 下按 **`scripts/MANUAL_VERIFY_PROXY.md`** 逐项验收（与自动化互补）。
 

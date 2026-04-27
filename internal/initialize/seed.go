@@ -1,12 +1,15 @@
 package initialize
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"github.com/zhangpanda/goshop/internal/service"
 )
 
 // InitDefaultSeedData 初始化展示数据（分类、品牌、商品+SKU、文章、优惠券）
@@ -271,15 +274,24 @@ func InitDefaultSeedData() {
 	log.Println("default slides seeded:", len(slides), "slides")
 }
 
-// EnsureDefaultPayments 在无支付方式时补全最小配置（兼容层 order/pay 与列表展示回退依赖）
-func EnsureDefaultPayments() {
-	var c int64
-	global.DB.Model(&model.Payment{}).Count(&c)
-	if c > 0 {
-		return
+// paymentSeedKey 从默认种子行的 Config 中读取 payment_key（种子均为显式 JSON payment_key）。
+func paymentSeedKey(config string) string {
+	raw := strings.TrimSpace(config)
+	if raw == "" {
+		return ""
 	}
-	// payment_key 须与 internal/service/payment_driver.go 中 GetPaymentDriver 注册名一致
-	payments := []model.Payment{
+	var cfg struct {
+		PaymentKey string `json:"payment_key"`
+	}
+	if json.Unmarshal([]byte(raw), &cfg) != nil {
+		return ""
+	}
+	return strings.TrimSpace(cfg.PaymentKey)
+}
+
+// defaultPaymentSeeds 默认支付渠道；payment_key 须与 internal/service/payment_driver.go 注册名一致。
+func defaultPaymentSeeds() []model.Payment {
+	return []model.Payment{
 		{Name: "线下支付", Logo: "", Config: `{"payment_key":"offline"}`, Sort: 100, Status: 1},
 		{Name: "钱包余额", Logo: "", Config: `{"payment_key":"wallet"}`, Sort: 99, Status: 1},
 		{Name: "微信JSAPI", Logo: "", Config: `{"payment_key":"wechat_jsapi"}`, Sort: 96, Status: 1},
@@ -293,6 +305,42 @@ func EnsureDefaultPayments() {
 		{Name: "当面付", Logo: "", Config: `{"payment_key":"alipay_face"}`, Sort: 85, Status: 1},
 		{Name: "PayPal", Logo: "", Config: `{"payment_key":"paypal"}`, Sort: 70, Status: 1},
 	}
-	global.DB.Create(&payments)
-	log.Println("default payments ensured:", len(payments))
+}
+
+// EnsureDefaultPayments 补全支付方式：新库写入全部默认行；老库按「解析后的驱动 key」只插入缺失项（不覆盖已有行）。
+// 已有行的 key 由 PaymentDriverKeyFromPayment 解析，与后台/ShopXO 系配置兼容。
+func EnsureDefaultPayments() {
+	var existing []model.Payment
+	if err := global.DB.Find(&existing).Error; err != nil {
+		log.Println("EnsureDefaultPayments: list payments:", err)
+		return
+	}
+	have := make(map[string]struct{}, len(existing)+16)
+	for i := range existing {
+		key, _ := service.PaymentDriverKeyFromPayment(&existing[i])
+		if key != "" {
+			have[key] = struct{}{}
+		}
+	}
+	seeds := defaultPaymentSeeds()
+	var toCreate []model.Payment
+	for _, p := range seeds {
+		k := paymentSeedKey(p.Config)
+		if k == "" {
+			continue
+		}
+		if _, ok := have[k]; ok {
+			continue
+		}
+		toCreate = append(toCreate, p)
+		have[k] = struct{}{}
+	}
+	if len(toCreate) == 0 {
+		return
+	}
+	if err := global.DB.Create(&toCreate).Error; err != nil {
+		log.Println("EnsureDefaultPayments: create:", err)
+		return
+	}
+	log.Println("default payments backfilled:", len(toCreate), "rows (total keys now", len(have), ")")
 }
