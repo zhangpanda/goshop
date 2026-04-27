@@ -58,8 +58,8 @@ CART=$(curl -s -X POST "$BASE/api/cart" -H "$AUTH" -H 'Content-Type: application
 CART_ID=$(echo "$CART" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
 green "加入购物车 ID=$CART_ID"
 
-# 测试所有支付方式
-PAYMENT_KEYS="wechat_jsapi wechat_h5 wechat_app wechat_native alipay_pc alipay_h5 alipay_app alipay_mini offline"
+# 测试所有支付方式（与 payment_driver.go 注册名一致；wallet 见文末单独测）
+PAYMENT_KEYS="wechat_jsapi wechat_h5 wechat_app wechat_native alipay_pc alipay_h5 alipay_app alipay_mini alipay_face paypal offline"
 
 echo ""
 echo "--- 逐一测试支付方式 ---"
@@ -89,7 +89,7 @@ for PAY_KEY in $PAYMENT_KEYS; do
   PAY_RESP=$(curl -s -X POST "$BASE/api/pay/unified" -H "$AUTH" -H 'Content-Type: application/json' \
     -d "{\"order_id\":$ORDER_ID,\"payment_key\":\"$PAY_KEY\"}")
 
-  # offline 和 wallet 直接完成，其他走沙盒回调
+  # offline 直接完成；其余走沙盒回调 URL
   if [ "$PAY_KEY" = "offline" ]; then
     check "[$PAY_KEY] 支付" "$PAY_RESP" "OFFLINE_"
   else

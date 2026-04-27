@@ -85,8 +85,53 @@ R=$(api "$BASE/api/orders/$ORDER_ID" -H "$AUTH")
 assert_code "GET /api/orders/:id" "0" "$(code "$R")"
 
 echo ""
-echo "--- 取消订单 ---"
-R=$(api -X PUT "$BASE/api/orders/$ORDER_ID/cancel" -H "$AUTH")
+echo "--- 支付方式列表（渠道 key 覆盖） ---"
+R=$(api "$BASE/api/payments")
+assert_code "GET /api/payments" "0" "$(code "$R")"
+KEYS=$(echo "$R" | python3 -c "import sys,json,re
+d=json.load(sys.stdin).get('data')or[]
+keys=set()
+for p in d:
+  cfg=p.get('config')or''
+  m=re.search(r'\"payment_key\"\\s*:\\s*\"([^\"]+)\"',cfg)
+  if m: keys.add(m.group(1))
+need={'offline','wallet','wechat_jsapi','wechat_h5','wechat_app','wechat_native','alipay_h5','alipay_pc','alipay_app','alipay_mini','alipay_face','paypal'}
+missing=need-keys
+if missing: print('MISSING:'+','.join(sorted(missing))); sys.exit(1)
+print('ok')")
+if [ "$KEYS" != "ok" ]; then
+  echo "  ❌ 缺支付方式 payment_key: $KEYS（新库应含 EnsureDefaultPayments 全渠道）"
+  FAIL=$((FAIL+1))
+else
+  echo "  ✅ GET /api/payments 含默认全渠道 payment_key"
+  PASS=$((PASS+1))
+fi
+
+echo ""
+echo "--- REST /api/pay/unified 线下支付（待付款订单） ---"
+R=$(api "$BASE/api/payments")
+PAY_OFF_UNI=$(echo "$R" | python3 -c "import sys,json;d=json.load(sys.stdin);pid=0
+for p in d.get('data')or[]:
+  if'\"payment_key\":\"offline\"'in(p.get('config')or'')or'offline'in(p.get('config')or''):pid=p['id'];break
+print(pid)")
+if [ "$PAY_OFF_UNI" = "0" ]; then
+  echo "  ❌ 无 offline 支付方式"
+  FAIL=$((FAIL+1))
+else
+  R=$(api -X POST "$BASE/api/pay/unified" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"order_id\":$ORDER_ID,\"payment_key\":\"offline\",\"payment_id\":$PAY_OFF_UNI}")
+  assert_code "POST /api/pay/unified offline" "0" "$(code "$R")"
+  R=$(api "$BASE/api/orders/$ORDER_ID" -H "$AUTH")
+  ST_PAID=$(echo "$R" | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['status'])")
+  assert_code "线下支付后订单已付(status=1)" "1" "$ST_PAID"
+fi
+
+echo ""
+echo "--- 另建待付款订单并取消 ---"
+R=$(api -X POST "$BASE/api/cart" -H "$AUTH" -H 'Content-Type: application/json' -d '{"goods_id":1,"sku_id":1,"quantity":1}')
+CART_CANCEL=$(echo "$R" | python3 -c "import sys,json;d=json.load(sys.stdin)['data'];print(d['id']if isinstance(d,dict)else d[0]['id'])")
+R=$(api -X POST "$BASE/api/orders" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"address_id\":$ADDR_ID,\"cart_ids\":[$CART_CANCEL]}")
+ORDER_CANCEL=$(echo "$R" | python3 -c "import sys,json;x=json.load(sys.stdin)['data'];print(x[0]['id']if isinstance(x,list)else x['id'])")
+R=$(api -X PUT "$BASE/api/orders/$ORDER_CANCEL/cancel" -H "$AUTH")
 assert_code "PUT /api/orders/:id/cancel" "0" "$(code "$R")"
 
 echo ""

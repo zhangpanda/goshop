@@ -278,10 +278,20 @@ func EnsureDefaultPayments() {
 	if c > 0 {
 		return
 	}
+	// payment_key 须与 internal/service/payment_driver.go 中 GetPaymentDriver 注册名一致
 	payments := []model.Payment{
 		{Name: "线下支付", Logo: "", Config: `{"payment_key":"offline"}`, Sort: 100, Status: 1},
-		{Name: "微信支付", Logo: "", Config: `{"payment_key":"wechat_jsapi"}`, Sort: 90, Status: 1},
-		{Name: "支付宝", Logo: "", Config: `{"payment_key":"alipay_h5"}`, Sort: 80, Status: 1},
+		{Name: "钱包余额", Logo: "", Config: `{"payment_key":"wallet"}`, Sort: 99, Status: 1},
+		{Name: "微信JSAPI", Logo: "", Config: `{"payment_key":"wechat_jsapi"}`, Sort: 96, Status: 1},
+		{Name: "微信H5", Logo: "", Config: `{"payment_key":"wechat_h5"}`, Sort: 95, Status: 1},
+		{Name: "微信APP", Logo: "", Config: `{"payment_key":"wechat_app"}`, Sort: 94, Status: 1},
+		{Name: "微信扫码", Logo: "", Config: `{"payment_key":"wechat_native"}`, Sort: 93, Status: 1},
+		{Name: "支付宝手机网站", Logo: "", Config: `{"payment_key":"alipay_h5"}`, Sort: 89, Status: 1},
+		{Name: "支付宝电脑网站", Logo: "", Config: `{"payment_key":"alipay_pc"}`, Sort: 88, Status: 1},
+		{Name: "支付宝APP", Logo: "", Config: `{"payment_key":"alipay_app"}`, Sort: 87, Status: 1},
+		{Name: "支付宝小程序", Logo: "", Config: `{"payment_key":"alipay_mini"}`, Sort: 86, Status: 1},
+		{Name: "当面付", Logo: "", Config: `{"payment_key":"alipay_face"}`, Sort: 85, Status: 1},
+		{Name: "PayPal", Logo: "", Config: `{"payment_key":"paypal"}`, Sort: 70, Status: 1},
 	}
 	global.DB.Create(&payments)
 	log.Println("default payments ensured:", len(payments))

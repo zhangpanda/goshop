@@ -11,10 +11,13 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/zhangpanda/goshop/config"
+	"github.com/zhangpanda/goshop/global"
 )
 
 func TestGetPaymentDriver(t *testing.T) {
-	for _, name := range []string{"wechat_jsapi", "alipay_pc", "alipay_h5", "offline", "wallet"} {
+	for name := range paymentDrivers {
 		if _, err := GetPaymentDriver(name); err != nil {
 			t.Errorf("GetPaymentDriver(%q) = %v", name, err)
 		}
@@ -142,6 +145,35 @@ func TestSandboxDriverRefund(t *testing.T) {
 	d := &SandboxDriver{Name: "wechat_jsapi", Real: &WechatJSAPIDriver{}}
 	if err := d.Refund(nil, &RefundDriverReq{OrderNo: "T999"}); err != nil {
 		t.Errorf("sandbox refund should succeed, got: %v", err)
+	}
+}
+
+func TestPayPalDriverPay(t *testing.T) {
+	d := &PayPalDriver{}
+	resp, err := d.Pay(nil, &PayDriverReq{OrderNo: "PPL1", Amount: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.PayURL == "" || !strings.Contains(resp.PayURL, "PPL1") {
+		t.Errorf("PayURL = %q; want PayPal checkout URL with order ref", resp.PayURL)
+	}
+}
+
+func TestAlipayMiniDriverPay(t *testing.T) {
+	old := global.Cfg
+	t.Cleanup(func() { global.Cfg = old })
+	global.Cfg = &config.Config{}
+	global.Cfg.Alipay.AppID = "test_app"
+	d := &AlipayMiniDriver{}
+	resp, err := d.Pay(nil, &PayDriverReq{OrderNo: "MINI1", Amount: 200, Description: "t"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.PrepayData == nil {
+		t.Fatal("PrepayData nil")
+	}
+	if resp.PrepayData["tradeNO"] != "MINI1" {
+		t.Errorf("tradeNO = %v", resp.PrepayData["tradeNO"])
 	}
 }
 

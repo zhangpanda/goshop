@@ -115,8 +115,8 @@ cd web && npm run dev           # PC前台 :3000
 - **部署**：重启后端后 GORM `AutoMigrate` 会为 `orders` 增加 `payment_id` 列；若禁用自动迁移需自行 `ALTER TABLE` 对齐模型（见 `docs/deployment.md`）。
 
 #### CI 与集成测试补充（v1.5.2）
-- **`EnsureDefaultPayments()`**（`internal/initialize/seed.go`，在 `main` 中 `InitDefaultSeedData` 之后调用）：当库中**没有任何** `payments` 记录时，自动插入线下 / 微信 JSAPI / 支付宝 H5 三条，避免老库仅有商品却无支付方式导致 **ShopXO `order/pay`** 与集成测试失败。
-- **`scripts/integration_test.sh`**：在原有流程末尾增加 **ShopXO `order/pay` 多订单线下支付**（两单合并付款后 `status=1`）；若环境变量 **`GOSHOP_PAYMENT_SANDBOX=1`** 且配置开启沙盒，再跑 **多订单 `wechat_jsapi` + GET `/api/pay/sandbox/callback`**，校验 `PayLog` 合并回调后两单均已支付。
+- **`EnsureDefaultPayments()`**（`internal/initialize/seed.go`，在 `main` 中 `InitDefaultSeedData` 之后调用）：当库中**没有任何** `payments` 记录时，自动插入 **12 条**默认渠道（线下、钱包、微信 JSAPI/H5/APP/扫码、支付宝 H5/PC/APP/小程序、当面付、PayPal），与 `payment_driver.go` 注册名一一对应；**已有数据的库不会自动补行**，需后台手工新增或清表后重建。
+- **`scripts/integration_test.sh`**：校验 **`GET /api/payments`** 含上述 `payment_key`；对首单走 **`POST /api/pay/unified` 线下支付**；另建一单测取消。末尾仍有 **ShopXO `order/pay` 多订单线下**；若 **`GOSHOP_PAYMENT_SANDBOX=1`** 且 `payment.sandbox=true`，再跑多订单微信沙盒回调。
 - **手工回归**：生产或预发在反向代理 + HTTPS 下按 **`scripts/MANUAL_VERIFY_PROXY.md`** 逐项验收（与自动化互补）。
 
 #### 管理后台纠偏（v1.5.3）
@@ -171,7 +171,7 @@ admin/src/app/(dashboard)/distribution/page.tsx # 分销管理(3个Tab)
 ```
 scripts/integration_test.sh      # 核心 API + ShopXO 多单线下；可选 GOSHOP_PAYMENT_SANDBOX=1 跑多单沙盒回调
 scripts/MANUAL_VERIFY_PROXY.md   # 反代/HTTPS 下手工验收清单（非脚本）
-scripts/sandbox_pay_test.sh      # 10种支付方式沙盒测试
+scripts/sandbox_pay_test.sh      # 全渠道沙盒轮询（含 PayPal/当面付）+ 钱包边界
 scripts/distribution_test.sh     # 分销完整链路测试
 .github/workflows/ci.yml       # gofmt / vet / test / 集成（含 payment.sandbox）
 ```
