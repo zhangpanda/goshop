@@ -29,6 +29,7 @@ vendor/
 node_modules/
 .next/
 .turbo/
+*.tsbuildinfo
 
 # Playwright（管理后台 E2E）
 admin/playwright-report/
