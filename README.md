@@ -21,13 +21,13 @@
 
 ## 截图预览
 
-以下为 **界面示意预览**（便于快速了解风格；与本地实机界面在布局、数据上可能略有差异）。**实机效果**请克隆后启动 `web` / `admin` 与后端查看。
+以下为仓库内随版本更新的 **实机截屏示例**（分辨率与数据为截取时环境；**若与当前界面不一致**，请以本地启动为准或自行更新图片）。
 
-| 管理端登录 | 管理端仪表盘 | PC 前台首页 |
+| 管理端登录 | PC 前台首页 | PC 商品列表 |
 |:---:|:---:|:---:|
-| ![管理端登录](docs/screenshots/admin-login-preview.png) | ![管理端仪表盘](docs/screenshots/admin-dashboard-preview.png) | ![PC 首页](docs/screenshots/web-home-preview.png) |
+| ![管理端登录](docs/screenshots/admin-login.png) | ![PC 首页](docs/screenshots/home.png) | ![PC 商品](docs/screenshots/products.png) |
 
-**实机截屏（可选）**：仓库根目录先以 `GOSHOP_E2E=1` 启动 Go 后端，再执行 `cd admin && npx playwright test e2e/readme-screenshots.spec.ts`，可在 `docs/screenshots/` 生成 `admin-login.png`、`admin-dashboard.png`、`admin-goods.png`。
+更多页面见 `docs/screenshots/product-detail.png`。更新管理端截屏：仓库根目录以 `GOSHOP_E2E=1` 启动后端后执行 `cd admin && npx playwright test e2e/readme-screenshots.spec.ts`，可生成 `admin-login.png`、`admin-dashboard.png`、`admin-goods.png`（覆盖同名文件前请自行备份）。
 
 ## 快速开始
 
