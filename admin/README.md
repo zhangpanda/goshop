@@ -1,6 +1,6 @@
 # GoShop 管理后台
 
-基于 Next.js 15 + Ant Design 5 的管理后台，**70** 个页面（`src/app/**/page.tsx`），后台能力对齐 ShopXO（覆盖率与缺口见仓库根目录 `HANDOVER.md`；统计可跑 `scripts/doc-metrics.sh`）。
+基于 Next.js 15 + Ant Design 5 的管理后台，**70** 个页面（`src/app/**/page.tsx`）；与 ShopXO 后台为分级对照（见仓库根目录 `docs/shopxo-admin-parity.md`、`HANDOVER.md`；规模统计可跑 `scripts/doc-metrics.sh`）。
 
 ## 开发
 

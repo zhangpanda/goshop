@@ -4,15 +4,15 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/zhangpanda/goshop)](go.mod)
 
-用 Go 重写的开源电商系统，**核心功能与数据模型高度对齐** ShopXO v6.8.0（商家主路径覆盖率约 97%）。**插件在线市场、PHP 式在线升级与任意 PHP 插件运行时**不在产品规划内（管理端应用商店 Tab 仅为兼容占位；是否未来跟进 ShopXO 生态另定），前后端分离架构。
+用 Go 实现的开源电商系统；实现时**对照** ShopXO v6.8.0 做商家主路径与数据模型上的对齐（覆盖率约 **97%** 为团队**人工核对**结论，细则与分级见 `docs/shopxo-admin-parity.md`，非第三方审计）。**插件在线市场、PHP 式在线升级与任意 PHP 插件运行时**不在产品规划内（管理端应用商店 Tab 仅为兼容占位；是否未来跟进 ShopXO 生态另定），前后端分离架构。
 
-> Go 后端代码为独立编写。DIY装修器和Form表单设计器复用 ShopXO 官方子项目（[shopxo-diy](https://github.com/gongfuxiang/shopxo-diy) / [shopxo-form](https://github.com/gongfuxiang/shopxo-form)，MIT），uni-app 移动端可直接对接（[shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)）。
+> **ShopXO** 为独立开源项目及相应社区资产；本文提及仅用于说明兼容与差异，**不代表**官方合作或背书。Go 后端为独立编写。DIY / Form 可视化编辑器复用其官方 MIT 子项目（[shopxo-diy](https://github.com/gongfuxiang/shopxo-diy) / [shopxo-form](https://github.com/gongfuxiang/shopxo-form)）；uni-app 可参考对接 [shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)。
 
 ## 特性
 
 - **Go 后端**：Gin + GORM + MySQL，**392** 条 Gin 路由注册（`router.go` 350 + DIY/Form 41 + `/api.php` 1）；ShopXO uni-app **`s=` 动作 82**；12 种支付驱动，Redis 可选
 - **营销功能**：秒杀（乐观锁+限购）、拼团（自动成团）、优惠券、促销
-- **管理后台**：Next.js + Ant Design，70 个页面，后台能力对齐 ShopXO（详见 `HANDOVER.md`）
+- **管理后台**：Next.js + Ant Design，70 个页面；与 ShopXO 后台为**分级对照**（已对齐 / 部分 / 占位等，见 `docs/shopxo-admin-parity.md`）
 - **PC前台**：Next.js + Tailwind CSS，Apple风格UI
 - **手机端**：直接复用 ShopXO uni-app，后端提供 ShopXO 风格兼容接口（**82** 个 `s=` 动作，见 `internal/handler/shopxo_compat.go`）
 - **缓存抽象**：Redis/内存缓存自动切换，无Redis也能运行
@@ -149,18 +149,19 @@ goshop/
 - 首次启动自动建表(AutoMigrate)
 - 自动初始化：默认管理员、系统配置(77项)、快递公司(14家)、省市区(3447条)
 
-## 与ShopXO的对比
+## 与 ShopXO 的对比（简要）
 
 | 维度 | ShopXO | GoShop |
 |------|--------|--------|
 | 语言 | PHP (ThinkPHP) | Go (Gin + GORM) |
 | 架构 | 前后端一体 | 前后端分离 |
-| 后端代码 | ~14.5万行 | ~1.73万行（见 `HANDOVER.md`） |
-| 管理后台 | PHP模板渲染 | React + Ant Design |
-| PC前台 | PHP模板渲染 | Next.js + Tailwind |
-| 性能 | 一般 | 高（Go原生并发） |
-| 部署 | PHP+Nginx+MySQL | 单二进制+MySQL（Redis可选） |
-| 功能覆盖 | 100%（PHP 模板 + 生态） | 商家主路径约 97%（**不含**插件市场/PHP 升级，见 `HANDOVER.md` 产品边界） |
+| 后端体量（粗算） | 约 14.5 万行（PHP，含模板等，口径见 `HANDOVER.md`） | 约 1.73 万行（Go，`internal`+`pkg` 等） |
+| 管理后台 | PHP 模板 | React + Ant Design |
+| PC 前台 | PHP 模板 | Next.js + Tailwind |
+| 典型部署 | PHP + Web 服务器 + MySQL 等 | 单二进制 + MySQL（Redis 可选） |
+| 与商家主路径对齐 | 以官方版本为准 | 约 97%（**人工对照**，不含插件市场/PHP 式升级等；见 `HANDOVER.md` 与 `shopxo-admin-parity.md`） |
+
+性能、并发表现取决于业务与压测场景，**未**与 ShopXO 做同等条件下的公开对标测试，不在此表下结论。
 
 ## 贡献
 

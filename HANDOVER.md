@@ -1,8 +1,10 @@
 # GoShop 项目交接文档
 
 ## 项目概述
-用 Go 重写 ShopXO v6.8.0（PHP电商系统），前后端分离架构。已开源发布。
-功能覆盖率 ~97%（相对 ShopXO **商家主路径**；不含下文「产品边界」中刻意不对齐的能力）。
+用 Go 实现的电商系统，开发时对照 ShopXO v6.8.0（PHP）的商家主路径与数据模型，前后端分离；已开源发布。
+功能覆盖率 **约 97%** 指相对 ShopXO **商家主路径**的人工核对结论（不含下文「产品边界」中刻意不对齐的能力；分级见 `docs/shopxo-admin-parity.md`，**非**第三方审计）。
+
+**ShopXO** 名称仅用于说明兼容与差异，不代表官方合作或商标授权。
 
 ## 产品边界（刻意不对齐 ShopXO）
 - **插件在线市场 / ShopXO 式应用商店**：**不计划**作为内置系统能力实现；管理端相关 Tab 仅为布局兼容或占位。**是否在未来单独跟进 ShopXO 生态变化**，由后续版本与产品决策另定，**不承诺**与官方商店同步。
@@ -11,9 +13,7 @@
 ## 仓库
 - GitHub: `git@github.com:zhangpanda/goshop.git`
 - Gitee: `git@gitee.com:rilegouasas/goshop.git`
-- 本地: `/Users/zhangtaifeng/Code/github.com/goshop`
-- ShopXO 源码: `/tmp/shopxo`（知识库ID: `e589d445-1a60-4d32-9234-d970bcad70d4`）
-- GoShop 知识库ID: `08781f0a-304e-47e5-b995-f790581ffb28`
+- 对照 ShopXO 源码时请自行准备官方发行版（如 v6.8.x），本仓库不随附 ShopXO 代码。
 
 ## 技术栈
 - 后端: Go 1.25 + Gin + GORM + MySQL + Redis(可选)（以 `go.mod` 为准）

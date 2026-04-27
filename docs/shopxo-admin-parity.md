@@ -1,5 +1,7 @@
 # ShopXO v6.8 后台能力对齐清单（GoShop）
 
+> 提及 **ShopXO** 仅用于功能对照说明，不代表官方关系或背书。
+
 对照 **ShopXO 商家后台** 常见模块，对当前 **GoShop 管理端**（`admin/`，菜单见 `AdminShell.tsx`）做可核对分级。状态含义：
 
 | 状态 | 说明 |
