@@ -42,7 +42,8 @@ cd web && npm run dev           # PC前台 :3000
 | PC前台页面 | **24**（`web/src/app/**/page.tsx`） |
 | Go 单元测试 | **55**（`^func Test`，全仓 `*_test.go`） |
 | Playwright E2E | **34**（`admin/e2e/*.spec.ts`：full-flow 19 + deep-flow 10 + marketing 4 + screenshots 1） |
-| 自动化脚本 | **4**（`scripts/deep_test.sh` 本地；`integration_test.sh`；`sandbox_pay_test.sh`；`distribution_test.sh`） |
+| 迁移测试 | **25 项验证**（`scripts/migration_test.sh`：21 项数据校验 + 4 项 API 验证） |
+| 自动化脚本 | **5**（`scripts/deep_test.sh`；`integration_test.sh`；`sandbox_pay_test.sh`；`distribution_test.sh`；`migration_test.sh`） |
 
 > 上表为对外文档的**权威口径**。更新实现后请跑 **`scripts/doc-metrics.sh`** 刷新数字，并同步 `README.md` / `docs/*`，避免漂移。
 
@@ -119,6 +120,10 @@ cd web && npm run dev           # PC前台 :3000
 - **helpers.ts**：登录函数带重试（偶发 token 失效自动重试一次）
 - **next.config.js**：添加 `allowedDevOrigins: ['127.0.0.1']` 解决 Next.js 16 阻止 127.0.0.1 跨域 HMR 导致 E2E 白屏
 - **Bug 修复**：`/api/group/:item_id/open` 与 `/api/group/:id/join` 路由参数名冲突导致 gin panic，统一为 `:id`
+
+#### ShopXO 迁移自动化验证（v1.5.4）
+- **`scripts/migration_test.sh`**：自包含测试（不依赖 shopxo.sql），自动创建 ShopXO 源表+模拟数据 → GoShop 建表 → 执行迁移 SQL → 21 项数据校验（用户/分类/商品/SKU/订单/明细/地址/品牌/文章/管理员，含金额元→分转换、状态码映射、订单地址 JSON）→ 4 项 API 验证（登录/商品/订单/用户/分类）
+- 验证覆盖：用户状态反转（ShopXO 0=正常→GoShop 1=正常）、金额 decimal→int64 分、Unix 时间戳→datetime、多对多分类→单值 category_id、SKU 价格转换、订单地址 JSON 拼装、无规格商品占位 SKU
 
 #### 管理后台纠偏（v1.5.3）
 - **批量导出**：`ExportData`（`internal/service/extend.go`）支持请求体 **`ids`**，仅导出勾选行；**`BatchActions`** 改为 `fetch` 下载 CSV，增加 **`exportType`**（`orders` / `users` / `goods`），与 **`ExportButton`** 行为一致。订单 / 用户 / 商品列表已接入「导出选中」。
@@ -204,6 +209,7 @@ admin/e2e/helpers.ts              # 登录辅助（带重试）
 admin/run-e2e.sh                  # 一键启动后端+前端+跑 E2E
 scripts/deep_test.sh               # 本地深度：go vet + go test（排除 node_modules）；可选 GOSHOP_TEST_RACE=1
 scripts/integration_test.sh      # 核心 API + ShopXO 多单线下；BASE 可覆盖；可选 GOSHOP_PAYMENT_SANDBOX=1 跑多单沙盒回调
+scripts/migration_test.sh        # ShopXO→GoShop 迁移自动化验证（21 项数据 + 4 项 API）
 scripts/MANUAL_VERIFY_PROXY.md   # 反代/HTTPS 下手工验收清单（非脚本）
 scripts/sandbox_pay_test.sh      # 全渠道沙盒轮询（含 PayPal/当面付）+ 钱包边界
 scripts/distribution_test.sh     # 分销完整链路测试
