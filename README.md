@@ -21,7 +21,13 @@
 
 ## 截图预览
 
-仓库内**未附带**静态预览图；克隆后启动 `web` / `admin` 与后端即可在本地查看界面。如需在 README 中展示截图，可自行截取后放入 `docs/screenshots/` 并在此引用。
+以下为 **界面示意预览**（便于快速了解风格；与本地实机界面在布局、数据上可能略有差异）。**实机效果**请克隆后启动 `web` / `admin` 与后端查看。
+
+| 管理端登录 | 管理端仪表盘 | PC 前台首页 |
+|:---:|:---:|:---:|
+| ![管理端登录](docs/screenshots/admin-login-preview.png) | ![管理端仪表盘](docs/screenshots/admin-dashboard-preview.png) | ![PC 首页](docs/screenshots/web-home-preview.png) |
+
+**实机截屏（可选）**：仓库根目录先以 `GOSHOP_E2E=1` 启动 Go 后端，再执行 `cd admin && npx playwright test e2e/readme-screenshots.spec.ts`，可在 `docs/screenshots/` 生成 `admin-login.png`、`admin-dashboard.png`、`admin-goods.png`。
 
 ## 快速开始
 
