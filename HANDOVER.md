@@ -174,5 +174,5 @@ scripts/integration_test.sh      # 核心 API + ShopXO 多单线下；BASE 可�
 scripts/MANUAL_VERIFY_PROXY.md   # 反代/HTTPS 下手工验收清单（非脚本）
 scripts/sandbox_pay_test.sh      # 全渠道沙盒轮询（含 PayPal/当面付）+ 钱包边界
 scripts/distribution_test.sh     # 分销完整链路测试
-.github/workflows/ci.yml       # gofmt / vet / test / 集成（含 payment.sandbox）
+.github/workflows/ci.yml       # gofmt（排除 node_modules）/ vet+test 同 deep_test / -race / 集成（payment.sandbox）
 ```
