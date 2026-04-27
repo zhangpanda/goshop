@@ -102,6 +102,7 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 		return &PayDriverResp{TradeNo: fmt.Sprintf("WALLET_MULTI_%d", time.Now().UnixNano())}, nil
 	}
 
+	// clientType 写入 PayLog；兼容层用 "shopxo" 仅作来源标记，非第三方商标用法
 	pl, err := CreatePayLog(userID, ids, paymentRecordID, "shopxo")
 	if err != nil {
 		return nil, err
@@ -121,7 +122,7 @@ func generatePayNo() string {
 	return fmt.Sprintf("P%d", time.Now().UnixNano())
 }
 
-// CreatePayLog 创建支付日志（支持合并支付多个订单）
+// CreatePayLog 创建支付日志（支持合并支付多个订单）。clientType 为渠道/来源标识（如 api、shopxo）。
 func CreatePayLog(userID uint, orderIDs []uint, paymentID uint, clientType string) (*model.PayLog, error) {
 	var totalPrice int64
 	ids := make([]string, len(orderIDs))

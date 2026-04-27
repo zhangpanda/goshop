@@ -140,7 +140,7 @@ export default function RBACPage() {
         message.success('已保存'); setPluginOpen(null)
       }} forceRender>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
-          勾选该角色可使用的应用插件（与 ShopXO 角色插件概念对齐；具体能力仍依赖业务是否读取此关联）。
+          勾选该角色可使用的应用插件（概念上类似常见 PHP 商城的「角色可访问插件」；是否生效取决于业务是否读取此关联）。
         </Typography.Paragraph>
         <Checkbox.Group
           value={pluginIds}

@@ -14,9 +14,7 @@ import (
 	"github.com/zhangpanda/goshop/pkg/wechat"
 )
 
-/**
- * ShopXO uni-app 兼容：订单列表单条、支付方式解析等（仅用于兼容层，保持字段有默认值避免前端空指针）。
- */
+// 本文件：/api.php 兼容层用的订单/支付 JSON 形状（对照 shopxo-uniapp 常见字段；默认值防前端空指针）。
 
 var shopxoOrderStatusName = map[int8]string{
 	model.OrderStatusPending:   "待付款",
@@ -28,7 +26,7 @@ var shopxoOrderStatusName = map[int8]string{
 	model.OrderStatusBooking:   "预约待确认",
 }
 
-// ShopXO 订单状态 ID（与 ShopXO ConstService common_order_status 一致：0待确认…6已关闭）
+// 订单状态 ID 映射（对照 ShopXO v6.8 常见 common_order_status 编号，便于 uni-app 展示）
 var shopxoStatusIDByInternal = map[int8]int{
 	model.OrderStatusBooking:   0,
 	model.OrderStatusPending:   1,
@@ -126,9 +124,7 @@ func shopxoPaymentNameByID(id uint) string {
 	return p.Name
 }
 
-/**
- * shopxoOrderDisplayPaymentID 列表/详情展示：订单已记录的支付方式优先，否则回退默认。
- */
+// shopxoOrderDisplayPaymentID 列表/详情：优先订单已存 payment_id，否则默认支付方式。
 func shopxoOrderDisplayPaymentID(o *model.Order) uint {
 	if o != nil && o.PaymentID > 0 {
 		return o.PaymentID
@@ -136,9 +132,7 @@ func shopxoOrderDisplayPaymentID(o *model.Order) uint {
 	return DefaultPaymentIDForShopXO()
 }
 
-/**
- * ShopXOOrderDetailView 构造 uni-app 订单详情页 data.data 所需字段（与 ShopXO 状态码对齐）。
- */
+// ShopXOOrderDetailView 构造 uni-app 订单详情 data.data（状态码形状与上表映射一致）。
 func ShopXOOrderDetailView(o *model.Order) map[string]interface{} {
 	if o == nil {
 		return map[string]interface{}{}
@@ -235,9 +229,7 @@ func ShopXOOrderDetailView(o *model.Order) map[string]interface{} {
 	return out
 }
 
-/**
- * shopxoCurrencySymbol 兼容未初始化 DB 的场景（单测、脚本）。
- */
+// shopxoCurrencySymbol 未初始化 DB 时回退 ¥（单测、脚本）。
 func shopxoCurrencySymbol() string {
 	if global.DB == nil {
 		return "¥"
@@ -266,9 +258,7 @@ func shopxoOperateDataInt(op *OrderOperate) map[string]int {
 	}
 }
 
-/**
- * ShopXOOrderListRow 将单条订单转为 uni-app 列表所需的最小字段集。
- */
+// ShopXOOrderListRow 单条订单 → uni-app 订单列表最小字段集。
 func ShopXOOrderListRow(o *model.Order) map[string]interface{} {
 	if o == nil {
 		return map[string]interface{}{}
@@ -324,9 +314,7 @@ func ShopXOOrderListRow(o *model.Order) map[string]interface{} {
 	}
 }
 
-/**
- * DefaultPaymentIDForShopXO 列表/详情展示用默认支付方式（订单表无 payment_id 时的回退）。
- */
+// DefaultPaymentIDForShopXO 列表/详情用默认支付方式（订单无 payment_id 时回退）。
 func DefaultPaymentIDForShopXO() uint {
 	if global.DB == nil {
 		return 0
@@ -344,9 +332,7 @@ func DefaultPaymentIDForShopXO() uint {
 	return 0
 }
 
-/**
- * ShopXOUserPaymentRows 用户端可选支付方式（启用中的配置行）。
- */
+// ShopXOUserPaymentRows 用户端可选支付方式（启用中的配置行）。
 func ShopXOUserPaymentRows() ([]map[string]interface{}, error) {
 	if global.DB == nil {
 		return []map[string]interface{}{}, nil
@@ -373,9 +359,7 @@ func ShopXOUserPaymentRows() ([]map[string]interface{}, error) {
 	return out, nil
 }
 
-/**
- * ShopXOOrderIndexPayload 构造 order/index 接口 data 字段（与 uni-app user-order 一致的最小形状）。
- */
+// ShopXOOrderIndexPayload 构造 order/index 的 data（user-order 列表所需最小字段集）。
 func ShopXOOrderIndexPayload(userID uint, req *OrderListReq) (map[string]interface{}, error) {
 	if global.DB == nil {
 		return nil, fmt.Errorf("数据库未初始化")
@@ -411,9 +395,7 @@ func ShopXOOrderIndexPayload(userID uint, req *OrderListReq) (map[string]interfa
 	}, nil
 }
 
-/**
- * PaymentDriverKeyFromPayment 从支付方式配置解析 UnifiedPay 使用的 payment_key。
- */
+// PaymentDriverKeyFromPayment 从支付方式配置解析 UnifiedPay 的 payment_key。
 func PaymentDriverKeyFromPayment(p *model.Payment) (string, error) {
 	if p == nil {
 		return "", errors.New("支付方式不存在")
@@ -433,10 +415,8 @@ func PaymentDriverKeyFromPayment(p *model.Payment) (string, error) {
 	return inferPaymentKeyFromPaymentName(p.Name), nil
 }
 
-/**
- * paymentShopXOIsWeixinAppMini 是否与 ShopXO「微信APP小程序支付 / 收银台」插件一致（需 order/pay 无 openid 时走 PayLog + 拉起小程序）。
- * 支付方式 JSON 可配置 `"payment":"WeixinAppMini"`，或在名称中含「APP小程序」。
- */
+// paymentShopXOIsWeixinAppMini 是否走「APP 拉起小程序收银台」模式（无 openid 时 order/pay 建 PayLog + weixinapp://）。
+// 配置：`"payment":"WeixinAppMini"` 或名称含「APP小程序」等（约定来自常见 shopxo 系配置习惯）。
 func paymentShopXOIsWeixinAppMini(p *model.Payment) bool {
 	if p == nil {
 		return false
@@ -457,9 +437,7 @@ func paymentShopXOIsWeixinAppMini(p *model.Payment) bool {
 	return ok && strings.TrimSpace(s) == "WeixinAppMini"
 }
 
-/**
- * shopxoCashierMiniPath 小程序收银台路径（与 ShopXO WeixinAppMini 配置 path 一致，默认 pages/cashier/cashier）。
- */
+// shopxoCashierMiniPath 小程序收银台 path（默认 pages/cashier/cashier，与常见 WeixinAppMini 配置一致）。
 func shopxoCashierMiniPath(p *model.Payment) string {
 	const def = "pages/cashier/cashier"
 	if p == nil {
@@ -510,9 +488,7 @@ func inferPaymentKeyFromPaymentName(name string) string {
 	return "wechat_jsapi"
 }
 
-/**
- * ShopXOPluginNameFromDriverKey 与 uni-app payment 组件中 data.payment.payment 对齐。
- */
+// ShopXOPluginNameFromDriverKey 映射为 uni-app payment 组件期望的 data.payment.payment 字符串。
 func ShopXOPluginNameFromDriverKey(driverKey string) string {
 	switch {
 	case strings.HasPrefix(driverKey, "wechat"):
@@ -530,9 +506,7 @@ func ShopXOPluginNameFromDriverKey(driverKey string) string {
 	}
 }
 
-/**
- * ShopXOPayPayloadFromDriver 将内部支付结果转为 uni-app payment 组件可消费的结构。
- */
+// ShopXOPayPayloadFromDriver 内部支付结果 → uni-app payment 组件可消费结构。
 func ShopXOPayPayloadFromDriver(driverKey string, p *model.Payment, prep *PayDriverResp, offlineUserMsg string) map[string]interface{} {
 	plugin := ShopXOPluginNameFromDriverKey(driverKey)
 	payRow := map[string]interface{}{"payment": plugin}
@@ -581,10 +555,8 @@ func ShopXOPayPayloadFromDriver(driverKey string, p *model.Payment, prep *PayDri
 	}
 }
 
-/**
- * ShopXOCompatUnifiedPay 供 uni-app /api.php?s=order/pay：支持单笔或多笔订单（ids）+ 支付方式表主键。
- * outerMsg 非空时 HTTP 外层使用自定义 msg（与线下支付弹窗文案对齐）。
- */
+// ShopXOCompatUnifiedPay 供 /api.php?s=order/pay：单笔或多笔订单（ids）+ 支付方式主键。
+// outerMsg 非空时外层 HTTP msg 用自定义文案（如线下支付提示）。
 func ShopXOCompatUnifiedPay(userID uint, orderIDs []uint, paymentID uint, openID, returnURL, clientIP string) (map[string]interface{}, *string, error) {
 	if global.DB == nil {
 		return nil, nil, fmt.Errorf("数据库未初始化")
@@ -604,8 +576,9 @@ func ShopXOCompatUnifiedPay(userID uint, orderIDs []uint, paymentID uint, openID
 		driverKey = inferPaymentKeyFromPaymentName(pay.Name)
 	}
 
-	// APP 拉起微信小程序收银台：与 ShopXO WeixinAppMini::Pay 一致，先建 PayLog，返回 weixinapp:// 链接；用户在小程序内调 cashier/paydata 完成 JSAPI 预下单。
+	// APP 拉起小程序收银台：先建 PayLog，返回 weixinapp://；小程序内 cashier/paydata 完成 JSAPI 预下单（对照常见 WeixinAppMini 流程）。
 	if strings.TrimSpace(openID) == "" && driverKey == "wechat_jsapi" && paymentShopXOIsWeixinAppMini(&pay) {
+		// clientType "shopxo"：兼容层来源标记，见 CreatePayLog 注释
 		pl, err := CreatePayLog(userID, orderIDs, paymentID, "shopxo")
 		if err != nil {
 			return nil, nil, err
@@ -675,9 +648,7 @@ func cashierOpenIDBelongsToUser(userID uint, openID string) bool {
 	return u.OpenID == openID
 }
 
-/**
- * ShopXOCashierPayData 对应 ShopXO api.php?s=cashier/paydata：用 authcode 换 openid 后对 PayLog 发起微信 JSAPI 预下单。
- */
+// ShopXOCashierPayData 对应 api.php?s=cashier/paydata：authcode 换 openid 后对 PayLog 发起微信 JSAPI 预下单。
 func ShopXOCashierPayData(authCode, payNo string) (map[string]interface{}, error) {
 	authCode = strings.TrimSpace(authCode)
 	payNo = strings.TrimSpace(payNo)

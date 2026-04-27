@@ -12,8 +12,8 @@ import (
 	"github.com/zhangpanda/goshop/pkg/response"
 )
 
-// SetupShopXOCompat 注册ShopXO兼容路由
-// uni-app请求格式: /api.php?s=controller/action&token=xxx&ajax=ajax
+// SetupShopXOCompat 注册 /api.php 兼容路由（对照 shopxo-uniapp 常见 s=controller/action 形态）。
+// 请求示例: /api.php?s=controller/action&token=xxx&ajax=ajax
 func SetupShopXOCompat(r *gin.Engine) {
 	r.Any("/api.php", shopxoDispatch)
 }
@@ -89,7 +89,7 @@ func parseJWTToken(token string) (*auth.Claims, error) {
 	return auth.ParseToken(token, global.Cfg.JWT.Secret)
 }
 
-// routeMap ShopXO controller/action -> Go handler
+// routeMap 兼容层 controller/action -> 本仓库 handler（命名沿历史习惯，非主张与 ShopXO 逐字节一致）
 var routeMap = map[string]gin.HandlerFunc{
 	// ===== base =====
 	"base/common": sxCommon,
@@ -216,14 +216,14 @@ var routeMap = map[string]gin.HandlerFunc{
 	"forminputdata/save":   sxFormInputDataSave,
 	"forminputdata/delete": sxFormInputDataDelete,
 
-	// ===== cashier（微信小程序收银台，与 ShopXO Cashier::PayData 一致）=====
+	// ===== cashier（微信小程序收银台，对照 shopxo-uniapp cashier/paydata 约定）=====
 	"cashier/paydata": sxCashierPayData,
 }
 
 // ===== handler实现 =====
 
 func sxCommon(c *gin.Context) {
-	// 构造ShopXO base/common 完整返回结构
+	// 构造 base/common 兼容返回结构（字段形状参考 shopxo-uniapp 常见期望）
 	config := map[string]interface{}{
 		"common_site_type":                           service.GetConfig("common_site_type"),
 		"common_shop_notice":                         service.GetConfig("common_shop_notice"),
@@ -573,7 +573,7 @@ func sxBuyIndex(c *gin.Context) {
 	response.OK(c, resp)
 }
 func sxBuyAdd(c *gin.Context) {
-	// ShopXO buy/add: 直接用 goods_id+sku_id 下单，需要先加购物车
+	// buy/add：goods_id+sku_id 即时购（兼容层先加购物车再下单）
 	var req struct {
 		GoodsID   uint `json:"goods_id" form:"goods_id"`
 		SKUID     uint `json:"sku_id" form:"sku_id"`
@@ -687,9 +687,7 @@ func sxOrderPayCheck(c *gin.Context) {
 	response.OK(c, nil)
 }
 
-/**
- * sxCashierPayData ShopXO cashier/paydata：小程序内用 wx.login 的 code 换 openid 后拉取 JSAPI 支付参数（需先通过 order/pay 创建 PayLog）。
- */
+// sxCashierPayData 对应 cashier/paydata：小程序内 wx.login 的 code 换 openid 后拉 JSAPI 参数（需先 order/pay 创建 PayLog）。
 func sxCashierPayData(c *gin.Context) {
 	var body struct {
 		AuthCode string `form:"authcode" json:"authcode"`

@@ -100,7 +100,7 @@ type UserRank struct {
 // userDisplayName 仪表盘等场景展示用名称：优先昵称，其次用户名、手机号，皆空则「用户ID」。
 func userDisplayName(u *model.User, id uint) string {
 	if u == nil {
-		return fmt.Sprintf("用户%u", id)
+		return fmt.Sprintf("用户%d", id)
 	}
 	if s := strings.TrimSpace(u.Nickname); s != "" {
 		return s
@@ -111,7 +111,7 @@ func userDisplayName(u *model.User, id uint) string {
 	if s := strings.TrimSpace(u.Phone); s != "" {
 		return s
 	}
-	return fmt.Sprintf("用户%u", id)
+	return fmt.Sprintf("用户%d", id)
 }
 type OrderStatusDist struct {
 	Status int8  `json:"status"`
@@ -169,7 +169,7 @@ func GetStatistical(days int) *StatisticalData {
 	for i := range data.UserTop {
 		var u model.User
 		if err := global.DB.Select("nickname", "username", "phone").First(&u, data.UserTop[i].UserID).Error; err != nil {
-			data.UserTop[i].Nickname = fmt.Sprintf("用户%u", data.UserTop[i].UserID)
+			data.UserTop[i].Nickname = fmt.Sprintf("用户%d", data.UserTop[i].UserID)
 			continue
 		}
 		data.UserTop[i].Nickname = userDisplayName(&u, data.UserTop[i].UserID)

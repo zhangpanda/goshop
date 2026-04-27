@@ -16,7 +16,7 @@ func Setup(r *gin.Engine) {
 	r.StaticFile("/diy.html", "./static/diy.html")
 	r.StaticFile("/form.html", "./static/form.html")
 
-	// ShopXO uni-app兼容路由
+	// /api.php 兼容入口（shopxo-uniapp 等常用请求形态，非 ShopXO 官方实现）
 	handler.SetupShopXOCompat(r)
 
 	// DIY/Form 编辑器兼容路由

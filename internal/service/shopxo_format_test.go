@@ -48,7 +48,7 @@ func TestShopXOOrderListRow_Operate(t *testing.T) {
 	}
 	row := ShopXOOrderListRow(o)
 	if row["status"] != 1 {
-		t.Fatalf("expect ShopXO status 1 待付款, got %v", row["status"])
+		t.Fatalf("expect compat status id 1 (待付款), got %v", row["status"])
 	}
 	op, ok := row["operate_data"].(map[string]int)
 	if !ok {

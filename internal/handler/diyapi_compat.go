@@ -46,7 +46,7 @@ func diyApiAuth() gin.HandlerFunc {
 	}
 }
 
-// SetupDiyApiCompat 注册 diyapi 和 attachmentapi 兼容路由（供 shopxo-diy/form 前端调用）
+// SetupDiyApiCompat 注册 diyapi / attachmentapi 等路由（供 MIT 的 shopxo-diy、shopxo-form 构建产物对接）
 func SetupDiyApiCompat(r *gin.Engine) {
 	g := r.Group("/api").Use(diyApiAuth())
 	{
@@ -85,7 +85,7 @@ func SetupDiyApiCompat(r *gin.Engine) {
 		g.POST("/forminputapi/forminputdetail", formInputApiDetail)
 		g.POST("/forminputapi/forminputsave", formInputApiSave)
 
-		// region/all - 全部地区数据（shopxo-form用）
+		// region/all - 全部地区（shopxo-form 构建产物会请求）
 		g.POST("/region/all", regionAll)
 		g.GET("/region/all", regionAll)
 
@@ -255,7 +255,7 @@ func diyApiSave(c *gin.Context) {
 		global.DB.Create(&diy)
 		id = diy.ID
 	}
-	// ShopXO returns data as int (the record ID)
+	// 兼容约定：成功时 data 为新建记录 ID（int），与 diy 前端期望一致
 	response.OK(c, id)
 }
 

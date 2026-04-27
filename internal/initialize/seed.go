@@ -271,7 +271,7 @@ func InitDefaultSeedData() {
 	log.Println("default slides seeded:", len(slides), "slides")
 }
 
-// EnsureDefaultPayments 在无支付方式时补全最小配置（ShopXO order/pay、列表展示依赖）
+// EnsureDefaultPayments 在无支付方式时补全最小配置（兼容层 order/pay 与列表展示回退依赖）
 func EnsureDefaultPayments() {
 	var c int64
 	global.DB.Model(&model.Payment{}).Count(&c)
