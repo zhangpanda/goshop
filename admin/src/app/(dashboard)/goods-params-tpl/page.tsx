@@ -4,6 +4,7 @@ import { Form, Input, Button, Space, Tag } from 'antd'
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons'
 export default function GoodsParamsTplPage() {
   return <CrudPage title="商品参数模板" listUrl="/admin/params-templates" createUrl="/admin/params-templates"
+    searchClient searchPlaceholder="模板名称"
     deleteUrl={r => `/admin/params-templates/${r.id}`} updateUrl={r => `/admin/params-templates/${r.id}`} batchDelete
     columns={[
       {title:'ID',dataIndex:'id',width:60},

@@ -5,6 +5,7 @@ import ImageUpload from '@/components/ImageUpload'
 
 export default function LinksPage() {
   return <CrudPage title="友情链接" listUrl="/admin/links" createUrl="/admin/links"
+    searchClient searchPlaceholder="名称、链接"
     deleteUrl={r => `/admin/links/${r.id}`} statusUrl={r => `/admin/links/${r.id}/status`} updateUrl={r => `/admin/links/${r.id}`} batchDelete
     columns={[
       { title: 'ID', dataIndex: 'id', width: 60 },

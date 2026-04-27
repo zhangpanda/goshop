@@ -5,7 +5,7 @@ import { Form, Input, InputNumber, Select } from 'antd'
 export default function NavigationPage() {
   return <CrudPage title="导航管理" listUrl="/admin/navigations" createUrl="/admin/navigations"
     updateUrl={r => `/admin/navigations/${r.id}`} deleteUrl={r => `/admin/navigations/${r.id}`} statusUrl={r => `/admin/navigations/${r.id}/status`}
-    searchable searchPlaceholder="导航名称" batchDelete
+    searchable searchClient searchPlaceholder="名称、链接" batchDelete
     detailItems={r => {
       const d = r as Record<string, unknown>
       return [{ label: 'ID', value: d.id as number }, { label: '名称', value: d.name as string }, { label: '链接', value: d.url as string }, { label: '类型', value: d.type === 'header' ? '顶部' : d.type === 'footer' ? '底部' : d.type as string }, { label: '排序', value: d.sort as number }]

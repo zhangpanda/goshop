@@ -7,6 +7,7 @@ import {
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons'
 import { api } from '@/lib/api'
 import dayjs from 'dayjs'
+import { PromoGoodsSkuFields } from '@/components/PromoGoodsSkuFields'
 
 type PromoItem = { goods_id: number; sku_id: number; promo_price: number; promo_stock: number; per_limit?: number }
 type SeckillRow = { id: number; name: string; start_time: string; end_time: string; status: number; items?: PromoItem[] }
@@ -101,8 +102,7 @@ export default function SeckillsPage() {
               <>
                 {fields.map(({ key, name, ...rest }) => (
                   <Space key={key} align="baseline" style={{ display: 'flex', marginBottom: 8 }} wrap>
-                    <Form.Item {...rest} name={[name, 'goods_id']} rules={[{ required: true, message: '商品ID' }]}><InputNumber placeholder="商品ID" min={1} style={{ width: 100 }} /></Form.Item>
-                    <Form.Item {...rest} name={[name, 'sku_id']} rules={[{ required: true, message: 'SKU' }]}><InputNumber placeholder="SKU ID" min={1} style={{ width: 100 }} /></Form.Item>
+                    <PromoGoodsSkuFields rowName={name} fieldRest={rest} />
                     <Form.Item {...rest} name={[name, 'promo_price']} rules={[{ required: true }]}><InputNumber placeholder="秒杀价(分)" min={1} style={{ width: 120 }} /></Form.Item>
                     <Form.Item {...rest} name={[name, 'promo_stock']} rules={[{ required: true }]}><InputNumber placeholder="库存" min={1} style={{ width: 88 }} /></Form.Item>
                     <Form.Item {...rest} name={[name, 'per_limit']}><InputNumber placeholder="每人限购(0不限)" min={0} style={{ width: 130 }} /></Form.Item>

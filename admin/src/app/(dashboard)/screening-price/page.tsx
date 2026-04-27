@@ -4,6 +4,7 @@ import { Form, Input, InputNumber } from 'antd'
 
 export default function ScreeningPricePage() {
   return <CrudPage title="筛选价格" listUrl="/admin/screening-prices" createUrl="/admin/screening-prices"
+    searchClient searchPlaceholder="名称"
     deleteUrl={r => `/admin/screening-prices/${r.id}`} updateUrl={r => `/admin/screening-prices/${r.id}`} batchDelete
     columns={[
       { title: 'ID', dataIndex: 'id', width: 60 },

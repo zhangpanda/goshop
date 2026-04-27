@@ -3,7 +3,7 @@ import CrudPage from '@/components/CrudPage'
 import JsonConfigEditor from '@/components/JsonConfigEditor'
 import { Form, Input, Select } from 'antd'
 export default function LayoutPage() {
-  return <CrudPage title="首页布局" listUrl="/admin/layouts" createUrl="/admin/layouts" searchable
+  return <CrudPage title="首页布局" listUrl="/admin/layouts" createUrl="/admin/layouts" searchable searchClient searchPlaceholder="名称、类型"
     updateUrl={r => `/admin/layouts/${r.id}`}
     detailItems={r => { const d = r as Record<string,unknown>; return [{label:'ID',value:d.id as number},{label:'名称',value:d.name as string},{label:'类型',value:d.type as string},{label:'状态',value:(d.status as number)===1?'启用':'禁用'}] }}
     deleteUrl={r => `/admin/layouts/${r.id}`} batchDelete

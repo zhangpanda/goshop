@@ -5,6 +5,7 @@ import ImageUpload from '@/components/ImageUpload'
 
 export default function SlidesPage() {
   return <CrudPage title="首页轮播" listUrl="/admin/slides" createUrl="/admin/slides"
+    searchClient searchPlaceholder="名称"
     deleteUrl={r => `/admin/slides/${r.id}`} statusUrl={r => `/admin/slides/${r.id}/status`} updateUrl={r => `/admin/slides/${r.id}`} batchDelete
     columns={[
       { title: 'ID', dataIndex: 'id', width: 60 },

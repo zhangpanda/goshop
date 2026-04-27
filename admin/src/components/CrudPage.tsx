@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback, ReactNode } from 'react'
+import { useEffect, useState, useCallback, useRef, ReactNode } from 'react'
 import { Table, Button, Modal, Form, Input, Typography, Space, Popconfirm, message, Switch, Card, Row, Col, Descriptions, Drawer } from 'antd'
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { api } from '@/lib/api'
@@ -24,13 +24,17 @@ interface CrudPageProps<T> {
   batchDelete?: boolean
   noSearch?: boolean
   noDetail?: boolean
+  /**
+   * 为 true 且未开启 paginated 时：关键词仅在前端过滤整表数据，不请求 keyword 参数（适用于接口一次返回全量、后端无筛选的列表）。
+   */
+  searchClient?: boolean
 }
 
 export default function CrudPage<T extends { id: number }>({
   title, listUrl, createUrl, updateUrl, deleteUrl, statusUrl,
   columns, formItems, detailItems, rowKey = 'id', paginated = false, modalWidth = 520,
   searchable, searchPlaceholder = '搜索', batchDelete = false,
-  noSearch = false, noDetail = false,
+  noSearch = false, noDetail = false, searchClient = false,
 }: CrudPageProps<T>) {
   const [list, setList] = useState<T[]>([])
   const [total, setTotal] = useState(0)
@@ -41,31 +45,57 @@ export default function CrudPage<T extends { id: number }>({
   const [keyword, setKeyword] = useState('')
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [form] = Form.useForm()
+  const clientListCacheRef = useRef<{ listUrl: string; rows: T[] } | null>(null)
 
   // 默认开启搜索（除非 noSearch）
   const hasSearch = searchable !== undefined ? searchable : !noSearch
+  const effectiveSearchClient = Boolean(searchClient && !paginated)
 
-  const load = useCallback(async (p = 1) => {
+  const load = useCallback(async (p = 1, opts?: { force?: boolean }) => {
+    if (effectiveSearchClient) {
+      if (opts?.force) clientListCacheRef.current = null
+      let full: T[]
+      const hit = clientListCacheRef.current
+      if (hit && hit.listUrl === listUrl) full = hit.rows
+      else {
+        const res = await api.get<{ total?: number; list?: T[] } | T[]>(listUrl)
+        full = Array.isArray(res) ? res : (res.list || [])
+        clientListCacheRef.current = { listUrl, rows: full }
+      }
+      const kw = (keyword || '').trim().toLowerCase()
+      const filtered = !hasSearch || !kw
+        ? full
+        : full.filter(row =>
+            Object.values(row as Record<string, unknown>).some(
+              v => v !== null && v !== undefined && String(v).toLowerCase().includes(kw),
+            ),
+          )
+      setList(filtered)
+      setTotal(filtered.length)
+      setPage(p)
+      setSelectedIds([])
+      return
+    }
     let url = paginated ? `${listUrl}${listUrl.includes('?') ? '&' : '?'}page=${p}&page_size=20` : listUrl
     if (hasSearch && keyword) url += `${url.includes('?') ? '&' : '?'}keyword=${encodeURIComponent(keyword)}`
     const res = await api.get<{ total?: number; list?: T[] } | T[]>(url)
     if (Array.isArray(res)) { setList(res); setTotal(res.length) }
     else { setList(res.list || []); setTotal(res.total || 0) }
     setPage(p); setSelectedIds([])
-  }, [listUrl, paginated, hasSearch, keyword])
+  }, [listUrl, paginated, hasSearch, keyword, effectiveSearchClient])
 
   useEffect(() => { load() }, [load])
 
   const onSave = async (v: Record<string, unknown>) => {
     if (editing && updateUrl) await api.put(updateUrl(editing), v)
     else if (createUrl) await api.post(createUrl, v)
-    message.success('保存成功'); setOpen(false); form.resetFields(); setEditing(null); load(page)
+    message.success('保存成功'); setOpen(false); form.resetFields(); setEditing(null); load(page, { force: true })
   }
 
   const batchDel = async () => {
     if (!deleteUrl || !selectedIds.length) return
     for (const id of selectedIds) await api.del(deleteUrl({ id } as T))
-    message.success(`已删除 ${selectedIds.length} 条`); load(page)
+    message.success(`已删除 ${selectedIds.length} 条`); load(page, { force: true })
   }
 
   // 自动生成详情：从 columns 提取
@@ -89,7 +119,7 @@ export default function CrudPage<T extends { id: number }>({
     ...columns,
     ...((statusUrl) ? [{
       title: '状态', dataIndex: 'status', width: 80,
-      render: (v: number, r: T) => <Switch size="small" checked={v === 1} onChange={async s => { await api.put(statusUrl(r), { status: s ? 1 : 0 }); load(page) }} />,
+      render: (v: number, r: T) => <Switch size="small" checked={v === 1} onChange={async s => { await api.put(statusUrl(r), { status: s ? 1 : 0 }); load(page, { force: true }) }} />,
     }] : []),
     ...((deleteUrl || updateUrl || showDetail) ? [{
       title: '操作', width: (showDetail ? 40 : 0) + (updateUrl ? 40 : 0) + (deleteUrl ? 40 : 0) + 40,
@@ -97,7 +127,7 @@ export default function CrudPage<T extends { id: number }>({
         <Space>
           {showDetail && <a onClick={() => setDetail(r)}>详情</a>}
           {updateUrl && <a onClick={() => { setEditing(r); form.setFieldsValue(r); setOpen(true) }}>编辑</a>}
-          {deleteUrl && <Popconfirm title="确认删除?" onConfirm={async () => { await api.del(deleteUrl(r)); message.success('已删除'); load(page) }}><a style={{ color: 'red' }}>删除</a></Popconfirm>}
+          {deleteUrl && <Popconfirm title="确认删除?" onConfirm={async () => { await api.del(deleteUrl(r)); message.success('已删除'); load(page, { force: true }) }}><a style={{ color: 'red' }}>删除</a></Popconfirm>}
         </Space>
       ),
     }] : []),

@@ -96,6 +96,23 @@ type UserRank struct {
 	Nickname string `json:"nickname"`
 	Amount   int64  `json:"amount"`
 }
+
+// userDisplayName 仪表盘等场景展示用名称：优先昵称，其次用户名、手机号，皆空则「用户ID」。
+func userDisplayName(u *model.User, id uint) string {
+	if u == nil {
+		return fmt.Sprintf("用户%u", id)
+	}
+	if s := strings.TrimSpace(u.Nickname); s != "" {
+		return s
+	}
+	if s := strings.TrimSpace(u.Username); s != "" {
+		return s
+	}
+	if s := strings.TrimSpace(u.Phone); s != "" {
+		return s
+	}
+	return fmt.Sprintf("用户%u", id)
+}
 type OrderStatusDist struct {
 	Status int8  `json:"status"`
 	Count  int64 `json:"count"`
@@ -151,8 +168,11 @@ func GetStatistical(days int) *StatisticalData {
 		Where("status > 0").Group("user_id").Order("amount DESC").Limit(10).Find(&data.UserTop)
 	for i := range data.UserTop {
 		var u model.User
-		global.DB.Select("nickname").First(&u, data.UserTop[i].UserID)
-		data.UserTop[i].Nickname = u.Nickname
+		if err := global.DB.Select("nickname", "username", "phone").First(&u, data.UserTop[i].UserID).Error; err != nil {
+			data.UserTop[i].Nickname = fmt.Sprintf("用户%u", data.UserTop[i].UserID)
+			continue
+		}
+		data.UserTop[i].Nickname = userDisplayName(&u, data.UserTop[i].UserID)
 	}
 	// 订单状态分布
 	global.DB.Model(&model.Order{}).Select("status, COUNT(*) as count").Group("status").Find(&data.OrderDist)

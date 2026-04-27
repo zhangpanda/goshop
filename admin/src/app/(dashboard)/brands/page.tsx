@@ -6,7 +6,7 @@ import ImageUpload from '@/components/ImageUpload'
 export default function BrandsPage() {
   return <CrudPage title="品牌管理" listUrl="/admin/brands" createUrl="/admin/brands"
     updateUrl={r => `/admin/brands/${r.id}`} deleteUrl={r => `/admin/brands/${r.id}`} statusUrl={r => `/admin/brands/${r.id}/status`}
-    searchable searchPlaceholder="品牌名称" batchDelete paginated
+    searchable searchClient searchPlaceholder="品牌名称" batchDelete
     columns={[
       { title: 'ID', dataIndex: 'id', width: 60 },
       { title: '名称', dataIndex: 'name' },
