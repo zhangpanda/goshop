@@ -229,7 +229,7 @@ func sxCommon(c *gin.Context) {
 		"common_shop_notice":                         service.GetConfig("common_shop_notice"),
 		"common_app_is_enable_search":                1,
 		"common_app_is_online_service":               0,
-		"common_app_customer_service_tel":            service.GetConfig("app_customer_service_tel"),
+		"common_app_customer_service_tel":            service.CustomerServiceTel(),
 		"common_app_h5_url":                          service.GetConfig("common_app_h5_url"),
 		"common_order_close_limit_time":              30,
 		"common_order_is_booking":                    0,

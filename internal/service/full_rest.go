@@ -251,8 +251,8 @@ func StatisticalDateTimeList(days int) []string {
 
 func AppCustomerServiceConfig() map[string]string {
 	return map[string]string{
-		"tel":    GetConfig("app_customer_service_tel"),
-		"custom": GetConfig("app_customer_service_custom"),
+		"tel":    CustomerServiceTel(),
+		"custom": CustomerServiceCustom(),
 	}
 }
 func AppBaseConfig() map[string]string {

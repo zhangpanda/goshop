@@ -1,6 +1,8 @@
 package service
 
 import (
+	"strings"
+
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
 )
@@ -24,6 +26,28 @@ func SetConfig(key, value, group, desc string) error {
 func GetConfigGroup(group string) ([]model.Config, error) {
 	var list []model.Config
 	return list, global.DB.Where("`group` = ?", group).Find(&list).Error
+}
+
+/**
+ * CustomerServiceTel 读取客服电话，与 InitDefaultConfig 中 common_app_customer_service_tel 一致。
+ * 若为空则回退 app_customer_service_tel（历史错误 key，兼容旧数据）。
+ */
+func CustomerServiceTel() string {
+	if v := strings.TrimSpace(GetConfig("common_app_customer_service_tel")); v != "" {
+		return v
+	}
+	return strings.TrimSpace(GetConfig("app_customer_service_tel"))
+}
+
+/**
+ * CustomerServiceCustom 读取客服自定义文案/链接等扩展配置。
+ * 优先 common_app_customer_service_custom，回退 app_customer_service_custom。
+ */
+func CustomerServiceCustom() string {
+	if v := strings.TrimSpace(GetConfig("common_app_customer_service_custom")); v != "" {
+		return v
+	}
+	return strings.TrimSpace(GetConfig("app_customer_service_custom"))
 }
 
 // ---- 地区 ----
