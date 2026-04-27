@@ -133,8 +133,10 @@
 | 方法 | 路径 | 说明 | 参数 |
 |------|------|------|------|
 | POST | /api/seckill/:item_id/buy | 秒杀抢购 | - |
-| POST | /api/group/:item_id/open | 开团 | - |
+| POST | /api/group/:id/open | 开团 | - |
 | POST | /api/group/:id/join | 参团 | - |
+
+> 拼团路径中两段均为 `…/group/:id/…`：`/open` 的 `id` 为**活动商品/拼团项** ID；`/join` 的 `id` 为**拼团单** ID。
 
 ### 售后
 

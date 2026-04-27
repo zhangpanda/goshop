@@ -121,6 +121,18 @@ cd web && npm run dev           # PC前台 :3000
 - **next.config.js**：添加 `allowedDevOrigins: ['127.0.0.1']` 解决 Next.js 16 阻止 127.0.0.1 跨域 HMR 导致 E2E 白屏
 - **Bug 修复**：`/api/group/:item_id/open` 与 `/api/group/:id/join` 路由参数名冲突导致 gin panic，统一为 `:id`
 
+#### 安全审计与性能调优（v1.5.4）
+- **安全修复 12 项**：
+  - 高危：CORS 全开放→白名单、SQL 控制台黑名单可绕过→全文关键字扫描+超时、FormTableQuery SQL 注入→字段/操作符/排序白名单校验、售后退款金额可控→校验不超过明细实付、验证码用 math/rand→crypto/rand
+  - 中危：JWT 未固定签名算法→WithValidMethods(HS256)、操作日志取错 context key→admin_id、FormTableQuery 泄露密码哈希→移除 users 表、积分变更竞态→gorm.Expr 原子更新、静态目录可遍历→禁用目录列表
+  - 低危：请求体无大小限制→MaxMultipartMemory 8MB、文件扩展名大小写
+- **压测结果**（200 并发 2000 请求）：
+  - 分类列表 **5,036 QPS**（加缓存后提升 4.6 倍）
+  - 商品列表 1,640 QPS / 商品详情 2,893 QPS
+  - 订单列表 2,888 QPS / 站点配置 2,186 QPS
+  - 仪表盘 871 QPS / 登录 72 QPS（bcrypt CPU 密集型，正常）
+- **性能优化**：分类树查询加 60 秒缓存
+
 #### ShopXO 迁移自动化验证（v1.5.4）
 - **`scripts/migration_test.sh`**：自包含测试（不依赖 shopxo.sql），自动创建 ShopXO 源表+模拟数据 → GoShop 建表 → 执行迁移 SQL → 21 项数据校验（用户/分类/商品/SKU/订单/明细/地址/品牌/文章/管理员，含金额元→分转换、状态码映射、订单地址 JSON）→ 4 项 API 验证（登录/商品/订单/用户/分类）
 - 验证覆盖：用户状态反转（ShopXO 0=正常→GoShop 1=正常）、金额 decimal→int64 分、Unix 时间戳→datetime、多对多分类→单值 category_id、SKU 价格转换、订单地址 JSON 拼装、无规格商品占位 SKU

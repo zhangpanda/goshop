@@ -14,7 +14,7 @@ func AdminOperationLog() gin.HandlerFunc {
 		if c.Request.Method == "GET" {
 			return
 		}
-		adminID := c.GetUint("user_id")
+		adminID := c.GetUint("admin_id")
 		if adminID == 0 {
 			return
 		}

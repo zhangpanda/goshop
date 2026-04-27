@@ -43,6 +43,11 @@ func AftersaleCreate(userID uint, req *AftersaleCreateReq) (*model.OrderAftersal
 		Type: req.Type, Reason: req.Reason, Price: req.Price,
 		Number: req.Number, Msg: req.Msg, Images: req.Images,
 	}
+	// 校验退款金额不超过明细实付
+	maxPrice := item.Price * int64(item.Quantity)
+	if as.Price > maxPrice {
+		return nil, fmt.Errorf("退款金额不能超过 %d", maxPrice)
+	}
 	if err := global.DB.Create(&as).Error; err != nil {
 		return nil, err
 	}

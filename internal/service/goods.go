@@ -1,8 +1,11 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
@@ -32,6 +35,15 @@ func CreateCategory(req *CategoryReq) (*model.Category, error) {
 }
 
 func GetCategoryTree() ([]model.Category, error) {
+	// 尝试从缓存读取
+	ctx := context.Background()
+	if cached, err := global.Cache.Get(ctx, "category_tree"); err == nil && cached != "" {
+		var cats []model.Category
+		if json.Unmarshal([]byte(cached), &cats) == nil {
+			return cats, nil
+		}
+	}
+
 	var cats []model.Category
 	err := global.DB.Where("parent_id = 0 AND status = 1").
 		Order("sort DESC").Find(&cats).Error
@@ -40,6 +52,11 @@ func GetCategoryTree() ([]model.Category, error) {
 	}
 	for i := range cats {
 		global.DB.Where("parent_id = ? AND status = 1", cats[i].ID).Order("sort DESC").Find(&cats[i].Children)
+	}
+
+	// 写入缓存 60 秒
+	if data, err := json.Marshal(cats); err == nil {
+		global.Cache.Set(ctx, "category_tree", string(data), 60*time.Second)
 	}
 	return cats, nil
 }

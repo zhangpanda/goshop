@@ -8,11 +8,12 @@ import (
 
 func Setup(r *gin.Engine) {
 	r.Use(middleware.Cors(), middleware.Logger(), gin.Recovery())
+	r.MaxMultipartMemory = 8 << 20 // 8MB for file uploads
 
 	// 静态文件
-	r.Static("/uploads", "./uploads")
-	r.Static("/static/diy", "./static/diy")
-	r.Static("/static/form_input", "./static/form_input")
+	r.StaticFS("/uploads", gin.Dir("./uploads", false))
+	r.StaticFS("/static/diy", gin.Dir("./static/diy", false))
+	r.StaticFS("/static/form_input", gin.Dir("./static/form_input", false))
 	r.StaticFile("/diy.html", "./static/diy.html")
 	r.StaticFile("/form.html", "./static/form.html")
 

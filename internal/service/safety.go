@@ -1,9 +1,10 @@
 package service
 
 import (
+	crand "crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strings"
 	"time"
 
@@ -12,9 +13,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func cryptoRandInt(max int) int {
+	n, _ := crand.Int(crand.Reader, big.NewInt(int64(max)))
+	return int(n.Int64())
+}
+
 // SendVerifyCode 发送验证码（短信/邮件）
 func SendVerifyCode(account, typ string) error {
-	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	code := fmt.Sprintf("%06d", cryptoRandInt(1000000))
 	vc := model.VerifyCode{
 		Account:  account,
 		Code:     code,

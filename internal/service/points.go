@@ -6,29 +6,31 @@ import (
 
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 // ChangePoints 变动积分（通用方法）
 func ChangePoints(userID uint, points int, typ string, refID uint, remark string) error {
 	tx := global.DB.Begin()
 
+	// 原子更新积分，防止竞态
+	result := tx.Model(&model.User{}).Where("id = ? AND points + ? >= 0", userID, points).
+		Update("points", gorm.Expr("points + ?", points))
+	if result.Error != nil {
+		tx.Rollback()
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		return errors.New("积分不足或用户不存在")
+	}
+
 	var user model.User
-	if err := tx.First(&user, userID).Error; err != nil {
-		tx.Rollback()
-		return errors.New("用户不存在")
-	}
-
-	newBalance := user.Points + points
-	if newBalance < 0 {
-		tx.Rollback()
-		return errors.New("积分不足")
-	}
-
-	tx.Model(&user).Update("points", newBalance)
+	tx.First(&user, userID)
 	tx.Create(&model.PointsLog{
 		UserID:  userID,
 		Points:  points,
-		Balance: newBalance,
+		Balance: user.Points,
 		Type:    typ,
 		RefID:   refID,
 		Remark:  remark,

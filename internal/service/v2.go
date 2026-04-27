@@ -1,9 +1,11 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -356,14 +358,18 @@ type FormTableWhere struct {
 	Value interface{} `json:"value"`
 }
 
-// 允许查询的表白名单
+// 允许查询的表白名单（不含 users/admins 等敏感表）
 var allowedTables = map[string]bool{
-	"orders": true, "users": true, "goods": true, "order_aftersales": true,
+	"orders": true, "goods": true, "order_aftersales": true,
 	"reviews": true, "coupons": true, "brands": true, "articles": true,
 	"pay_logs": true, "refund_logs": true, "messages": true, "error_logs": true,
 	"warehouses": true, "plugins": true, "answers": true, "sms_logs": true,
 	"email_logs": true, "search_histories": true, "attachments": true,
 }
+
+var allowedOps = map[string]bool{"=": true, "!=": true, ">": true, "<": true, ">=": true, "<=": true, "like": true, "in": true}
+var safeFieldRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+var safeOrderRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*\s+(ASC|DESC|asc|desc)$`)
 
 func FormTableQuery(p *FormTableParams) (int64, []map[string]interface{}, error) {
 	if !allowedTables[p.Table] {
@@ -378,18 +384,23 @@ func FormTableQuery(p *FormTableParams) (int64, []map[string]interface{}, error)
 	db := global.DB.Table(p.Table)
 	if p.Keyword != "" && p.KeywordFields != "" {
 		fields := strings.Split(p.KeywordFields, ",")
-		conds := make([]string, len(fields))
-		for i, f := range fields {
-			conds[i] = f + " LIKE ?"
+		var conds []string
+		var args []interface{}
+		for _, f := range fields {
+			if safeFieldRe.MatchString(f) {
+				conds = append(conds, f+" LIKE ?")
+				args = append(args, "%"+p.Keyword+"%")
+			}
 		}
-		args := make([]interface{}, len(fields))
-		for i := range args {
-			args[i] = "%" + p.Keyword + "%"
+		if len(conds) > 0 {
+			db = db.Where(strings.Join(conds, " OR "), args...)
 		}
-		db = db.Where(strings.Join(conds, " OR "), args...)
 	}
 	for _, w := range p.Where {
-		switch w.Op {
+		if !safeFieldRe.MatchString(w.Field) || !allowedOps[strings.ToLower(w.Op)] {
+			continue
+		}
+		switch strings.ToLower(w.Op) {
 		case "like":
 			db = db.Where(w.Field+" LIKE ?", "%"+fmt.Sprint(w.Value)+"%")
 		case "in":
@@ -400,7 +411,7 @@ func FormTableQuery(p *FormTableParams) (int64, []map[string]interface{}, error)
 	}
 	var total int64
 	db.Count(&total)
-	if p.OrderBy != "" {
+	if p.OrderBy != "" && safeOrderRe.MatchString(strings.TrimSpace(p.OrderBy)) {
 		db = db.Order(p.OrderBy)
 	} else {
 		db = db.Order("id DESC")
@@ -419,20 +430,41 @@ func GenerateQRCodeURL(content string) string {
 
 // ==================== 8. SQL控制台 ====================
 
-var forbiddenSQL = []string{"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "TRUNCATE", "CREATE", "GRANT", "REVOKE"}
+var forbiddenSQLKeywords = []string{
+	"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "TRUNCATE", "CREATE",
+	"GRANT", "REVOKE", "INTO OUTFILE", "INTO DUMPFILE", "LOAD_FILE",
+	"SLEEP", "BENCHMARK", "EXEC", "EXECUTE",
+}
 
-func ExecuteSQL(sql string) ([]map[string]interface{}, error) {
-	upper := strings.ToUpper(strings.TrimSpace(sql))
-	for _, kw := range forbiddenSQL {
-		if strings.HasPrefix(upper, kw) {
-			return nil, fmt.Errorf("禁止执行 %s 语句", kw)
+func ExecuteSQL(sqlStr string) ([]map[string]interface{}, error) {
+	trimmed := strings.TrimSpace(sqlStr)
+	upper := strings.ToUpper(trimmed)
+	// 禁止多语句
+	if strings.Contains(trimmed, ";") && strings.TrimRight(trimmed, "; \t\n") != strings.TrimRight(strings.SplitN(trimmed, ";", 2)[0], " \t\n") {
+		return nil, errors.New("禁止多语句执行")
+	}
+	// 仅允许 SELECT/SHOW/DESC/EXPLAIN 开头
+	allowed := false
+	for _, prefix := range []string{"SELECT", "SHOW", "DESC", "EXPLAIN"} {
+		if strings.HasPrefix(upper, prefix) {
+			allowed = true
+			break
 		}
 	}
-	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "SHOW") && !strings.HasPrefix(upper, "DESC") {
-		return nil, errors.New("仅允许SELECT/SHOW/DESC查询")
+	if !allowed {
+		return nil, errors.New("仅允许 SELECT/SHOW/DESC/EXPLAIN 查询")
 	}
+	// 检查危险关键字（全文扫描，防注释绕过）
+	for _, kw := range forbiddenSQLKeywords {
+		if strings.Contains(upper, kw) {
+			return nil, fmt.Errorf("SQL 包含禁止关键字: %s", kw)
+		}
+	}
+	// 带超时执行
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	var results []map[string]interface{}
-	err := global.DB.Raw(sql).Limit(1000).Find(&results).Error
+	err := global.DB.WithContext(ctx).Raw(trimmed).Limit(1000).Find(&results).Error
 	return results, err
 }
 
