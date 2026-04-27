@@ -169,7 +169,8 @@ admin/src/app/(dashboard)/distribution/page.tsx # 分销管理(3个Tab)
 
 ### 测试
 ```
-scripts/integration_test.sh      # 核心 API + ShopXO 多单线下；可选 GOSHOP_PAYMENT_SANDBOX=1 跑多单沙盒回调
+scripts/deep_test.sh               # 本地深度：go vet + go test（排除 node_modules）；可选 GOSHOP_TEST_RACE=1
+scripts/integration_test.sh      # 核心 API + ShopXO 多单线下；BASE 可覆盖；可选 GOSHOP_PAYMENT_SANDBOX=1 跑多单沙盒回调
 scripts/MANUAL_VERIFY_PROXY.md   # 反代/HTTPS 下手工验收清单（非脚本）
 scripts/sandbox_pay_test.sh      # 全渠道沙盒轮询（含 PayPal/当面付）+ 钱包边界
 scripts/distribution_test.sh     # 分销完整链路测试

@@ -177,6 +177,24 @@ func TestAlipayMiniDriverPay(t *testing.T) {
 	}
 }
 
+func TestGetPaymentDriver_SandboxMode(t *testing.T) {
+	old := global.Cfg
+	t.Cleanup(func() { global.Cfg = old })
+	global.Cfg = &config.Config{Payment: config.PaymentConfig{Sandbox: true}}
+
+	d, err := GetPaymentDriver("alipay_pc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sd, ok := d.(*SandboxDriver)
+	if !ok {
+		t.Fatalf("sandbox 模式下应返回 *SandboxDriver，得到 %T", d)
+	}
+	if sd.Name != "alipay_pc" || sd.Real == nil {
+		t.Fatalf("SandboxDriver 字段异常: %+v", sd)
+	}
+}
+
 func TestSandboxDriverWrapsReal(t *testing.T) {
 	// Offline driver always succeeds — sandbox should preserve its response data
 	d := &SandboxDriver{Name: "offline", Real: &OfflineDriver{}}

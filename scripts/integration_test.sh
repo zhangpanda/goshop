@@ -1,14 +1,18 @@
 #!/bin/bash
 # GoShop 核心流程集成测试
-# 需要后端服务运行在 localhost:8080
+# 需要后端服务运行在 localhost:8080（或 BASE 指向的地址）
 # 用法: ./scripts/integration_test.sh
-# 可选环境变量:
+# 环境变量:
+#   BASE — 默认 http://localhost:8080
 #   GOSHOP_PAYMENT_SANDBOX=1 — 且 config payment.sandbox=true 时，额外跑「ShopXO 多订单 + 沙盒回调」
 
 set -e
-BASE="http://localhost:8080"
+BASE="${BASE:-http://localhost:8080}"
 PASS=0
 FAIL=0
+
+# 超时与失败时非零退出，避免挂死
+CURL=(curl -sS --connect-timeout 8 --max-time 60)
 
 assert_code() {
   local name="$1" expected="$2" actual="$3"
@@ -21,10 +25,16 @@ assert_code() {
   fi
 }
 
-api() { curl -s "$@"; }
+api() { "${CURL[@]}" "$@"; }
 code() { echo "$1" | python3 -c "import sys,json;print(json.load(sys.stdin)['code'])"; }
 
 echo "========== GoShop 集成测试 =========="
+echo "BASE=$BASE"
+
+if ! "${CURL[@]}" -o /dev/null -f "$BASE/api/site-config"; then
+  echo "❌ 无法访问 $BASE/api/site-config（请先启动服务，或设置 BASE）"
+  exit 1
+fi
 
 echo ""
 echo "--- 公共接口 ---"

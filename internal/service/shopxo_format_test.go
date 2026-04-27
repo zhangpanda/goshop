@@ -29,11 +29,46 @@ func TestPaymentDriverKeyFromPayment_PHPClass(t *testing.T) {
 }
 
 func TestShopXOPluginNameFromDriverKey(t *testing.T) {
-	if ShopXOPluginNameFromDriverKey("wechat_jsapi") != "Weixin" {
-		t.Fatal()
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{"wechat_jsapi", "Weixin"},
+		{"wechat_h5", "Weixin"},
+		{"alipay_pc", "Alipay"},
+		{"alipay_mini", "Alipay"},
+		{"wallet", "WalletPay"},
+		{"offline", "CashPayment"},
+		{"paypal", "PayPal"},
+		{"unknown_future", "Weixin"},
 	}
-	if ShopXOPluginNameFromDriverKey("wallet") != "WalletPay" {
-		t.Fatal()
+	for _, tt := range tests {
+		if got := ShopXOPluginNameFromDriverKey(tt.key); got != tt.want {
+			t.Errorf("%q: got %q, want %q", tt.key, got, tt.want)
+		}
+	}
+}
+
+func TestPaymentDriverKeyFromPayment_inferByName(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{"余额钱包", "wallet"},
+		{"线下货到付款", "offline"},
+		{"现金支付", "offline"},
+		{"支付宝扫码", "alipay_h5"},
+		{"", "wechat_jsapi"},
+	}
+	for _, tt := range tests {
+		p := &model.Payment{Name: tt.name, Config: ""}
+		k, err := PaymentDriverKeyFromPayment(p)
+		if err != nil {
+			t.Fatalf("%q: %v", tt.name, err)
+		}
+		if k != tt.want {
+			t.Errorf("name %q: got %q, want %q", tt.name, k, tt.want)
+		}
 	}
 }
 
