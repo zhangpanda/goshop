@@ -115,6 +115,7 @@ func userDisplayName(u *model.User, id uint) string {
 	}
 	return fmt.Sprintf("用户%d", id)
 }
+
 type OrderStatusDist struct {
 	Status int8  `json:"status"`
 	Count  int64 `json:"count"`

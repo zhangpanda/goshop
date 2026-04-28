@@ -59,7 +59,10 @@ func RoleDetailHandler(c *gin.Context)       { var m model.Role; genericDetail(c
 func RoleStatusUpdateHandler(c *gin.Context) { statusUpdate(c, &model.Role{}) }
 
 // ========== 商品分类 ==========
-func CategoryStatusUpdate(c *gin.Context) { statusUpdate(c, &model.Category{}); service.InvalidateCategoryCache() }
+func CategoryStatusUpdate(c *gin.Context) {
+	statusUpdate(c, &model.Category{})
+	service.InvalidateCategoryCache()
+}
 
 // ========== 商品评论 ==========
 func ReviewDeleteHandler(c *gin.Context)       { genericDelete(c, &model.Review{}) }

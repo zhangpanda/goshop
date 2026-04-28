@@ -156,8 +156,9 @@ jobs:
           sleep 12
       - name: Install admin + Playwright
         run: |
-          cd admin && npm ci
-          cd admin && npx playwright install --with-deps chromium
+          cd admin
+          npm ci
+          npx playwright install --with-deps chromium
       - name: Run Playwright
         env:
           CI: true
