@@ -12,7 +12,7 @@
 
 - **Go 后端**：Gin + GORM + MySQL，**392** 条 Gin 路由注册（`router.go` 350 + DIY/Form 41 + `/api.php` 1）；ShopXO uni-app **`s=` 动作 82**；12 种支付驱动，Redis 可选
 - **营销功能**：秒杀（乐观锁+限购）、拼团（自动成团）、优惠券、促销
-- **管理后台**：Next.js + Ant Design，70 个页面；与 ShopXO 后台为**分级对照**（已对齐 / 部分 / 占位等，见 `docs/shopxo-admin-parity.md`）
+- **管理后台**：Next.js + Ant Design，72 个页面；与 ShopXO 后台为**分级对照**（已对齐 / 部分 / 占位等，见 `docs/shopxo-admin-parity.md`）
 - **PC前台**：Next.js + Tailwind CSS，Apple风格UI
 - **手机端**：可选用社区维护的 [shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)（需按 `docs/uniapp-guide.md` 配置）；后端提供 **`/api.php` 风格兼容入口**（当前 **82** 个 `s=` 动作，见 `internal/handler/shopxo_compat.go`），**不保证**与对方全部历史版本行为一致，以集成测试与真机为准。
 - **缓存抽象**：Redis/内存缓存自动切换，无Redis也能运行
@@ -37,15 +37,21 @@
 git clone https://github.com/zhangpanda/goshop.git
 cd goshop
 cp config.yaml.example config.yaml
-# 编辑 config.yaml，将 db.host 改为 mysql（redis.host 可留空或改为 redis）
+# 编辑 config.yaml：
+#   db.host 改为 mysql
+#   db.password 改为 goshop123（与 docker-compose.yml 中 MYSQL_ROOT_PASSWORD 一致）
+#   redis.host 改为 redis（或留空使用内存缓存）
 docker compose up -d
-# 访问 http://localhost:8080
+# 后端 API: http://localhost:8080
+# 管理后台和 PC 前台需另行启动（见下方本地开发步骤）
 ```
+
+> Docker 镜像仅包含 Go 后端。管理后台（Next.js :3010）和 PC 前台（Next.js :3000）需在宿主机或单独容器中运行。
 
 ### 本地开发
 
 #### 环境要求
-- Go 1.25+（与 `go.mod` 保持一致）
+- Go 1.25+（`go.mod` 声明 1.25；如使用 Go 1.24.x 需降级 `github.com/gin-gonic/gin` 到 v1.10.x）
 - Node.js 20+（与 Next.js 15 实践一致）
 - MySQL 5.7+ / 8.0+（推荐 8.0）
 - Redis 6+（可选，不配置则使用内存缓存）
@@ -54,11 +60,15 @@ docker compose up -d
 ```bash
 git clone https://github.com/zhangpanda/goshop.git
 cd goshop
-cp config.yaml.example config.yaml  # 修改数据库配置
+cp config.yaml.example config.yaml  # 修改数据库密码等配置
+
+# 创建数据库（首次）
+mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS goshop CHARACTER SET utf8mb4;"
+
 go build -o bin/goshop cmd/server/main.go
 ./bin/goshop
 # 服务运行在 http://localhost:8080
-# 首次启动自动建表、创建默认管理员(admin/admin123)、初始化配置
+# 首次启动自动建表、创建默认管理员(admin/admin123)、初始化商品等示例数据
 ```
 
 ### 2. 启动管理后台
@@ -77,6 +87,8 @@ npm install
 npm run dev
 # 访问 http://localhost:3000
 ```
+
+> 管理后台和 PC 前台默认将 `/api/*` 代理到 `localhost:8080`。如后端地址不同，需修改对应 `next.config.js` 中的 `rewrites` 配置。
 
 ### 4. 对接uni-app手机端
 ```bash
