@@ -13,30 +13,32 @@ test.describe.serial('深度交互 E2E', () => {
   test('新增分类 → 编辑 → 删除', async ({ page }) => {
     await page.goto('/categories')
     await page.waitForLoadState('networkidle')
+    const ts = Date.now()
+    const catName = `E2E分类${ts}`
+    const catRenamed = `E2E改名${ts}`
 
     // 新增
     await page.getByRole('button', { name: /新增分类/ }).click()
     await expect(page.getByRole('dialog', { name: '新增分类' })).toBeVisible()
-    await page.getByLabel('名称').fill('E2E测试分类')
+    await page.getByLabel('名称').fill(catName)
     await page.getByLabel('排序').fill('999')
     await page.getByRole('dialog').getByRole('button', { name: 'OK' }).click()
     await expect(page.getByText('保存成功')).toBeVisible()
-    await expect(page.getByText('E2E测试分类')).toBeVisible()
+    await expect(page.getByText(catName)).toBeVisible()
 
     // 编辑
-    const row = page.locator('tr', { hasText: 'E2E测试分类' })
+    const row = page.locator('tr', { hasText: catName })
     await row.getByText('编辑').click()
     await expect(page.getByRole('dialog', { name: '编辑分类' })).toBeVisible()
     await page.getByLabel('名称').clear()
-    await page.getByLabel('名称').fill('E2E分类已改')
+    await page.getByLabel('名称').fill(catRenamed)
     await page.getByRole('dialog').getByRole('button', { name: 'OK' }).click()
     await expect(page.getByText('保存成功')).toBeVisible()
-    await expect(page.getByText('E2E分类已改')).toBeVisible()
+    await expect(page.getByText(catRenamed)).toBeVisible()
 
     // 删除
-    const row2 = page.locator('tr', { hasText: 'E2E分类已改' })
+    const row2 = page.locator('tr', { hasText: catRenamed })
     await row2.getByText('删除').click()
-    // Popconfirm 弹出在 .ant-popconfirm 里
     await page.locator('.ant-popconfirm').getByRole('button', { name: 'OK' }).click()
     await expect(page.getByText('已删除')).toBeVisible()
   })
@@ -47,6 +49,7 @@ test.describe.serial('深度交互 E2E', () => {
     await page.waitForLoadState('networkidle')
 
     // 表格有数据
+    await page.locator('.ant-table-tbody tr').first().waitFor({ timeout: 15_000 })
     const rows = page.locator('.ant-table-tbody tr')
     const count = await rows.count()
     expect(count).toBeGreaterThan(0)

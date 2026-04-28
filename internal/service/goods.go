@@ -20,6 +20,10 @@ type CategoryReq struct {
 	Sort     int    `json:"sort"`
 }
 
+func InvalidateCategoryCache() {
+	global.Cache.Del(context.Background(), "category_tree")
+}
+
 func CreateCategory(req *CategoryReq) (*model.Category, error) {
 	cat := model.Category{
 		ParentID: req.ParentID,
@@ -31,6 +35,7 @@ func CreateCategory(req *CategoryReq) (*model.Category, error) {
 	if err := global.DB.Create(&cat).Error; err != nil {
 		return nil, err
 	}
+	InvalidateCategoryCache()
 	return &cat, nil
 }
 

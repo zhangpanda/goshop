@@ -173,6 +173,7 @@ func AdminUpdateCategory(c *gin.Context) {
 	global.DB.Model(&model.Category{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"parent_id": req.ParentID, "name": req.Name, "icon": req.Icon, "sort": req.Sort,
 	})
+	service.InvalidateCategoryCache()
 	response.OK(c, nil)
 }
 
@@ -186,6 +187,7 @@ func AdminDeleteCategory(c *gin.Context) {
 		return
 	}
 	global.DB.Delete(&model.Category{}, id)
+	service.InvalidateCategoryCache()
 	response.OK(c, nil)
 }
 
