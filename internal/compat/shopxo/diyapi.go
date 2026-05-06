@@ -1,4 +1,4 @@
-package handler
+package shopxo
 
 import (
 	"encoding/json"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/handler"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/auth"
 	"github.com/zhangpanda/goshop/pkg/response"
@@ -57,10 +58,10 @@ func SetupDiyApiCompat(r *gin.Engine) {
 		g.POST("/diyapi/diylist", diyApiList)
 		g.POST("/diyapi/goodsinit", diyApiGoodsInit)
 		g.POST("/diyapi/goodslist", diyApiGoodsList)
-		g.POST("/diyapi/goodsautodata", DiyApiGoodsAutoData)
-		g.POST("/diyapi/articleautodata", DiyApiArticleAutoData)
+		g.POST("/diyapi/goodsautodata", handler.DiyApiGoodsAutoData)
+		g.POST("/diyapi/articleautodata", handler.DiyApiArticleAutoData)
 		g.POST("/diyapi/articlelist", diyApiArticleList)
-		g.POST("/diyapi/brandautodata", DiyApiBrandAutoData)
+		g.POST("/diyapi/brandautodata", handler.DiyApiBrandAutoData)
 		g.POST("/diyapi/brandlist", diyApiBrandList)
 		g.POST("/diyapi/linkinit", diyApiLinkInit)
 		g.POST("/diyapi/customviewlist", diyApiCustomViewList)
@@ -69,7 +70,7 @@ func SetupDiyApiCompat(r *gin.Engine) {
 		g.POST("/diyapi/custominit", diyApiInit)
 		g.POST("/diyapi/diyupload", diyApiUpload)
 		g.POST("/diyapi/diydownload", diyApiDetail)
-		g.POST("/diyapi/articleappointdata", DiyApiArticleAutoData)
+		g.POST("/diyapi/articleappointdata", handler.DiyApiArticleAutoData)
 
 		// attachmentapi
 		g.POST("/attachmentapi/list", attachmentApiList)
@@ -325,7 +326,7 @@ func diyApiDesignList(c *gin.Context) {
 }
 
 func diyApiUpload(c *gin.Context) {
-	Upload(c)
+	handler.Upload(c)
 }
 
 // ========== attachmentapi ==========
@@ -356,7 +357,7 @@ func attachmentApiList(c *gin.Context) {
 	response.OK(c, gin.H{"total": total, "data": list, "page": page, "page_size": pageSize})
 }
 
-func attachmentApiUpload(c *gin.Context) { Upload(c) }
+func attachmentApiUpload(c *gin.Context) { handler.Upload(c) }
 
 func attachmentApiDelete(c *gin.Context) {
 	var req struct {

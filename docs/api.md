@@ -264,7 +264,7 @@
 
 通过 `/api.php?s=controller/action` 调用，token 通过 `?token=xxx` 传递。
 
-当前实现注册 **82** 个 `s=` 动作（`routeMap`，详见 `internal/handler/shopxo_compat.go`）；**边界行为以源码与测试为准**。使用说明见 [uni-app 对接指南](uniapp-guide.md)。
+当前实现注册 **82** 个 `s=` 动作（`routeMap`，详见 `internal/compat/shopxo/compat.go`）；**边界行为以源码与测试为准**。使用说明见 [uni-app 对接指南](uniapp-guide.md)。
 
 常用接口映射：
 

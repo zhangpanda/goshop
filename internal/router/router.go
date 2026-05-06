@@ -1,7 +1,10 @@
 package router
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/zhangpanda/goshop/internal/compat/shopxo"
 	"github.com/zhangpanda/goshop/internal/handler"
 	"github.com/zhangpanda/goshop/internal/middleware"
 )
@@ -9,6 +12,12 @@ import (
 func Setup(r *gin.Engine) {
 	r.Use(middleware.Cors(), middleware.Logger(), gin.Recovery())
 	r.MaxMultipartMemory = 8 << 20 // 8MB for file uploads
+
+	// 健康检查（不经过中间件链）
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+	r.GET("/ready", handler.ReadinessCheck)
 
 	// 静态文件
 	r.StaticFS("/uploads", gin.Dir("./uploads", false))
@@ -18,16 +27,18 @@ func Setup(r *gin.Engine) {
 	r.StaticFile("/form.html", "./static/form.html")
 
 	// /api.php 兼容入口（shopxo-uniapp 等常用请求形态，非 ShopXO 官方实现）
-	handler.SetupShopXOCompat(r)
+	shopxo.SetupShopXOCompat(r)
 
 	// DIY/Form 编辑器兼容路由
-	handler.SetupDiyApiCompat(r)
+	shopxo.SetupDiyApiCompat(r)
+
+	authRL := middleware.RateLimit(10, time.Minute) // 登录/注册: 10次/分钟
 
 	api := r.Group("/api")
 	{
-		api.POST("/register", handler.Register)
-		api.POST("/login", handler.Login)
-		api.POST("/wx/login", handler.WxLogin)
+		api.POST("/register", authRL, handler.Register)
+		api.POST("/login", authRL, handler.Login)
+		api.POST("/wx/login", authRL, handler.WxLogin)
 	}
 
 	// 公开接口
@@ -94,8 +105,9 @@ func Setup(r *gin.Engine) {
 	api.GET("/pay/sandbox/callback", handler.SandboxCallback)
 
 	// 公开安全接口
-	api.POST("/verify-code", handler.SendVerifyCode)
-	api.POST("/forget-password", handler.ForgetPassword)
+	smsRL := middleware.RateLimit(5, time.Minute) // 验证码: 5次/分钟
+	api.POST("/verify-code", smsRL, handler.SendVerifyCode)
+	api.POST("/forget-password", smsRL, handler.ForgetPassword)
 
 	// 多语言/货币公开接口
 	api.GET("/multilingual", handler.GetMultilingualConfig)
@@ -218,7 +230,7 @@ func Setup(r *gin.Engine) {
 	}
 
 	// 管理员登录（无需鉴权）
-	api.POST("/admin/login", handler.AdminLoginHandler)
+	api.POST("/admin/login", authRL, handler.AdminLoginHandler)
 	api.GET("/admin/captcha", handler.AdminCaptcha)
 
 	// 后台管理（使用 AdminAuth 中间件 + 操作日志）

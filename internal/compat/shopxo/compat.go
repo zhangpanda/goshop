@@ -1,4 +1,4 @@
-package handler
+package shopxo
 
 import (
 	"net/http"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/handler"
 	"github.com/zhangpanda/goshop/internal/service"
 	"github.com/zhangpanda/goshop/pkg/auth"
 	"github.com/zhangpanda/goshop/pkg/response"
@@ -154,7 +155,7 @@ var routeMap = map[string]gin.HandlerFunc{
 	// ===== orderaftersale =====
 	"orderaftersale/index":    sxAftersaleIndex,
 	"orderaftersale/detail":   sxAftersaleDetail,
-	"orderaftersale/create":   sxAftersaleCreate,
+	"orderaftersale/create":   handler.AftersaleCreate,
 	"orderaftersale/delivery": sxAftersaleDelivery,
 	"orderaftersale/cancel":   sxAftersaleCancel,
 
@@ -170,7 +171,7 @@ var routeMap = map[string]gin.HandlerFunc{
 	// ===== personal =====
 	"personal/index":            sxPersonalIndex,
 	"personal/save":             sxPersonalSave,
-	"personal/useravatarupload": sxUserAvatarUpload,
+	"personal/useravatarupload": handler.Upload,
 
 	// ===== safety =====
 	"safety/loginpwdupdate": sxLoginPwdUpdate,
@@ -612,7 +613,7 @@ func sxOrderIndex(c *gin.Context) {
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	payload, err := service.ShopXOOrderIndexPayload(userID, &req)
+	payload, err := ShopXOOrderIndexPayload(userID, &req)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
 		return
@@ -627,17 +628,17 @@ func sxOrderDetail(c *gin.Context) {
 		response.Fail(c, http.StatusNotFound, err.Error())
 		return
 	}
-	payRows, _ := service.ShopXOUserPaymentRows()
+	payRows, _ := ShopXOUserPaymentRows()
 	if payRows == nil {
 		payRows = []map[string]interface{}{}
 	}
-	detail := service.ShopXOOrderDetailView(order)
+	detail := ShopXOOrderDetailView(order)
 	response.OK(c, map[string]interface{}{
 		"data":               detail,
 		"operate":            service.OrderOperateButtons(order),
 		"steps":              service.OrderStepData(order),
 		"payment_list":       payRows,
-		"default_payment_id": service.DefaultPaymentIDForShopXO(),
+		"default_payment_id": DefaultPaymentIDForShopXO(),
 		"status_tips":        "",
 		"site_fictitious":    nil,
 	})
@@ -666,7 +667,7 @@ func sxOrderPay(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, "请选择支付方式")
 		return
 	}
-	payload, outerMsg, err := service.ShopXOCompatUnifiedPay(userID, ids, body.PaymentID, body.OpenID, body.ReturnURL, c.ClientIP())
+	payload, outerMsg, err := ShopXOCompatUnifiedPay(userID, ids, body.PaymentID, body.OpenID, body.ReturnURL, c.ClientIP())
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
@@ -700,7 +701,7 @@ func sxCashierPayData(c *gin.Context) {
 	if body.OrderNo == "" {
 		body.OrderNo = c.Query("order_no")
 	}
-	payload, err := service.ShopXOCashierPayData(body.AuthCode, body.OrderNo)
+	payload, err := ShopXOCashierPayData(body.AuthCode, body.OrderNo)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
@@ -749,7 +750,7 @@ func sxAftersaleDetail(c *gin.Context) {
 	}
 	response.OK(c, service.OrderAftersaleDetailData(as.ID))
 }
-func sxAftersaleCreate(c *gin.Context) { AftersaleCreate(c) }
+func sxAftersaleCreate(c *gin.Context) { handler.AftersaleCreate(c) }
 func sxAftersaleDelivery(c *gin.Context) {
 	id := getID(c)
 	var req service.AftersaleDeliveryReq
@@ -820,9 +821,9 @@ func sxPersonalSave(c *gin.Context) {
 	service.PersonalSave(c.GetUint("user_id"), &req)
 	response.OK(c, nil)
 }
-func sxUserAvatarUpload(c *gin.Context) { Upload(c) }
+func sxUserAvatarUpload(c *gin.Context) { handler.Upload(c) }
 
-func sxLoginPwdUpdate(c *gin.Context) { UpdatePassword(c) }
+func sxLoginPwdUpdate(c *gin.Context) { handler.UpdatePassword(c) }
 func sxLogout(c *gin.Context)         { response.OK(c, nil) }
 
 func sxFavorIndex(c *gin.Context) {
@@ -849,7 +850,7 @@ func sxBrowseDelete(c *gin.Context) {
 
 func sxCommentsIndex(c *gin.Context)  { sxGoodsComments(c) }
 func sxCommentsDetail(c *gin.Context) { response.OK(c, nil) }
-func sxCommentsSave(c *gin.Context)   { CreateReview(c) }
+func sxCommentsSave(c *gin.Context)   { handler.CreateReview(c) }
 func sxCommentsDelete(c *gin.Context) {
 	id := getID(c)
 	if err := service.GoodsCommentsDeleteForUser(id, c.GetUint("user_id")); err != nil {
@@ -866,7 +867,7 @@ func sxIntegralIndex(c *gin.Context) {
 	response.OK(c, map[string]interface{}{"total": total, "data": list, "integral": integral})
 }
 
-func sxMessageIndex(c *gin.Context) { GetMessages(c) }
+func sxMessageIndex(c *gin.Context) { handler.GetMessages(c) }
 
 func sxRegionIndex(c *gin.Context) {
 	pid, _ := strconv.ParseUint(c.DefaultQuery("parent_id", "0"), 10, 64)
@@ -904,7 +905,7 @@ func sxFormInputDataIndex(c *gin.Context) {
 	list, total, _ := service.FormInputDataList(uint(fid), page, 20)
 	response.OK(c, map[string]interface{}{"total": total, "data": list})
 }
-func sxFormInputDataSave(c *gin.Context) { FormInputDataSubmitHandler(c) }
+func sxFormInputDataSave(c *gin.Context) { handler.FormInputDataSubmitHandler(c) }
 func sxFormInputDataDelete(c *gin.Context) {
 	id := getID(c)
 	service.FormInputApiDelete(id, c.GetUint("user_id"))
