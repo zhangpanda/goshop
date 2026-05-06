@@ -165,8 +165,7 @@ func OrderGoodsIntegralGiving(userID, orderID uint, payAmount int64) error {
 	tx.Create(&model.GoodsGiveIntegralLog{
 		OrderID: orderID, UserID: userID, Integral: points, Status: 0,
 	})
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 // CronIntegralRelease 定时释放锁定积分（赠送后N天释放）
@@ -190,7 +189,10 @@ func CronIntegralRelease(limitMinutes int) (sucs, fail int) {
 			UserID: log.UserID, Points: log.Integral, Type: "goods_integral",
 			RefID: log.OrderID, Remark: fmt.Sprintf("商品赠送积分释放%d", log.Integral),
 		})
-		tx.Commit()
+		if err := tx.Commit().Error; err != nil {
+			fail++
+			continue
+		}
 		sucs++
 	}
 	return
@@ -217,8 +219,7 @@ func OrderGoodsIntegralRollback(orderID, orderDetailID uint, refundAmount int64)
 	if log.Integral-deduct <= 0 {
 		tx.Model(&log).Update("status", 2) // 关闭
 	}
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 // ==================== 7. 微信小程序发货信息录入 ====================

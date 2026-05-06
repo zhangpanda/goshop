@@ -87,8 +87,7 @@ func AppTabbarSave(items []model.AppTabbar) error {
 	for _, item := range items {
 		tx.Create(&item)
 	}
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 // ---- 快捷菜单 ----
@@ -102,8 +101,7 @@ func ShortcutMenuSave(items []model.ShortcutMenu) error {
 	for _, item := range items {
 		tx.Create(&item)
 	}
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 // ---- 协议 ----

@@ -194,8 +194,7 @@ func UserLogout(userID uint) error {
 		"open_id":  "",
 		"union_id": "",
 	})
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 // ========== 缓存管理 ==========
