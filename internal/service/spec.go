@@ -25,7 +25,9 @@ func CreateSpecTemplate(req *SpecTemplateReq) (*model.SpecTemplate, error) {
 			tx.Create(&model.SpecValue{TypeID: typ.ID, Value: v, Sort: j})
 		}
 	}
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
 	global.DB.Preload("Types.Values").First(&t, t.ID)
 	return &t, nil
 }
@@ -44,6 +46,5 @@ func DeleteSpecTemplate(id uint) error {
 	}
 	tx.Where("template_id = ?", id).Delete(&model.SpecType{})
 	tx.Delete(&model.SpecTemplate{}, id)
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }

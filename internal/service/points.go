@@ -35,8 +35,7 @@ func ChangePoints(userID uint, points int, typ string, refID uint, remark string
 		RefID:   refID,
 		Remark:  remark,
 	})
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 // OrderRewardPoints 订单完成奖励积分（每消费1元=1积分）

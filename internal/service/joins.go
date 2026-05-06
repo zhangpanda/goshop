@@ -23,7 +23,7 @@ func SaveGoodsCategoryJoinRecords(goodsID uint, categoryIDs []uint) {
 	for _, cid := range categoryIDs {
 		tx.Create(&model.GoodsCategoryJoin{GoodsID: goodsID, CategoryID: cid})
 	}
-	tx.Commit()
+	tx.Commit() //nolint:errcheck // fire-and-forget helper
 }
 
 // GoodsSalesCountInc 商品销量增加

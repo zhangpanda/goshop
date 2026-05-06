@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
@@ -45,18 +46,39 @@ func ZipImport(zipPath, destDir string) error {
 		return err
 	}
 	defer r.Close()
+
+	destDir, err = filepath.Abs(destDir)
+	if err != nil {
+		return err
+	}
+
 	for _, f := range r.File {
 		path := filepath.Join(destDir, f.Name)
+		// Zip Slip 防护：确保解压路径在目标目录内
+		if !strings.HasPrefix(filepath.Clean(path)+string(os.PathSeparator), destDir+string(os.PathSeparator)) &&
+			filepath.Clean(path) != destDir {
+			return fmt.Errorf("非法压缩文件路径: %s", f.Name)
+		}
 		if f.FileInfo().IsDir() {
 			os.MkdirAll(path, 0755)
 			continue
 		}
 		os.MkdirAll(filepath.Dir(path), 0755)
-		dst, _ := os.Create(path)
-		src, _ := f.Open()
-		io.Copy(dst, src)
+		dst, err := os.Create(path)
+		if err != nil {
+			return err
+		}
+		src, err := f.Open()
+		if err != nil {
+			dst.Close()
+			return err
+		}
+		_, err = io.Copy(dst, src)
 		src.Close()
 		dst.Close()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

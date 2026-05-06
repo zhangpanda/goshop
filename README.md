@@ -14,7 +14,7 @@
 - **营销功能**：秒杀（乐观锁+限购）、拼团（自动成团）、优惠券、促销
 - **管理后台**：Next.js + Ant Design，72 个页面；与 ShopXO 后台为**分级对照**（已对齐 / 部分 / 占位等，见 `docs/shopxo-admin-parity.md`）
 - **PC前台**：Next.js + Tailwind CSS，Apple风格UI
-- **手机端**：可选用社区维护的 [shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)（需按 `docs/uniapp-guide.md` 配置）；后端提供 **`/api.php` 风格兼容入口**（当前 **82** 个 `s=` 动作，见 `internal/handler/shopxo_compat.go`），**不保证**与对方全部历史版本行为一致，以集成测试与真机为准。
+- **手机端**：可选用社区维护的 [shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)（需按 `docs/uniapp-guide.md` 配置）；后端提供 **`/api.php` 风格兼容入口**（当前 **82** 个 `s=` 动作，见 `internal/compat/shopxo/compat.go`），**不保证**与对方全部历史版本行为一致，以集成测试与真机为准。
 - **缓存抽象**：Redis/内存缓存自动切换，无Redis也能运行
 - **DIY装修**：集成shopxo-diy可视化拖拽编辑器
 - **Form设计**：集成shopxo-form可视化表单设计器

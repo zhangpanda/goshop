@@ -95,8 +95,7 @@ func SaveRolePlugins(roleID uint, pluginIDs []uint) error {
 	for _, pid := range pluginIDs {
 		tx.Create(&model.RolePlugins{RoleID: roleID, PluginID: pid})
 	}
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 // GetRolePluginIDs 返回角色已绑定的插件 ID 列表。
@@ -121,8 +120,7 @@ func SaveFormFields(formID uint, fields []model.FormTableUserFields) error {
 		fields[i].Sort = i
 		tx.Create(&fields[i])
 	}
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 func GetFormFields(formID uint) ([]model.FormTableUserFields, error) {
 	var l []model.FormTableUserFields

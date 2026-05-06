@@ -1,7 +1,7 @@
 package service
 
 import (
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
@@ -27,7 +27,10 @@ func CronOrderClose(minutes int) (sucs, fail int) {
 			tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).
 				Update("stock", global.DB.Raw("stock + ?", item.Quantity))
 		}
-		tx.Commit()
+		if err := tx.Commit().Error; err != nil {
+			fail++
+			continue
+		}
 		AddOrderStatusHistory(o.ID, model.OrderStatusPending, model.OrderStatusCancelled, "超时未支付自动关闭", "系统")
 		SendMessage(o.UserID, "订单已关闭", "您的订单因超时未支付已自动关闭", "order", o.ID)
 		sucs++
@@ -93,7 +96,7 @@ func StartCronJobs() {
 			time.Sleep(1 * time.Minute)
 			s, f := CronOrderClose(30)
 			if s > 0 || f > 0 {
-				log.Printf("[cron] order_close: sucs=%d fail=%d", s, f)
+				slog.Info("cron", "job", "order_close", "success", s, "fail", f)
 			}
 		}
 	}()
@@ -104,7 +107,7 @@ func StartCronJobs() {
 			time.Sleep(1 * time.Hour)
 			s, f := CronOrderAutoReceive(15)
 			if s > 0 || f > 0 {
-				log.Printf("[cron] order_receive: sucs=%d fail=%d", s, f)
+				slog.Info("cron", "job", "order_receive", "success", s, "fail", f)
 			}
 		}
 	}()
@@ -115,7 +118,7 @@ func StartCronJobs() {
 			time.Sleep(1 * time.Hour)
 			s, f := CronGoodsGiveIntegral()
 			if s > 0 || f > 0 {
-				log.Printf("[cron] goods_integral: sucs=%d fail=%d", s, f)
+				slog.Info("cron", "job", "goods_integral", "success", s, "fail", f)
 			}
 		}
 	}()
@@ -126,10 +129,10 @@ func StartCronJobs() {
 			time.Sleep(1 * time.Hour)
 			s, _ := CronIntegralRelease(21600) // 15天
 			if s > 0 {
-				log.Printf("[cron] integral_release: sucs=%d", s)
+				slog.Info("cron", "job", "integral_release", "success", s)
 			}
 		}
 	}()
 
-	log.Println("cron jobs started")
+	slog.Info("cron jobs started")
 }

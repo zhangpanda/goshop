@@ -141,7 +141,9 @@ func doRefund(as *model.OrderAftersale) error {
 		tx.First(&item, as.OrderDetailID)
 		tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).Update("stock", global.DB.Raw("stock + ?", as.Number))
 	}
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
 	addAftersaleHistory(as.ID, model.AftersaleStatusDone, fmt.Sprintf("退款完成 %d分", as.Price), "系统")
 	return nil
 }

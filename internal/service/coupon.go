@@ -79,7 +79,9 @@ func ReceiveCoupon(userID, couponID uint) error {
 		tx.Rollback()
 		return err
 	}
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
 	return nil
 }
 

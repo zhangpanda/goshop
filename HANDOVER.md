@@ -196,8 +196,8 @@ internal/service/pay_log.go        # PayLog、合并支付 MultiOrderUnifiedPay�
 internal/service/notify.go         # 短信(阿里云) + 邮件(SMTP)
 internal/service/logistics.go      # 物流轨迹(快递100)
 internal/middleware/admin_auth.go  # AdminAuth + AdminPower
-internal/handler/diyapi_compat.go # diyapi + attachmentapi（含 baseURL、attachmentApiCatch）
-internal/handler/shopxo_compat.go  # ShopXO 兼容（含多订单 order/pay）
+internal/compat/shopxo/diyapi.go # diyapi + attachmentapi（含 baseURL、attachmentApiCatch）
+internal/compat/shopxo/compat.go  # ShopXO 兼容（含多订单 order/pay）
 internal/service/extend.go         # 导出 CSV（含 ids）、多语言/货币配置
 internal/service/user.go         # AdminDisableUser
 ```

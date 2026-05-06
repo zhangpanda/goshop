@@ -29,8 +29,7 @@ func SaveGoodsSpecBase(goodsID uint, specs []SpecBaseReq) error {
 			SpecValues: s.SpecValues,
 		})
 	}
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 func GetGoodsSpecBase(goodsID uint) ([]model.GoodsSpecBase, error) {
@@ -45,8 +44,7 @@ func SaveGoodsPhotos(goodsID uint, images []string) error {
 	for i, img := range images {
 		tx.Create(&model.GoodsPhoto{GoodsID: goodsID, Image: img, Sort: i, IsShow: 1})
 	}
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 func GetGoodsPhotos(goodsID uint) ([]model.GoodsPhoto, error) {

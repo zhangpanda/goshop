@@ -102,3 +102,65 @@ func TestOrderStepData_CompletedOrder(t *testing.T) {
 		}
 	}
 }
+
+func TestCalcCouponDiscount_FullReduction(t *testing.T) {
+	coupon := &model.Coupon{Type: model.CouponTypeFull, MinAmount: 10000, Value: 2000}
+	d, err := CalcCouponDiscount(coupon, 15000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d != 2000 {
+		t.Errorf("discount = %d, want 2000", d)
+	}
+}
+
+func TestCalcCouponDiscount_BelowMin(t *testing.T) {
+	coupon := &model.Coupon{Type: model.CouponTypeFull, MinAmount: 10000, Value: 2000}
+	_, err := CalcCouponDiscount(coupon, 5000)
+	if err == nil {
+		t.Error("expected error for below min amount")
+	}
+}
+
+func TestCalcCouponDiscount_Discount85(t *testing.T) {
+	coupon := &model.Coupon{Type: model.CouponTypeDiscount, MinAmount: 0, Value: 85}
+	d, err := CalcCouponDiscount(coupon, 10000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 8.5折 = 10000 - 10000*85/100 = 10000 - 8500 = 1500
+	if d != 1500 {
+		t.Errorf("discount = %d, want 1500", d)
+	}
+}
+
+func TestCalcCouponDiscount_ValueExceedsOrder(t *testing.T) {
+	coupon := &model.Coupon{Type: model.CouponTypeNoLimit, MinAmount: 0, Value: 5000}
+	d, err := CalcCouponDiscount(coupon, 3000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 至少付1分
+	if d != 2999 {
+		t.Errorf("discount = %d, want 2999 (order-1)", d)
+	}
+}
+
+func TestGenerateOrderNo_Unique(t *testing.T) {
+	seen := make(map[string]bool)
+	for i := 0; i < 1000; i++ {
+		no := generateOrderNo()
+		if seen[no] {
+			t.Fatalf("duplicate order no: %s", no)
+		}
+		seen[no] = true
+	}
+}
+
+func TestGenerateOrderNo_Length(t *testing.T) {
+	no := generateOrderNo()
+	// 14 (timestamp) + 8 (hex) = 22
+	if len(no) != 22 {
+		t.Errorf("order no length = %d, want 22, got %q", len(no), no)
+	}
+}

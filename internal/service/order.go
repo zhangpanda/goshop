@@ -1,6 +1,7 @@
 package service
 
 import (
+	crypto_rand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,13 +9,34 @@ import (
 
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"github.com/zhangpanda/goshop/internal/repository"
+	"gorm.io/gorm"
 )
 
+// OrderService encapsulates order business logic with injected dependencies.
+type OrderService struct {
+	db      *gorm.DB
+	orders  repository.OrderRepo
+	carts   repository.CartRepo
+	address repository.AddressRepo
+	sku     repository.SKURepo
+}
+
+// NewOrderService creates an OrderService with explicit dependencies.
+func NewOrderService(db *gorm.DB, orders repository.OrderRepo, carts repository.CartRepo, addr repository.AddressRepo, sku repository.SKURepo) *OrderService {
+	return &OrderService{db: db, orders: orders, carts: carts, address: addr, sku: sku}
+}
+
+// DefaultOrderService returns an OrderService using the global DB and repository registry.
+func DefaultOrderService() *OrderService {
+	return NewOrderService(global.DB, repository.Repos.Order, repository.Repos.Cart, repository.Repos.Address, repository.Repos.SKU)
+}
+
 type CreateOrderReq struct {
-	AddressID    *uint  `json:"address_id"` // 快递/同城必填，自提可选，虚拟不需要
+	AddressID    *uint  `json:"address_id"`
 	CartIDs      []uint `json:"cart_ids" form:"cart_ids" binding:"required,min=1"`
 	UserCouponID *uint  `json:"user_coupon_id"`
-	OrderModel   int8   `json:"order_model"` // 0快递 1同城 2自提 3虚拟
+	OrderModel   int8   `json:"order_model"`
 	Remark       string `json:"remark"`
 }
 
@@ -30,11 +52,33 @@ type OrderListResp struct {
 }
 
 func generateOrderNo() string {
-	return fmt.Sprintf("%d", time.Now().UnixNano())
+	b := make([]byte, 4)
+	crypto_rand.Read(b)
+	return fmt.Sprintf("%s%08x", time.Now().Format("20060102150405"), b)
 }
 
+// --- Package-level functions delegate to DefaultOrderService for backward compat ---
+
 func CreateOrder(userID uint, req *CreateOrderReq) (*model.Order, error) {
-	// 地址处理：快递/同城必须有地址，自提可选，虚拟不需要
+	return DefaultOrderService().CreateOrder(userID, req)
+}
+
+func GetOrderList(userID uint, req *OrderListReq) (*OrderListResp, error) {
+	return DefaultOrderService().GetOrderList(userID, req)
+}
+
+func GetOrderDetail(userID, orderID uint) (*model.Order, error) {
+	return DefaultOrderService().GetOrderDetail(userID, orderID)
+}
+
+func CancelOrder(userID, orderID uint) error {
+	return DefaultOrderService().CancelOrder(userID, orderID)
+}
+
+// --- Methods on OrderService ---
+
+func (s *OrderService) CreateOrder(userID uint, req *CreateOrderReq) (*model.Order, error) {
+	// Address
 	var addrJSON []byte
 	if req.OrderModel == model.OrderModelVirtual {
 		addrJSON = []byte("{}")
@@ -45,25 +89,24 @@ func CreateOrder(userID uint, req *CreateOrderReq) (*model.Order, error) {
 			}
 			addrJSON = []byte("{}")
 		} else {
-			var addr model.Address
-			if err := global.DB.Where("id = ? AND user_id = ?", *req.AddressID, userID).First(&addr).Error; err != nil {
+			addr, err := s.address.GetByIDAndUser(*req.AddressID, userID)
+			if err != nil {
 				return nil, errors.New("地址不存在")
 			}
 			addrJSON, _ = json.Marshal(addr)
 		}
 	}
 
-	// 查购物车
-	var carts []model.Cart
-	if err := global.DB.Where("id IN ? AND user_id = ?", req.CartIDs, userID).
-		Preload("Goods").Preload("SKU").Find(&carts).Error; err != nil {
+	// Cart
+	carts, err := s.carts.FindByIDsAndUser(req.CartIDs, userID)
+	if err != nil {
 		return nil, err
 	}
 	if len(carts) == 0 {
 		return nil, errors.New("购物车为空")
 	}
 
-	// 构建订单，优先使用促销价
+	// Build items
 	var totalAmount int64
 	var items []model.OrderItem
 	for _, c := range carts {
@@ -79,22 +122,18 @@ func CreateOrder(userID uint, req *CreateOrderReq) (*model.Order, error) {
 		}
 		totalAmount += price * int64(c.Quantity)
 		items = append(items, model.OrderItem{
-			GoodsID:  c.GoodsID,
-			SKUID:    c.SKUID,
-			Title:    c.Goods.Title,
-			Image:    c.Goods.MainImage,
-			SkuName:  c.SKU.Name,
-			Price:    price,
-			Quantity: c.Quantity,
+			GoodsID: c.GoodsID, SKUID: c.SKUID,
+			Title: c.Goods.Title, Image: c.Goods.MainImage,
+			SkuName: c.SKU.Name, Price: price, Quantity: c.Quantity,
 		})
 	}
 
-	// 优惠券抵扣
+	// Coupon
 	payAmount := totalAmount
 	var usedCoupon *model.UserCoupon
 	if req.UserCouponID != nil && *req.UserCouponID > 0 {
 		var uc model.UserCoupon
-		if err := global.DB.Preload("Coupon").Where("id = ? AND user_id = ? AND status = 0", *req.UserCouponID, userID).First(&uc).Error; err != nil {
+		if err := s.db.Preload("Coupon").Where("id = ? AND user_id = ? AND status = 0", *req.UserCouponID, userID).First(&uc).Error; err != nil {
 			return nil, errors.New("优惠券不可用")
 		}
 		if uc.Coupon == nil || time.Now().After(uc.Coupon.EndTime) {
@@ -109,40 +148,29 @@ func CreateOrder(userID uint, req *CreateOrderReq) (*model.Order, error) {
 	}
 
 	order := model.Order{
-		OrderNo:     generateOrderNo(),
-		UserID:      userID,
-		TotalAmount: totalAmount,
-		PayAmount:   payAmount,
-		Status:      model.OrderStatusPending,
-		OrderModel:  req.OrderModel,
-		Remark:      req.Remark,
-		Address:     string(addrJSON),
+		OrderNo: generateOrderNo(), UserID: userID,
+		TotalAmount: totalAmount, PayAmount: payAmount,
+		Status: model.OrderStatusPending, OrderModel: req.OrderModel,
+		Remark: req.Remark, Address: string(addrJSON),
 	}
 
-	// 预约模式：状态为待确认
 	if IsBookingMode() {
 		order.Status = model.OrderStatusBooking
 	}
-
-	// 自提模式生成6位自提码
 	if req.OrderModel == model.OrderModelPickup {
 		order.ExtractionCode = fmt.Sprintf("%06d", time.Now().UnixNano()%1000000)
 	}
-
-	// 虚拟商品：从商品的 FictitiousValue 字段获取
-	if req.OrderModel == model.OrderModelVirtual {
-		if len(carts) > 0 && carts[0].Goods != nil {
-			order.FictitiousValue = carts[0].Goods.Detail // 可扩展为独立字段
-		}
+	if req.OrderModel == model.OrderModelVirtual && len(carts) > 0 && carts[0].Goods != nil {
+		order.FictitiousValue = carts[0].Goods.Detail
 	}
 
-	tx := global.DB.Begin()
+	// Transaction
+	tx := s.db.Begin()
 
 	if err := tx.Create(&order).Error; err != nil {
 		tx.Rollback()
 		return nil, err
 	}
-
 	for i := range items {
 		items[i].OrderID = order.ID
 	}
@@ -151,92 +179,82 @@ func CreateOrder(userID uint, req *CreateOrderReq) (*model.Order, error) {
 		return nil, err
 	}
 
-	// 扣库存
+	// Deduct stock via repo
 	for _, c := range carts {
-		result := tx.Model(&model.GoodsSKU{}).Where("id = ? AND stock >= ?", c.SKUID, c.Quantity).
-			Update("stock", global.DB.Raw("stock - ?", c.Quantity))
-		if result.RowsAffected == 0 {
+		if err := s.sku.DeductStock(tx, c.SKUID, c.Quantity); err != nil {
 			tx.Rollback()
 			return nil, fmt.Errorf("商品 %s 库存不足", c.Goods.Title)
 		}
 	}
 
-	// 清购物车
-	tx.Where("id IN ? AND user_id = ?", req.CartIDs, userID).Delete(&model.Cart{})
+	// Clear cart
+	if err := s.carts.DeleteByIDsAndUser(tx, req.CartIDs, userID); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
 
-	// 标记优惠券已使用
+	// Mark coupon used
 	if usedCoupon != nil {
 		now := time.Now()
 		tx.Model(usedCoupon).Updates(map[string]interface{}{
-			"status":   1,
-			"order_id": order.ID,
-			"used_at":  &now,
+			"status": 1, "order_id": order.ID, "used_at": &now,
 		})
 	}
 
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
 
-	// 记录订单状态历史
 	AddOrderStatusHistory(order.ID, -1, order.Status, "订单创建", "系统")
-
-	// 保存订单货币信息
 	SaveOrderCurrency(order.ID, order.PayAmount)
 
 	order.Items = items
 	return &order, nil
 }
 
-func GetOrderList(userID uint, req *OrderListReq) (*OrderListResp, error) {
-	db := global.DB.Model(&model.Order{}).Where("user_id = ?", userID)
-	if req.Status != nil {
-		db = db.Where("status = ?", *req.Status)
-	}
-
-	var total int64
-	db.Count(&total)
-
-	var list []model.Order
+func (s *OrderService) GetOrderList(userID uint, req *OrderListReq) (*OrderListResp, error) {
 	offset := (req.Page - 1) * req.PageSize
-	err := db.Preload("Items").Order("id DESC").
-		Offset(offset).Limit(req.PageSize).Find(&list).Error
-
-	return &OrderListResp{Total: total, List: list}, err
-}
-
-func GetOrderDetail(userID, orderID uint) (*model.Order, error) {
-	var order model.Order
-	err := global.DB.Where("id = ? AND user_id = ?", orderID, userID).
-		Preload("Items").First(&order).Error
+	list, total, err := s.orders.List(userID, req.Status, offset, req.PageSize)
 	if err != nil {
-		return nil, errors.New("订单不存在")
+		return nil, err
 	}
-	return &order, nil
+	return &OrderListResp{Total: total, List: list}, nil
 }
 
-func CancelOrder(userID, orderID uint) error {
-	var order model.Order
-	if err := global.DB.Where("id = ? AND user_id = ?", orderID, userID).First(&order).Error; err != nil {
+func (s *OrderService) GetOrderDetail(userID, orderID uint) (*model.Order, error) {
+	return s.orders.GetByUserAndID(userID, orderID)
+}
+
+func (s *OrderService) CancelOrder(userID, orderID uint) error {
+	order, err := s.orders.GetByUserAndID(userID, orderID)
+	if err != nil {
 		return errors.New("订单不存在")
 	}
 	if order.Status != model.OrderStatusPending {
 		return errors.New("只有待付款订单可以取消")
 	}
 
-	tx := global.DB.Begin()
+	tx := s.db.Begin()
 
-	tx.Model(&order).Update("status", model.OrderStatusCancelled)
+	if err := s.orders.UpdateStatus(tx, orderID, model.OrderStatusCancelled); err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	// 恢复库存
+	// Restore stock
 	var items []model.OrderItem
 	tx.Where("order_id = ?", orderID).Find(&items)
 	for _, item := range items {
-		tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).
-			Update("stock", global.DB.Raw("stock + ?", item.Quantity))
+		if err := s.sku.RestoreStock(tx, item.SKUID, item.Quantity); err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
 
 	AddOrderStatusHistory(orderID, model.OrderStatusPending, model.OrderStatusCancelled, "用户取消订单", "用户")
-
 	return nil
 }

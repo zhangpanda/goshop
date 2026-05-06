@@ -14,14 +14,14 @@ echo -n "internal/router/router.go Gin 方法注册数: "
 grep -oE '\.(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|Any)\(' internal/router/router.go | wc -l | tr -d ' '
 
 echo -n "diyapi_compat SetupDiyApiCompat 内 g.GET/g.POST 等: "
-sed -n '/^func SetupDiyApiCompat/,/^}$/p' internal/handler/diyapi_compat.go | grep -E '^\s+g\.(GET|POST|PUT|PATCH|DELETE)\(' | wc -l | tr -d ' '
+sed -n '/^func SetupDiyApiCompat/,/^}$/p' internal/compat/shopxo/diyapi.go | grep -E '^\s+g\.(GET|POST|PUT|PATCH|DELETE)\(' | wc -l | tr -d ' '
 
 echo -n "ShopXO routeMap 条目数（s= 动作）: "
-sed -n '/^var routeMap = map\[string\]gin.HandlerFunc{/,/^}$/p' internal/handler/shopxo_compat.go | grep -c '^\t"[^"]*":' || true
+sed -n '/^var routeMap = map\[string\]gin.HandlerFunc{/,/^}$/p' internal/compat/shopxo/compat.go | grep -c '^\t"[^"]*":' || true
 
 echo -n "Gin 注册合计（router + diy 组 + /api.php Any×1）: "
 R="$(grep -oE '\.(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|Any)\(' internal/router/router.go | wc -l | tr -d ' ')"
-D="$(sed -n '/^func SetupDiyApiCompat/,/^}$/p' internal/handler/diyapi_compat.go | grep -E '^\s+g\.(GET|POST|PUT|PATCH|DELETE)\(' | wc -l | tr -d ' ')"
+D="$(sed -n '/^func SetupDiyApiCompat/,/^}$/p' internal/compat/shopxo/diyapi.go | grep -E '^\s+g\.(GET|POST|PUT|PATCH|DELETE)\(' | wc -l | tr -d ' ')"
 echo "$((R + D + 1))"
 
 echo
