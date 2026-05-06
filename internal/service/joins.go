@@ -2,6 +2,7 @@ package service
 
 import (
 	"github.com/zhangpanda/goshop/global"
+	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -29,11 +30,11 @@ func SaveGoodsCategoryJoinRecords(goodsID uint, categoryIDs []uint) {
 // GoodsSalesCountInc 商品销量增加
 func GoodsSalesCountInc(goodsID uint, count int) {
 	global.DB.Model(&model.Goods{}).Where("id = ?", goodsID).
-		Update("sales_count", global.DB.Raw("sales_count + ?", count))
+		Update("sales_count", gorm.Expr("sales_count + ?", count))
 }
 
 // GoodsAccessCountInc 商品访问量增加
 func GoodsAccessCountInc(goodsID uint) {
 	global.DB.Model(&model.Goods{}).Where("id = ?", goodsID).
-		Update("access_count", global.DB.Raw("access_count + 1"))
+		Update("access_count", gorm.Expr("access_count + 1"))
 }

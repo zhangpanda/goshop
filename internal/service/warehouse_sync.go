@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/zhangpanda/goshop/global"
+	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -58,13 +59,13 @@ func WarehouseGoodsInventoryDeduct(orderID, goodsID uint, skuID uint, quantity i
 		return nil // 无仓库管理则跳过
 	}
 	result := global.DB.Model(&model.WarehouseGoodsSpec{}).Where("id = ? AND inventory >= ?", ws.ID, quantity).
-		Update("inventory", global.DB.Raw("inventory - ?", quantity))
+		Update("inventory", gorm.Expr("inventory - ?", quantity))
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("仓库库存不足")
 	}
 	// 同步仓库商品总库存
 	global.DB.Model(&model.WarehouseGoods{}).Where("warehouse_id = ? AND goods_id = ?", ws.WarehouseID, goodsID).
-		Update("inventory", global.DB.Raw("inventory - ?", quantity))
+		Update("inventory", gorm.Expr("inventory - ?", quantity))
 	// 记录库存日志
 	AddInventoryLog(orderID, goodsID, skuID, -quantity, "order", "订单扣库存")
 	return nil
@@ -80,9 +81,9 @@ func WarehouseGoodsInventoryRollback(orderID, goodsID uint, skuID uint, quantity
 	var ws model.WarehouseGoodsSpec
 	global.DB.Where("goods_id = ? AND sku_id = ?", goodsID, skuID).First(&ws)
 	if ws.ID > 0 {
-		global.DB.Model(&ws).Update("inventory", global.DB.Raw("inventory + ?", quantity))
+		global.DB.Model(&ws).Update("inventory", gorm.Expr("inventory + ?", quantity))
 		global.DB.Model(&model.WarehouseGoods{}).Where("warehouse_id = ? AND goods_id = ?", ws.WarehouseID, goodsID).
-			Update("inventory", global.DB.Raw("inventory + ?", quantity))
+			Update("inventory", gorm.Expr("inventory + ?", quantity))
 	}
 	AddInventoryLog(orderID, goodsID, skuID, quantity, "rollback", "库存回滚")
 	return nil

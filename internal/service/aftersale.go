@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/zhangpanda/goshop/global"
+	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -139,7 +140,7 @@ func doRefund(as *model.OrderAftersale) error {
 	if as.Number > 0 {
 		var item model.OrderItem
 		tx.First(&item, as.OrderDetailID)
-		tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).Update("stock", global.DB.Raw("stock + ?", as.Number))
+		tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).Update("stock", gorm.Expr("stock + ?", as.Number))
 	}
 	if err := tx.Commit().Error; err != nil {
 		return err

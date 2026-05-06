@@ -28,8 +28,9 @@ type AlipayConfig struct {
 }
 
 type ServerConfig struct {
-	Port int    `yaml:"port"`
-	Mode string `yaml:"mode"` // debug, release
+	Port       int    `yaml:"port"`
+	Mode       string `yaml:"mode"`        // debug, release
+	SqlConsole bool   `yaml:"sql_console"` // 默认 false，仅开发环境启用
 }
 
 type DBConfig struct {

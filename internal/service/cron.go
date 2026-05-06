@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
+	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -25,7 +26,7 @@ func CronOrderClose(minutes int) (sucs, fail int) {
 		tx.Where("order_id = ?", o.ID).Find(&items)
 		for _, item := range items {
 			tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).
-				Update("stock", global.DB.Raw("stock + ?", item.Quantity))
+				Update("stock", gorm.Expr("stock + ?", item.Quantity))
 		}
 		if err := tx.Commit().Error; err != nil {
 			fail++

@@ -8,6 +8,7 @@ import (
 
 	"github.com/wechatpay-apiv3/wechatpay-go/services/payments/jsapi"
 	"github.com/zhangpanda/goshop/global"
+	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/wechat"
 )
@@ -96,7 +97,7 @@ func RefundOrder(userID uint, req *RefundReq) error {
 	tx.Where("order_id = ?", order.ID).Find(&items)
 	for _, item := range items {
 		tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).
-			Update("stock", global.DB.Raw("stock + ?", item.Quantity))
+			Update("stock", gorm.Expr("stock + ?", item.Quantity))
 	}
 
 	return tx.Commit().Error

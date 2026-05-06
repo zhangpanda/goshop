@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/service"
 	"github.com/zhangpanda/goshop/pkg/response"
 )
@@ -140,6 +141,11 @@ func GenerateQRCode(c *gin.Context) {
 // ========== SQL控制台 ==========
 
 func SqlConsoleExecute(c *gin.Context) {
+	// 配置开关：默认关闭
+	if !global.Cfg.Server.SqlConsole {
+		response.Fail(c, http.StatusForbidden, "SQL控制台未启用（需配置 server.sql_console: true）")
+		return
+	}
 	// 仅超级管理员可用
 	if !service.IsSuperAdmin(c.GetUint("admin_role_id")) {
 		response.Fail(c, http.StatusForbidden, "仅超级管理员可使用SQL控制台")

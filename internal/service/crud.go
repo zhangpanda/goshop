@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/zhangpanda/goshop/global"
+	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -344,13 +345,13 @@ func DesignStatusUpdate(id uint, status int8) error {
 }
 func DesignDelete(id uint) error { return global.DB.Delete(&model.Design{}, id).Error }
 func DesignAccessCountInc(id uint) {
-	global.DB.Model(&model.Design{}).Where("id = ?", id).Update("status", global.DB.Raw("COALESCE(status,0)"))
+	global.DB.Model(&model.Design{}).Where("id = ?", id).Update("status", gorm.Expr("COALESCE(status,0)"))
 }
 
 // ==================== Diy ====================
 func DiyStatusUpdate(id uint, status int8) error { return statusUpdate("diys", id, "status", status) }
 func DiyAccessCountInc(id uint) {
-	global.DB.Model(&model.Diy{}).Where("id = ?", id).Update("access_count", global.DB.Raw("access_count + 1"))
+	global.DB.Model(&model.Diy{}).Where("id = ?", id).Update("access_count", gorm.Expr("access_count + 1"))
 }
 
 // ==================== FormInput ====================

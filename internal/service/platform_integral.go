@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
+	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
 	auth_pkg "github.com/zhangpanda/goshop/pkg/auth"
 )
@@ -160,7 +161,7 @@ func OrderGoodsIntegralGiving(userID, orderID uint, payAmount int64) error {
 	}
 	tx := global.DB.Begin()
 	// 增加锁定积分
-	tx.Model(&model.User{}).Where("id = ?", userID).Update("locking_integral", global.DB.Raw("locking_integral + ?", points))
+	tx.Model(&model.User{}).Where("id = ?", userID).Update("locking_integral", gorm.Expr("locking_integral + ?", points))
 	// 记录赠送日志（状态0=锁定中）
 	tx.Create(&model.GoodsGiveIntegralLog{
 		OrderID: orderID, UserID: userID, Integral: points, Status: 0,
@@ -180,9 +181,9 @@ func CronIntegralRelease(limitMinutes int) (sucs, fail int) {
 		tx := global.DB.Begin()
 		// 锁定积分转正式积分
 		tx.Model(&model.User{}).Where("id = ?", log.UserID).
-			Update("locking_integral", global.DB.Raw("locking_integral - ?", log.Integral))
+			Update("locking_integral", gorm.Expr("locking_integral - ?", log.Integral))
 		tx.Model(&model.User{}).Where("id = ?", log.UserID).
-			Update("points", global.DB.Raw("points + ?", log.Integral))
+			Update("points", gorm.Expr("points + ?", log.Integral))
 		tx.Model(&log).Updates(map[string]interface{}{"status": 1, "updated_at": time.Now()})
 		// 积分日志
 		tx.Create(&model.PointsLog{
@@ -214,7 +215,7 @@ func OrderGoodsIntegralRollback(orderID, orderDetailID uint, refundAmount int64)
 	}
 	tx := global.DB.Begin()
 	tx.Model(&model.User{}).Where("id = ?", log.UserID).
-		Update("locking_integral", global.DB.Raw("GREATEST(locking_integral - ?, 0)", deduct))
+		Update("locking_integral", gorm.Expr("GREATEST(locking_integral - ?, 0)", deduct))
 	tx.Model(&log).Update("integral", log.Integral-deduct)
 	if log.Integral-deduct <= 0 {
 		tx.Model(&log).Update("status", 2) // 关闭

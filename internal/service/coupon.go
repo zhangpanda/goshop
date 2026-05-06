@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
+	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -68,7 +69,7 @@ func ReceiveCoupon(userID, couponID uint) error {
 
 	tx := global.DB.Begin()
 	result := tx.Model(&model.Coupon{}).Where("id = ? AND received < total", couponID).
-		Update("received", global.DB.Raw("received + 1"))
+		Update("received", gorm.Expr("received + 1"))
 	if result.RowsAffected == 0 {
 		tx.Rollback()
 		return errors.New("领取失败")
