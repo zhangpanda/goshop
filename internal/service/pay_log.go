@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	crypto_rand "crypto/rand"
 	"fmt"
 	"strings"
 	"time"
@@ -119,7 +120,9 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 }
 
 func generatePayNo() string {
-	return fmt.Sprintf("P%d", time.Now().UnixNano())
+	b := make([]byte, 4)
+	crypto_rand.Read(b)
+	return fmt.Sprintf("P%s%08x", time.Now().Format("20060102150405"), b)
 }
 
 // CreatePayLog 创建支付日志（支持合并支付多个订单）。clientType 为渠道/来源标识（如 api、shopxo）。
