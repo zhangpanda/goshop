@@ -1,4 +1,5 @@
-const API_BASE = '/api'
+const API_BASE = (process.env.NEXT_PUBLIC_BASE_PATH || '') + '/api'
+const IMG_BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
@@ -31,4 +32,9 @@ export const api = {
   post: <T>(url: string, body?: unknown) => request<T>(url, { method: 'POST', body: JSON.stringify(body) }),
   put: <T>(url: string, body?: unknown) => request<T>(url, { method: 'PUT', body: JSON.stringify(body) }),
   del: <T>(url: string, body?: unknown) => request<T>(url, { method: 'DELETE', body: body ? JSON.stringify(body) : undefined }),
+}
+
+export function imgUrl(src: string) {
+  if (!src || src.startsWith('http')) return src
+  return IMG_BASE + (src.startsWith('/') ? src : `/${src}`)
 }

@@ -1,14 +1,14 @@
 /** @type {import('next').NextConfig} */
+const isProd = process.env.NODE_ENV === 'production'
 const nextConfig = {
-  /**
-   * 开发下访问 dev 资源时校验 Origin。`http://127.0.0.1:端口` 与 `http://localhost:端口` 在浏览器中非同源，同时列出更稳妥（团队可任选其一在地址栏打开）。
-   * @see https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
-   */
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
+  output: isProd ? 'standalone' : undefined,
+  basePath: isProd ? '/goshop/admin' : '',
   async rewrites() {
+    const apiDest = isProd ? 'http://127.0.0.1:8081' : 'http://localhost:8080'
     return [
-      { source: '/api/:path*', destination: 'http://localhost:8080/api/:path*' },
-      { source: '/uploads/:path*', destination: 'http://localhost:8080/uploads/:path*' },
+      { source: '/api/:path*', destination: `${apiDest}/api/:path*` },
+      { source: '/uploads/:path*', destination: `${apiDest}/uploads/:path*` },
     ]
   },
 }
