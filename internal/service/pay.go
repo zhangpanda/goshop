@@ -98,7 +98,6 @@ func RefundOrder(userID uint, req *RefundReq) error {
 		tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).
 			Update("stock", global.DB.Raw("stock + ?", item.Quantity))
 	}
-	tx.Commit()
 
-	return nil
+	return tx.Commit().Error
 }

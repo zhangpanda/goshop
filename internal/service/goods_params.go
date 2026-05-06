@@ -21,7 +21,9 @@ func CreateParamsTemplate(req *ParamsTemplateReq) (*model.GoodsParamsTemplate, e
 	for i, c := range req.Configs {
 		tx.Create(&model.GoodsParamsConfig{TemplateID: t.ID, Name: c.Name, Value: c.Value, Sort: i})
 	}
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
 	global.DB.Preload("Configs").First(&t, t.ID)
 	return &t, nil
 }

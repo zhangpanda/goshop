@@ -34,7 +34,9 @@ func GoodsSave(id uint, req *GoodsSaveReq) (*model.Goods, error) {
 	for _, s := range req.SKUs {
 		tx.Create(&model.GoodsSKU{GoodsID: id, Name: s.Name, Price: s.Price, Stock: s.Stock, Image: s.Image, Specs: s.Specs, Status: 1})
 	}
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
 	// 多分类
 	if len(req.CategoryIDs) > 0 {
 		SaveGoodsCategoryJoinRecords(id, req.CategoryIDs)

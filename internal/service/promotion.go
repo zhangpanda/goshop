@@ -51,7 +51,9 @@ func CreatePromotion(req *CreatePromotionReq) (*model.Promotion, error) {
 			return nil, err
 		}
 	}
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
 
 	global.DB.Preload("Items").First(&promo, promo.ID)
 	return &promo, nil

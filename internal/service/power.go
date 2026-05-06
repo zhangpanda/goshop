@@ -27,8 +27,7 @@ func SaveRolePowers(roleID uint, powerIDs []uint) error {
 	for _, pid := range powerIDs {
 		tx.Create(&model.RolePower{RoleID: roleID, PowerID: pid})
 	}
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 func GetRolePowers(roleID uint) ([]uint, error) {

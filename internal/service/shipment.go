@@ -34,8 +34,7 @@ func ShipOrder(req *ShipOrderReq) error {
 		ExpressCompany: req.ExpressCompany,
 		ExpressNo:      req.ExpressNo,
 	})
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 func ConfirmReceive(userID, orderID uint) error {

@@ -42,8 +42,7 @@ func GoodsDeleteFull(id uint) error {
 	tx.Where("goods_id = ?", id).Delete(&model.GoodsCategoryJoin{})
 	tx.Where("goods_id = ?", id).Delete(&model.GoodsContentApp{})
 	tx.Delete(&model.Goods{}, id)
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 func GoodsTotal(status *int8) int64 {
 	db := global.DB.Model(&model.Goods{})
@@ -363,8 +362,7 @@ func FormInputDelete(id uint) error {
 	tx.Where("form_id = ?", id).Delete(&model.FormInputData{})
 	tx.Where("form_id = ?", id).Delete(&model.FormTableUserFields{})
 	tx.Delete(&model.FormInput{}, id)
-	tx.Commit()
-	return nil
+	return tx.Commit().Error
 }
 
 // ==================== AppHomeNav ====================

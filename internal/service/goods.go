@@ -124,7 +124,9 @@ func CreateGoods(req *CreateGoodsReq) (*model.Goods, error) {
 		}
 	}
 
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
 	// 重新查询带关联
 	global.DB.Preload("SKUs").Preload("Category").First(&goods, goods.ID)
 	return &goods, nil
