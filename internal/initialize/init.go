@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -49,7 +50,7 @@ func InitDB() error {
 func InitRedis() error {
 	cfg := global.Cfg.Redis
 	if cfg.Host == "" {
-		log.Println("Redis not configured, using in-memory cache")
+		slog.Info("cache", "backend", "memory", "reason", "redis not configured")
 		global.Cache = cache.NewMemoryCache()
 		return nil
 	}
@@ -63,13 +64,13 @@ func InitRedis() error {
 	defer cancel()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		log.Printf("Redis connect failed (%v), falling back to in-memory cache", err)
+		slog.Warn("cache", "backend", "memory", "reason", "redis connect failed", "error", err)
 		global.Cache = cache.NewMemoryCache()
 		return nil
 	}
 
 	global.Cache = cache.NewRedisCache(rdb)
-	log.Println("Redis connected")
+	slog.Info("cache", "backend", "redis")
 	return nil
 }
 
@@ -96,7 +97,7 @@ func InitDefaultAdmin() {
 	global.DB.Create(&role)
 	hash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
 	global.DB.Create(&model.Admin{Username: "admin", Password: string(hash), Nickname: "管理员", RoleID: role.ID, Status: 1})
-	log.Println("default admin created: admin / admin123")
+	slog.Info("seed", "action", "admin_created", "username", "admin")
 }
 
 func InitDefaultConfig() {
@@ -172,7 +173,7 @@ func InitDefaultConfig() {
 		{Group: "distribution", Key: "distribution_rate_level2", Value: "5", Desc: "二级分销佣金比例(%)"},
 	}
 	global.DB.Create(&configs)
-	log.Println("default config seeded:", len(configs), "items")
+	slog.Info("seed", "action", "config", "count", len(configs))
 }
 
 func InitDefaultPowers() {
@@ -214,7 +215,7 @@ func InitDefaultPowers() {
 		{ID: 349, ParentID: 118, Name: "SQL控制台", Control: "Sqlconsole.Index", Sort: 10, Status: 1},
 	}
 	global.DB.Create(&powers)
-	log.Println("default powers seeded:", len(powers), "nodes")
+	slog.Info("seed", "action", "powers", "count", len(powers))
 }
 
 func InitDefaultNavigation() {
@@ -237,5 +238,5 @@ func InitDefaultNavigation() {
 		{Name: "售后服务", URL: "/account/aftersale", Sort: 10, Status: 1, Type: "footer"},
 	}
 	global.DB.Create(&navs)
-	log.Println("default navigation seeded:", len(navs), "items")
+	slog.Info("seed", "action", "navigation", "count", len(navs))
 }

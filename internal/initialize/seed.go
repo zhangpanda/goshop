@@ -3,7 +3,7 @@ package initialize
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -217,7 +217,7 @@ func InitDefaultSeedData() {
 			global.DB.Create(&sku)
 		}
 	}
-	log.Println("default goods seeded:", len(seeds), "products")
+	slog.Info("seed", "action", "goods", "count", len(seeds))
 
 	// ========== 文章分类 + 文章 ==========
 	articleCats := []model.ArticleCategory{
@@ -241,7 +241,7 @@ func InitDefaultSeedData() {
 		{CategoryID: 4, Title: "联系我们", Cover: "/uploads/seed/article-10.jpg", Content: "<p>如有任何问题，欢迎通过以下方式联系我们：</p><p>客服邮箱：hi@zhangpanda.com</p><p>工作时间：周一至周五 9:00-18:00</p><p>您也可以访问「支持」页面查看常见问题解答。</p>", Author: "GoShop", Sort: 18, Status: 1},
 	}
 	global.DB.Create(&articles)
-	log.Println("default articles seeded:", len(articles), "articles")
+	slog.Info("seed", "action", "articles", "count", len(articles))
 
 	// ========== 优惠券 ==========
 	coupons := []model.Coupon{
@@ -251,7 +251,7 @@ func InitDefaultSeedData() {
 		{Name: "无门槛 ¥10 优惠券", Type: 3, MinAmount: 0, Value: 1000, Total: 20000, PerLimit: 3, StartTime: now, EndTime: now.AddDate(0, 6, 0), Status: 1},
 	}
 	global.DB.Create(&coupons)
-	log.Println("default coupons seeded:", len(coupons), "coupons")
+	slog.Info("seed", "action", "coupons", "count", len(coupons))
 
 	// ========== 筛选价格区间 ==========
 	prices := []model.ScreeningPrice{
@@ -262,7 +262,7 @@ func InitDefaultSeedData() {
 		{ID: 5, Name: "10000以上", MinPrice: 1000000, MaxPrice: 99999900, Sort: 10},
 	}
 	global.DB.Create(&prices)
-	log.Println("default screening prices seeded")
+	slog.Info("seed", "action", "screening_prices")
 
 	// ========== 轮播图 ==========
 	slides := []model.Slide{
@@ -271,7 +271,7 @@ func InitDefaultSeedData() {
 		{Name: "春季新品上市", Images: `["/uploads/seed/slide-3.jpg"]`, Sort: 10, Status: 1},
 	}
 	global.DB.Create(&slides)
-	log.Println("default slides seeded:", len(slides), "slides")
+	slog.Info("seed", "action", "slides", "count", len(slides))
 }
 
 // paymentSeedKey 从默认种子行的 Config 中读取 payment_key（种子均为显式 JSON payment_key）。
@@ -312,7 +312,7 @@ func defaultPaymentSeeds() []model.Payment {
 func EnsureDefaultPayments() {
 	var existing []model.Payment
 	if err := global.DB.Find(&existing).Error; err != nil {
-		log.Println("EnsureDefaultPayments: list payments:", err)
+		slog.Error("seed", "action", "payments", "error", err)
 		return
 	}
 	have := make(map[string]struct{}, len(existing)+16)
@@ -339,8 +339,8 @@ func EnsureDefaultPayments() {
 		return
 	}
 	if err := global.DB.Create(&toCreate).Error; err != nil {
-		log.Println("EnsureDefaultPayments: create:", err)
+		slog.Error("seed", "action", "payment_create", "error", err)
 		return
 	}
-	log.Println("default payments backfilled:", len(toCreate), "rows (total keys now", len(have), ")")
+	slog.Info("seed", "action", "payments_backfill", "created", len(toCreate), "total", len(have))
 }
