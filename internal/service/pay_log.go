@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	crypto_rand "crypto/rand"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -12,6 +13,12 @@ import (
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
+
+// PayLogSuccess 内部：PayLog 已更新但子单均未处于待支付时的可恢复分支（整单事务将回滚 PayLog 更新）。
+var errPayLogNoPendingOrdersUpdated = errors.New("goshop: merge pay no pending order rows updated")
+
+// PayLogSuccess 内部：OrderIDs 解析后无有效订单 ID。
+var errPayLogNoValidOrderIDs = errors.New("goshop: pay_log has no valid order ids")
 
 /**
  * uniqueUints 对订单 ID 去重并保持首次出现顺序。
@@ -63,28 +70,25 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 	}
 
 	if paymentKey == "offline" {
-		now := time.Now()
-		upd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
-		tx := global.DB.Begin()
-		if err := tx.Error; err != nil {
-			return nil, err
-		}
 		var paidIDs []uint
-		for _, o := range orders {
-			r := tx.Model(&model.Order{}).Where("id = ? AND status = ?", o.ID, model.OrderStatusPending).Updates(upd)
-			if r.Error != nil {
-				tx.Rollback()
-				return nil, r.Error
+		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+			now := time.Now()
+			upd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
+			for _, o := range orders {
+				r := tx.Model(&model.Order{}).Where("id = ? AND status = ?", o.ID, model.OrderStatusPending).Updates(upd)
+				if r.Error != nil {
+					return r.Error
+				}
+				if r.RowsAffected > 0 {
+					paidIDs = append(paidIDs, o.ID)
+				}
 			}
-			if r.RowsAffected > 0 {
-				paidIDs = append(paidIDs, o.ID)
+			if len(paidIDs) != len(orders) {
+				return fmt.Errorf("部分订单状态已变更，请刷新后重试")
 			}
-		}
-		if len(paidIDs) != len(orders) {
-			tx.Rollback()
-			return nil, fmt.Errorf("部分订单状态已变更，请刷新后重试")
-		}
-		if err := tx.Commit().Error; err != nil {
+			return nil
+		})
+		if err != nil {
 			return nil, err
 		}
 		for _, oid := range paidIDs {
@@ -98,50 +102,43 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 		for _, o := range orders {
 			total += o.PayAmount
 		}
-		tx := global.DB.Begin()
-		if err := tx.Error; err != nil {
-			return nil, err
-		}
-		result := tx.Model(&model.User{}).Where("id = ? AND wallet_balance >= ?", userID, total).
-			Update("wallet_balance", gorm.Expr("wallet_balance - ?", total))
-		if result.Error != nil {
-			tx.Rollback()
-			return nil, result.Error
-		}
-		if result.RowsAffected == 0 {
-			tx.Rollback()
-			return nil, fmt.Errorf("钱包余额不足")
-		}
-		var user model.User
-		if err := tx.First(&user, userID).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-		if err := tx.Create(&model.WalletLog{
-			UserID: userID, Amount: -total, Balance: user.WalletBalance, Type: "pay",
-			RefID: 0, Remark: fmt.Sprintf("合并订单支付(%d笔)", len(orders)),
-		}).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-		now := time.Now()
-		wupd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
 		var paidIDs []uint
-		for _, o := range orders {
-			r := tx.Model(&model.Order{}).Where("id = ? AND status = ?", o.ID, model.OrderStatusPending).Updates(wupd)
-			if r.Error != nil {
-				tx.Rollback()
-				return nil, r.Error
+		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+			result := tx.Model(&model.User{}).Where("id = ? AND wallet_balance >= ?", userID, total).
+				Update("wallet_balance", gorm.Expr("wallet_balance - ?", total))
+			if result.Error != nil {
+				return result.Error
 			}
-			if r.RowsAffected > 0 {
-				paidIDs = append(paidIDs, o.ID)
+			if result.RowsAffected == 0 {
+				return fmt.Errorf("钱包余额不足")
 			}
-		}
-		if len(paidIDs) != len(orders) {
-			tx.Rollback()
-			return nil, fmt.Errorf("部分订单状态已变更，请刷新后重试")
-		}
-		if err := tx.Commit().Error; err != nil {
+			var user model.User
+			if err := tx.First(&user, userID).Error; err != nil {
+				return err
+			}
+			if err := tx.Create(&model.WalletLog{
+				UserID: userID, Amount: -total, Balance: user.WalletBalance, Type: "pay",
+				RefID: 0, Remark: fmt.Sprintf("合并订单支付(%d笔)", len(orders)),
+			}).Error; err != nil {
+				return err
+			}
+			now := time.Now()
+			wupd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
+			for _, o := range orders {
+				r := tx.Model(&model.Order{}).Where("id = ? AND status = ?", o.ID, model.OrderStatusPending).Updates(wupd)
+				if r.Error != nil {
+					return r.Error
+				}
+				if r.RowsAffected > 0 {
+					paidIDs = append(paidIDs, o.ID)
+				}
+			}
+			if len(paidIDs) != len(orders) {
+				return fmt.Errorf("部分订单状态已变更，请刷新后重试")
+			}
+			return nil
+		})
+		if err != nil {
 			return nil, fmt.Errorf("支付失败: %w", err)
 		}
 		for _, oid := range paidIDs {
@@ -214,85 +211,82 @@ func PayLogSuccess(payNo, tradeNo string) error {
 
 	now := time.Now()
 
-	// 整段事务：PayLog 标记 + 所有子订单更新，要么全成功要么全回滚
-	tx := global.DB.Begin()
-	if err := tx.Error; err != nil {
-		return err
-	}
-
-	res := tx.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
-		Updates(map[string]interface{}{"status": 1, "trade_no": tradeNo, "paid_at": &now})
-	if res.Error != nil {
-		tx.Rollback()
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		tx.Rollback()
-		return nil // 并发下另一路已标记为已支付
-	}
-
-	// 更新关联订单状态
 	var paidIDs []uint
-	orderIDCount := 0
-	for _, idStr := range strings.Split(pl.OrderIDs, ",") {
-		var oid uint
-		fmt.Sscanf(idStr, "%d", &oid)
-		if oid == 0 {
-			continue
+	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		res := tx.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
+			Updates(map[string]interface{}{"status": 1, "trade_no": tradeNo, "paid_at": &now})
+		if res.Error != nil {
+			return res.Error
 		}
-		orderIDCount++
-		upd := map[string]interface{}{
-			"status": model.OrderStatusPaid, "paid_at": &now,
-			"transaction_id": tradeNo,
+		if res.RowsAffected == 0 {
+			return nil
 		}
-		if pl.PaymentID > 0 {
-			upd["payment_id"] = pl.PaymentID
-		}
-		ores := tx.Model(&model.Order{}).Where("id = ? AND status = ?", oid, model.OrderStatusPending).Updates(upd)
-		if ores.Error != nil {
-			tx.Rollback()
-			return ores.Error
-		}
-		if ores.RowsAffected > 0 {
-			paidIDs = append(paidIDs, oid)
-		}
-	}
 
-	if orderIDCount == 0 {
-		tx.Rollback()
-		slog.Warn("pay callback", "reason", "pay_log_no_valid_order_ids", "pay_no", payNo)
-		return nil
-	}
-	if len(paidIDs) == 0 {
-		tx.Rollback()
-		// 渠道重复通知或订单已通过其他路径变为已支付：若子单已全部已付，仅补 PayLog；否则告警并返回成功以免第三方无限重试
-		var oids []uint
+		orderIDCount := 0
 		for _, idStr := range strings.Split(pl.OrderIDs, ",") {
 			var oid uint
 			fmt.Sscanf(idStr, "%d", &oid)
-			if oid > 0 {
-				oids = append(oids, oid)
+			if oid == 0 {
+				continue
+			}
+			orderIDCount++
+			upd := map[string]interface{}{
+				"status": model.OrderStatusPaid, "paid_at": &now,
+				"transaction_id": tradeNo,
+			}
+			if pl.PaymentID > 0 {
+				upd["payment_id"] = pl.PaymentID
+			}
+			ores := tx.Model(&model.Order{}).Where("id = ? AND status = ?", oid, model.OrderStatusPending).Updates(upd)
+			if ores.Error != nil {
+				return ores.Error
+			}
+			if ores.RowsAffected > 0 {
+				paidIDs = append(paidIDs, oid)
 			}
 		}
-		allPaid := true
-		for _, oid := range oids {
-			var o model.Order
-			if err := global.DB.First(&o, oid).Error; err != nil || o.Status != model.OrderStatusPaid {
-				allPaid = false
-				break
-			}
+		if orderIDCount == 0 {
+			return errPayLogNoValidOrderIDs
 		}
-		if allPaid {
-			res2 := global.DB.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
-				Updates(map[string]interface{}{"status": 1, "trade_no": tradeNo, "paid_at": &now})
-			return res2.Error
+		if len(paidIDs) == 0 {
+			return errPayLogNoPendingOrdersUpdated
 		}
-		slog.Warn("pay callback", "reason", "merge_pay_no_pending_and_not_all_paid", "pay_no", payNo)
 		return nil
-	}
-
-	if err := tx.Commit().Error; err != nil {
+	})
+	if err != nil {
+		if errors.Is(err, errPayLogNoValidOrderIDs) {
+			slog.Warn("pay callback", "reason", "pay_log_no_valid_order_ids", "pay_no", payNo)
+			return nil
+		}
+		if errors.Is(err, errPayLogNoPendingOrdersUpdated) {
+			var oids []uint
+			for _, idStr := range strings.Split(pl.OrderIDs, ",") {
+				var oid uint
+				fmt.Sscanf(idStr, "%d", &oid)
+				if oid > 0 {
+					oids = append(oids, oid)
+				}
+			}
+			allPaid := true
+			for _, oid := range oids {
+				var o model.Order
+				if err := global.DB.First(&o, oid).Error; err != nil || o.Status != model.OrderStatusPaid {
+					allPaid = false
+					break
+				}
+			}
+			if allPaid {
+				res2 := global.DB.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
+					Updates(map[string]interface{}{"status": 1, "trade_no": tradeNo, "paid_at": &now})
+				return res2.Error
+			}
+			slog.Warn("pay callback", "reason", "merge_pay_no_pending_and_not_all_paid", "pay_no", payNo)
+			return nil
+		}
 		return err
+	}
+	if len(paidIDs) == 0 {
+		return nil
 	}
 
 	// 事务提交后再写历史和通知（非关键路径，失败不影响支付结果）

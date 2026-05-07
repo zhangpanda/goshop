@@ -35,39 +35,27 @@ func GoodsStatusUpdate(id uint, status int8) error {
 	return statusUpdate("goods", id, "status", status)
 }
 func GoodsDeleteFull(id uint) error {
-	tx := global.DB.Begin()
-	if err := tx.Error; err != nil {
-		return err
-	}
-	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsSKU{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsSpecBase{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsPhoto{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsParams{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsCategoryJoin{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsContentApp{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Delete(&model.Goods{}, id).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit().Error
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsSKU{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsSpecBase{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsPhoto{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsParams{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsCategoryJoin{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsContentApp{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&model.Goods{}, id).Error
+	})
 }
 func GoodsTotal(status *int8) int64 {
 	db := global.DB.Model(&model.Goods{})
@@ -383,11 +371,15 @@ func FormInputStatusUpdate(id uint, status int8) error {
 	return statusUpdate("form_inputs", id, "status", status)
 }
 func FormInputDelete(id uint) error {
-	tx := global.DB.Begin()
-	tx.Where("form_id = ?", id).Delete(&model.FormInputData{})
-	tx.Where("form_id = ?", id).Delete(&model.FormTableUserFields{})
-	tx.Delete(&model.FormInput{}, id)
-	return tx.Commit().Error
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("form_id = ?", id).Delete(&model.FormInputData{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("form_id = ?", id).Delete(&model.FormTableUserFields{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&model.FormInput{}, id).Error
+	})
 }
 
 // ==================== AppHomeNav ====================

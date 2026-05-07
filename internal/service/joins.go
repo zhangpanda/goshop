@@ -19,23 +19,17 @@ func GetBrandCategoryListRecords() []model.BrandCategory {
 }
 
 func SaveGoodsCategoryJoinRecords(goodsID uint, categoryIDs []uint) {
-	tx := global.DB.Begin()
-	if tx.Error != nil {
-		return
-	}
-	if err := tx.Where("goods_id = ?", goodsID).Delete(&model.GoodsCategoryJoin{}).Error; err != nil {
-		tx.Rollback()
-		return
-	}
-	for _, cid := range categoryIDs {
-		if err := tx.Create(&model.GoodsCategoryJoin{GoodsID: goodsID, CategoryID: cid}).Error; err != nil {
-			tx.Rollback()
-			return
+	_ = RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("goods_id = ?", goodsID).Delete(&model.GoodsCategoryJoin{}).Error; err != nil {
+			return err
 		}
-	}
-	if err := tx.Commit().Error; err != nil {
-		return
-	}
+		for _, cid := range categoryIDs {
+			if err := tx.Create(&model.GoodsCategoryJoin{GoodsID: goodsID, CategoryID: cid}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // GoodsSalesCountInc 商品销量增加

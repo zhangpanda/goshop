@@ -409,44 +409,37 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 
 	// 钱包支付：原子扣余额
 	if req.PaymentKey == "wallet" {
-		tx := global.DB.Begin()
-		if err := tx.Error; err != nil {
-			return nil, err
-		}
-		result := tx.Model(&model.User{}).Where("id = ? AND wallet_balance >= ?", userID, order.PayAmount).
-			Update("wallet_balance", gorm.Expr("wallet_balance - ?", order.PayAmount))
-		if result.Error != nil {
-			tx.Rollback()
-			return nil, result.Error
-		}
-		if result.RowsAffected == 0 {
-			tx.Rollback()
-			return nil, fmt.Errorf("钱包余额不足")
-		}
-		var user model.User
-		if err := tx.First(&user, userID).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-		if err := tx.Create(&model.WalletLog{UserID: userID, Amount: -order.PayAmount, Balance: user.WalletBalance, Type: "pay", RefID: order.ID, Remark: "订单支付"}).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-		now := time.Now()
-		wupd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
-		if req.PaymentRecordID > 0 {
-			wupd["payment_id"] = req.PaymentRecordID
-		}
-		r := tx.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", order.ID, userID, model.OrderStatusPending).Updates(wupd)
-		if r.Error != nil {
-			tx.Rollback()
-			return nil, r.Error
-		}
-		if r.RowsAffected == 0 {
-			tx.Rollback()
-			return nil, fmt.Errorf("订单状态已变更，请刷新后重试")
-		}
-		if err := tx.Commit().Error; err != nil {
+		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+			result := tx.Model(&model.User{}).Where("id = ? AND wallet_balance >= ?", userID, order.PayAmount).
+				Update("wallet_balance", gorm.Expr("wallet_balance - ?", order.PayAmount))
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				return fmt.Errorf("钱包余额不足")
+			}
+			var user model.User
+			if err := tx.First(&user, userID).Error; err != nil {
+				return err
+			}
+			if err := tx.Create(&model.WalletLog{UserID: userID, Amount: -order.PayAmount, Balance: user.WalletBalance, Type: "pay", RefID: order.ID, Remark: "订单支付"}).Error; err != nil {
+				return err
+			}
+			now := time.Now()
+			wupd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
+			if req.PaymentRecordID > 0 {
+				wupd["payment_id"] = req.PaymentRecordID
+			}
+			r := tx.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", order.ID, userID, model.OrderStatusPending).Updates(wupd)
+			if r.Error != nil {
+				return r.Error
+			}
+			if r.RowsAffected == 0 {
+				return fmt.Errorf("订单状态已变更，请刷新后重试")
+			}
+			return nil
+		})
+		if err != nil {
 			return nil, fmt.Errorf("支付失败: %w", err)
 		}
 		AddOrderStatusHistory(order.ID, model.OrderStatusPending, model.OrderStatusPaid, "钱包支付", "系统")

@@ -11,6 +11,7 @@ import (
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/internal/service"
 	"github.com/zhangpanda/goshop/pkg/response"
+	"gorm.io/gorm"
 )
 
 // ========== 商品管理 ==========
@@ -32,39 +33,28 @@ func AdminUpdateGoods(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	tx := global.DB.Begin()
-	if err := tx.Error; err != nil {
-		response.Fail(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if err := tx.Model(&model.Goods{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"category_id": req.CategoryID, "title": req.Title, "subtitle": req.Subtitle,
-		"main_image": req.MainImage, "images": req.Images, "detail": req.Detail,
-	}).Error; err != nil {
-		tx.Rollback()
-		response.Fail(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-	// 更新SKU：先删后建
-	if len(req.SKUs) > 0 {
-		if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsSKU{}).Error; err != nil {
-			tx.Rollback()
-			response.Fail(c, http.StatusInternalServerError, err.Error())
-			return
+	if err := global.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Goods{}).Where("id = ?", id).Updates(map[string]interface{}{
+			"category_id": req.CategoryID, "title": req.Title, "subtitle": req.Subtitle,
+			"main_image": req.MainImage, "images": req.Images, "detail": req.Detail,
+		}).Error; err != nil {
+			return err
 		}
-		for _, s := range req.SKUs {
-			if err := tx.Create(&model.GoodsSKU{
-				GoodsID: uint(id), Name: s.Name, Price: s.Price, Stock: s.Stock,
-				Image: s.Image, Specs: s.Specs, Coding: s.Coding, Status: 1,
-			}).Error; err != nil {
-				tx.Rollback()
-				response.Fail(c, http.StatusInternalServerError, err.Error())
-				return
+		if len(req.SKUs) > 0 {
+			if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsSKU{}).Error; err != nil {
+				return err
+			}
+			for _, s := range req.SKUs {
+				if err := tx.Create(&model.GoodsSKU{
+					GoodsID: uint(id), Name: s.Name, Price: s.Price, Stock: s.Stock,
+					Image: s.Image, Specs: s.Specs, Coding: s.Coding, Status: 1,
+				}).Error; err != nil {
+					return err
+				}
 			}
 		}
-	}
-	if err := tx.Commit().Error; err != nil {
-		// Tx is invalid after Commit returns; do not Rollback.
+		return nil
+	}); err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
