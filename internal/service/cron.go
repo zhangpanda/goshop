@@ -21,10 +21,18 @@ func CronOrderClose(minutes int) (sucs, fail int) {
 	global.DB.Where("status = ? AND created_at < ?", model.OrderStatusPending, deadline).Find(&orders)
 
 	for _, o := range orders {
+		o := o
+		var changed bool
 		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
-			if err := tx.Model(&o).Update("status", model.OrderStatusCancelled).Error; err != nil {
-				return err
+			res := tx.Model(&model.Order{}).Where("id = ? AND status = ?", o.ID, model.OrderStatusPending).
+				Update("status", model.OrderStatusCancelled)
+			if res.Error != nil {
+				return res.Error
 			}
+			if res.RowsAffected == 0 {
+				return nil
+			}
+			changed = true
 			var items []model.OrderItem
 			if err := tx.Where("order_id = ?", o.ID).Find(&items).Error; err != nil {
 				return err
@@ -39,6 +47,9 @@ func CronOrderClose(minutes int) (sucs, fail int) {
 		})
 		if err != nil {
 			fail++
+			continue
+		}
+		if !changed {
 			continue
 		}
 		AddOrderStatusHistory(o.ID, model.OrderStatusPending, model.OrderStatusCancelled, "超时未支付自动关闭", "系统")
@@ -57,16 +68,32 @@ func CronOrderAutoReceive(days int) (sucs, fail int) {
 	var orders []model.Order
 	global.DB.Where("status = ? AND shipped_at < ?", model.OrderStatusShipped, deadline).Find(&orders)
 
-	for _, o := range orders {
-		now := time.Now()
-		global.DB.Model(&o).Updates(map[string]interface{}{
-			"status": model.OrderStatusCompleted, "completed_at": &now,
+	for i := range orders {
+		o := &orders[i]
+		var updated bool
+		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+			now := time.Now()
+			res := tx.Model(&model.Order{}).
+				Where("id = ? AND status = ? AND shipped_at IS NOT NULL AND shipped_at < ?", o.ID, model.OrderStatusShipped, deadline).
+				Updates(map[string]interface{}{"status": model.OrderStatusCompleted, "completed_at": &now})
+			if res.Error != nil {
+				return res.Error
+			}
+			updated = res.RowsAffected > 0
+			return nil
 		})
+		if err != nil {
+			fail++
+			continue
+		}
+		if !updated {
+			continue
+		}
 		AddOrderStatusHistory(o.ID, model.OrderStatusShipped, model.OrderStatusCompleted, "超时自动确认收货", "系统")
 		SendMessage(o.UserID, "订单已完成", "您的订单已自动确认收货", "order", o.ID)
-		// 订单完成奖励积分
-		OrderRewardPoints(o.UserID, o.ID, o.PayAmount)
-		// 分销佣金结算
+		if err := OrderRewardPoints(o.UserID, o.ID, o.PayAmount); err != nil {
+			slog.Warn("cron", "job", "order_receive", "reason", "reward_points", "order_id", o.ID, "err", err.Error())
+		}
 		SettleCommission(o.ID)
 		sucs++
 	}
@@ -169,6 +196,25 @@ func StartCronJobs() {
 			n := StalePendingPayLogsCleanup(120)
 			if n > 0 {
 				slog.Info("cron", "job", "stale_paylog_close", "closed", n)
+			}
+		}
+	}()
+
+	// 微信订单主动查单补单（回调丢失补偿）；需配置 WxPay
+	go func() {
+		for {
+			time.Sleep(5 * time.Minute)
+			ctxLock, cancelLock := context.WithTimeout(context.Background(), 10*time.Second)
+			ok := tryAcquireCronTick(ctxLock, "wechat_reconcile", 4*time.Minute)
+			cancelLock()
+			if !ok {
+				continue
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			pl, od := ReconcileWechatPayments(ctx)
+			cancel()
+			if pl > 0 || od > 0 {
+				slog.Info("cron", "job", "wechat_reconcile", "paylogs", pl, "orders", od)
 			}
 		}
 	}()

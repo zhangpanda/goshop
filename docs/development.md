@@ -5,13 +5,16 @@
 ```
 goshop/
 ├── cmd/server/main.go              # 入口：加载配置 → 初始化DB/Redis → 可选建表 → Seed → 启动HTTP
-├── cmd/migrate/main.go             # 独立迁移：与启动相同的 RunSchemaAutoMigrate（CI/发布 Job）
+├── cmd/migrate/main.go             # 独立迁移：RunAllSchemaMigrations（SQL 版本 + 可选 AutoMigrate）
 ├── config/config.go                # 配置结构体定义
-├── global/global.go                # 全局变量（DB/Redis/Config/WxPay）
+├── global/global.go                # 全局变量（DB/RDB/Cache/Config/WxPay）
 ├── internal/
 │   ├── initialize/                 # 初始化逻辑
-│   │   ├── init.go                 # DB/Redis/Admin/Config/Powers/Navigation
-│   │   └── seed.go                 # 展示数据（商品/文章/优惠券/轮播图）
+│   │   ├── init.go                 # DB/Redis/Admin/Config/…
+│   │   ├── seed.go                 # 展示数据（商品/文章/优惠券/轮播图）
+│   │   ├── automigrate.go          # GORM 模型列表 + RunSchemaAutoMigrate
+│   │   └── sql_migrate.go          # golang-migrate 嵌入 FS + RunAllSchemaMigrations
+│   ├── migratefs/                  # 嵌入的 *.sql（新增 DDL 追加 000002_xxx.up/.down.sql）
 │   ├── model/                      # GORM 数据模型（95 张表，以 AutoMigrate / scripts/doc-metrics.sh 为准）
 │   ├── service/                    # 业务逻辑层
 │   ├── handler/                    # HTTP 处理器（Controller）
@@ -51,7 +54,7 @@ type GoodsTag struct {
 
 ### 2. 注册 AutoMigrate
 
-在 `internal/initialize/automigrate.go` 的 `autoMigrateModelList()` 中加入 `&model.GoodsTag{}`（与 `RunSchemaAutoMigrate` / `cmd/migrate` 共用同一份列表）。
+在 `internal/initialize/automigrate.go` 的 `autoMigrateModelList()` 中加入 `&model.GoodsTag{}`；**若用 SQL 独占演进**，同步在 `internal/migratefs` 增加版本文件，并考虑 `GOSHOP_DISABLE_AUTOMIGRATE=true`。
 
 ### 3. 编写 Service
 

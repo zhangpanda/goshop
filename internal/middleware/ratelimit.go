@@ -1,15 +1,23 @@
 package middleware
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"log/slog"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/pkg/response"
 )
 
-// slidingWindow tracks request timestamps within a window.
+// slidingWindow 进程内滑动窗口（单机限流）
 type slidingWindow struct {
 	mu      sync.Mutex
 	windows map[string][]time.Time
@@ -34,7 +42,6 @@ func (sw *slidingWindow) allow(key string) bool {
 	now := time.Now()
 	cutoff := now.Add(-sw.window)
 
-	// Trim expired entries
 	timestamps := sw.windows[key]
 	start := 0
 	for start < len(timestamps) && timestamps[start].Before(cutoff) {
@@ -73,25 +80,113 @@ func (sw *slidingWindow) cleanup() {
 	}
 }
 
-// RateLimit returns a sliding-window rate limiter keyed by IP + authenticated UserID.
-// limit: max requests within window per key.
-func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
-	sw := newSlidingWindow(limit, window)
-	return func(c *gin.Context) {
-		// Primary key: IP
-		key := "ip:" + c.ClientIP()
+type memLimiter struct {
+	sw *slidingWindow
+}
 
-		// If user is authenticated, also enforce per-user limit
+func (m *memLimiter) allow(_ context.Context, key string) (bool, error) {
+	return m.sw.allow(key), nil
+}
+
+// redisLuaSliding ZSET 滑动窗口，多实例共享
+var redisLuaSliding = redis.NewScript(`
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local window_ns = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+local member = ARGV[4]
+local min = now - window_ns
+redis.call('ZREMRANGEBYSCORE', key, '0', tostring(min))
+local n = redis.call('ZCARD', key)
+if n < limit then
+  redis.call('ZADD', key, now, member)
+  local ttl_ms = math.floor(window_ns / 1000000) + 2000
+  redis.call('PEXPIRE', key, ttl_ms)
+  return 1
+end
+return 0
+`)
+
+type redisLimiter struct {
+	rdb    *redis.Client
+	limit  int
+	window time.Duration
+}
+
+func (r *redisLimiter) allow(ctx context.Context, key string) (bool, error) {
+	now := time.Now().UnixNano()
+	member := fmt.Sprintf("%d-%s", now, randHex(8))
+	v, err := redisLuaSliding.Run(ctx, r.rdb, []string{"goshop:ratelimit:" + key},
+		strconv.FormatInt(now, 10),
+		strconv.FormatInt(r.window.Nanoseconds(), 10),
+		strconv.Itoa(r.limit),
+		member).Int()
+	if err != nil {
+		return false, err
+	}
+	return v == 1, nil
+}
+
+func randHex(n int) string {
+	b := make([]byte, n/2)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+func rateLimitBackendMode() string {
+	if global.Cfg == nil {
+		return "auto"
+	}
+	b := global.Cfg.Server.RateLimitBackend
+	if b == "" {
+		return "auto"
+	}
+	return b
+}
+
+func newLimiter(limit int, window time.Duration) interface {
+	allow(ctx context.Context, key string) (bool, error)
+} {
+	mode := rateLimitBackendMode()
+	useRedis := global.RDB != nil && (mode == "redis" || mode == "auto")
+	if useRedis {
+		return &redisLimiter{rdb: global.RDB, limit: limit, window: window}
+	}
+	if mode == "redis" && global.RDB == nil {
+		slog.Warn("ratelimit", "backend", "memory", "reason", "rate_limit_backend=redis but Redis unavailable")
+	}
+	return &memLimiter{sw: newSlidingWindow(limit, window)}
+}
+
+// RateLimit 滑动窗口限流：Redis 可用且后端为 auto/redis 时用集群限流，否则进程内限流。
+func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
+	lim := newLimiter(limit, window)
+	return func(c *gin.Context) {
+		ctx := c.Request.Context()
 		if uid, exists := c.Get("user_id"); exists {
 			userKey := "uid:" + formatUID(uid)
-			if !sw.allow(userKey) {
+			ok, err := lim.allow(ctx, userKey)
+			if err != nil {
+				slog.Warn("ratelimit", "key", "user", "err", err.Error())
+				response.Fail(c, http.StatusTooManyRequests, "请求过于频繁，请稍后再试")
+				c.Abort()
+				return
+			}
+			if !ok {
 				response.Fail(c, http.StatusTooManyRequests, "请求过于频繁，请稍后再试")
 				c.Abort()
 				return
 			}
 		}
-
-		if !sw.allow(key) {
+		ipKey := "ip:" + c.ClientIP()
+		ok, err := lim.allow(ctx, ipKey)
+		if err != nil {
+			slog.Warn("ratelimit", "key", "ip", "err", err.Error())
+			response.Fail(c, http.StatusTooManyRequests, "请求过于频繁，请稍后再试")
+			c.Abort()
+			return
+		}
+		if !ok {
 			response.Fail(c, http.StatusTooManyRequests, "请求过于频繁，请稍后再试")
 			c.Abort()
 			return

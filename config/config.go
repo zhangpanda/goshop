@@ -28,11 +28,13 @@ type AlipayConfig struct {
 }
 
 type ServerConfig struct {
-	Port           int      `yaml:"port"`
-	Mode           string   `yaml:"mode"`            // debug, release
-	SqlConsole     bool     `yaml:"sql_console"`     // 默认 false，仅开发环境启用
-	TrustedProxies []string `yaml:"trusted_proxies"` // 反代 IP，如 ["127.0.0.1","10.0.0.0/8"]
-	CorsOrigins    []string `yaml:"cors_origins"`    // 允许的跨域 origin，空则仅 localhost
+	Port             int      `yaml:"port"`
+	Mode             string   `yaml:"mode"` // debug, release
+	SqlConsole       bool     `yaml:"sql_console"`
+	TrustedProxies   []string `yaml:"trusted_proxies"`
+	CorsOrigins      []string `yaml:"cors_origins"`
+	MetricsPath      string   `yaml:"metrics_path"`       // 如 /internal/metrics，空则关闭 Prometheus
+	RateLimitBackend string   `yaml:"rate_limit_backend"` // auto | redis | memory — auto 在 Redis 可用时用集群限流
 }
 
 type DBConfig struct {

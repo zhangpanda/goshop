@@ -48,6 +48,7 @@ func InitDB() error {
 }
 
 func InitRedis() error {
+	global.RDB = nil
 	cfg := global.Cfg.Redis
 	if cfg.Host == "" {
 		slog.Info("cache", "backend", "memory", "reason", "redis not configured")
@@ -69,6 +70,7 @@ func InitRedis() error {
 		return nil
 	}
 
+	global.RDB = rdb
 	global.Cache = cache.NewRedisCache(rdb)
 	slog.Info("cache", "backend", "redis")
 	return nil

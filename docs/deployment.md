@@ -112,30 +112,45 @@ server:
 
 即使启用，也仅限超级管理员、只读语句、10 秒超时。生产环境**强烈建议保持关闭**，通过数据库只读副本满足查询需求。
 
-## AutoMigrate
+## 数据库迁移与模型
 
-`initialize.RunSchemaAutoMigrate`（由 `cmd/server` 在默认配置下于启动时调用，亦可由 **`go run ./cmd/migrate`** 单独执行）负责：拼团成员去重 + GORM `AutoMigrate`。生产环境风险：
+`initialize.RunAllSchemaMigrations` 顺序为：
+
+1. **嵌入式 golang-migrate SQL**（`internal/migratefs/*.sql`，当前含 `000001_baseline` 占位，写入 `schema_migrations` 表）
+2. 除非设置 **`GOSHOP_DISABLE_AUTOMIGRATE=true`**：否则执行 **`RunSchemaAutoMigrate`**（拼团成员去重 + 与 `internal/initialize/automigrate.go` 列表一致的 GORM AutoMigrate）
+
+`cmd/server` 在 `GOSHOP_AUTO_MIGRATE!=false` 时调用 `RunAllSchemaMigrations`；**`go run ./cmd/migrate`** 或 CI Job 亦调用同一入口。
+
+生产环境风险：
 
 - 大表加列可能锁表
 - 意外删列（GORM 不会删，但第三方工具可能）
 
-**拼团成员表 `group_order_members`：** 当未设置 `GOSHOP_AUTO_MIGRATE=false` 时，迁移前会自动按 `(group_order_id, user_id)` 去重，每个键保留 **id 最小** 的一行（见 `initialize.DedupeGroupOrderMembersBeforeUniqueIndex`），以便安全创建唯一索引 `uniq_group_order_member`。若你自行执行 DDL 而未先清理重复数据，建唯一索引仍会失败。
+**拼团成员表 `group_order_members`：** 在去重 + AutoMigrate 路径下会自动按 `(group_order_id, user_id)` 去重，每个键保留 **id 最小** 的一行，以便安全创建唯一索引 `uniq_group_order_member`。
 
 **生产建议：**
 
-1. **推荐：** 线上设 `GOSHOP_AUTO_MIGRATE=false`，在发布流水线或 Job 中于工作目录执行 **`go run ./cmd/migrate`**（或编译后的 `migrate` 二进制），再滚动发布应用（避免应用 Pod 抢跑 DDL）。
-2. 后续 schema 变更可逐步过渡到手写 DDL 或专业 migration 工具，与 `internal/initialize/automigrate.go` 中的模型列表对齐。
-3. `GOSHOP_AUTO_MIGRATE=false` 时跳过启动时的 **去重 + AutoMigrate**（见 `cmd/server/main.go`）。自行加唯一索引前请先清理重复 `(group_order_id, user_id)` 行。
+1. 线上设 `GOSHOP_AUTO_MIGRATE=false`，发布流水线先执行 **`go run ./cmd/migrate`**，再滚动应用。
+2. **仅 SQL 版本演进**：设 `GOSHOP_DISABLE_AUTOMIGRATE=true`，并在 `internal/migratefs` 追加版本文件（与 GORM 模型双轨时需自行保证一致）。
+3. 自行手工 DDL 前请清理重复 `(group_order_id, user_id)` 行。
+
+## 可观测性与限流
+
+- **`server.metrics_path`**（或环境变量 **`GOSHOP_METRICS_PATH`**）：非空时注册 Prometheus 指标（`goshop_http_*`）并在该路径暴露 **`promhttp`**；**务必仅内网或带 ACL 访问**。
+- **`server.rate_limit_backend`**（或 **`GOSHOP_RATE_LIMIT_BACKEND`**）：`auto`（默认）在 **`global.RDB`（Redis）可用** 时使用 **Redis 滑动窗口限流**；`memory` 强制进程内；`redis` 强制 Redis（不可用时回退内存并打 warn）。登录/验证码等已统一走该中间件。
 
 ## 定时任务（多实例）
 
-后台定时任务由 `service.StartCronJobs` 启动。**多实例且 `global.Cache` 为 Redis** 时，每轮任务通过 Redis **`SETNX`**（`pkg/cache.RedisCache.SetNX`）抢执行权，默认仅一个实例执行本轮。**纯内存缓存**时进程间不互斥：多副本可能重复跑任务，启动时会打 **warn** 日志；请为纯 API 副本设置 **`GOSHOP_CRON_ENABLED=false`**，或必须配置 Redis。
+后台定时任务由 `service.StartCronJobs` 启动（含 **微信查单补单** `wechat_reconcile`，约每 5 分钟，需配置微信支付）。**多实例且 `global.Cache` 为 Redis** 时，每轮任务通过 Redis **`SETNX`** 抢执行权。**纯内存缓存**时见上文说明。
 
 ## 环境变量
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `GOSHOP_AUTO_MIGRATE` | 为 `false` 时跳过启动时的拼团成员去重与 `AutoMigrate` | `true` |
+| `GOSHOP_AUTO_MIGRATE` | 为 `false` 时跳过启动时的 **RunAllSchemaMigrations** | `true` |
+| `GOSHOP_DISABLE_AUTOMIGRATE` | 为 `true` 时 `RunAllSchemaMigrations` **仅执行 SQL 迁移**，不跑 GORM AutoMigrate | （未设置） |
+| `GOSHOP_METRICS_PATH` | 覆盖 `server.metrics_path`，暴露 Prometheus | （未设置） |
+| `GOSHOP_RATE_LIMIT_BACKEND` | 覆盖 `server.rate_limit_backend`：`auto` / `redis` / `memory` | （未设置） |
 | `GOSHOP_CRON_ENABLED` | 为 `false` 时不启动任何内置定时任务 | （未设置，等同启用） |
 | `GOSHOP_SKIP_DEFAULT_ADMIN` | 为 `true` 时跳过创建默认管理员（适合自建账号流程） | （未设置） |
 | `GOSHOP_E2E` | 为 `1` 时管理端登录跳过验证码（**仅 CI/本地 E2E，禁止生产**） | （未设置） |
@@ -152,5 +167,6 @@ server:
 - [ ] 若浏览器跨域调 API：已配置 `server.cors_origins`，且与同域反代方案二选一论证过
 - [ ] JWT Secret 使用强随机值（≥32 字符）
 - [ ] 数据库账号最小权限（应用账号不给 DROP/ALTER）
-- [ ] Redis 配置密码（如使用）
+- [ ] 多实例已配置 **Redis**（缓存 + 限流 + Cron 抢锁）；`/ready` 会 Ping Redis
+- [ ] 若启用 `server.metrics_path`：仅内网或对公网加 ACL
 - [ ] 微信/支付宝密钥通过文件或环境变量注入，不入 git

@@ -3,11 +3,22 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zhangpanda/goshop/config"
+	"github.com/zhangpanda/goshop/global"
 )
+
+func TestMain(m *testing.M) {
+	gin.SetMode(gin.TestMode)
+	if global.Cfg == nil {
+		global.Cfg = &config.Config{}
+	}
+	os.Exit(m.Run())
+}
 
 func TestRateLimit_AllowsUnderLimit(t *testing.T) {
 	gin.SetMode(gin.TestMode)

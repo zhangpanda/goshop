@@ -167,7 +167,7 @@ goshop/
 ## 数据库
 
 - **95** 张表（`AutoMigrate` 模型数；可运行 `scripts/doc-metrics.sh` 核对），表与字段含中文注释
-- 首次启动自动建表(AutoMigrate)
+- 首次启动自动建表（`RunAllSchemaMigrations`：SQL 版本占位 + GORM AutoMigrate，详见 `docs/deployment.md`）
 - 自动初始化：默认管理员、系统配置(77项)、快递公司(14家)、省市区(3447条)
 
 ## 与 ShopXO 的对比（简要）

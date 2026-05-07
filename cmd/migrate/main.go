@@ -20,9 +20,9 @@ func main() {
 	if err := initialize.InitDB(); err != nil {
 		log.Fatalf("init db: %v", err)
 	}
-	if err := initialize.RunSchemaAutoMigrate(global.DB); err != nil {
+	if err := initialize.RunAllSchemaMigrations(global.DB); err != nil {
 		log.Fatalf("schema migrate: %v", err)
 	}
-	slog.Info("migrate", "status", "ok", "hint", "可与 GOSHOP_AUTO_MIGRATE=false 配合在发布流水线中单独执行")
+	slog.Info("migrate", "status", "ok", "hint", "GOSHOP_AUTO_MIGRATE=false 时于流水线执行本命令；GOSHOP_DISABLE_AUTOMIGRATE=true 可仅跑嵌入式 SQL 版本")
 	os.Exit(0)
 }

@@ -28,6 +28,13 @@ func main() {
 	}
 	global.Cfg = cfg
 
+	if p := os.Getenv("GOSHOP_METRICS_PATH"); p != "" {
+		cfg.Server.MetricsPath = p
+	}
+	if b := os.Getenv("GOSHOP_RATE_LIMIT_BACKEND"); b != "" {
+		cfg.Server.RateLimitBackend = b
+	}
+
 	// 结构化日志：release 模式用 JSON，debug 用 Text
 	if cfg.Server.Mode == "release" {
 		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
@@ -38,7 +45,7 @@ func main() {
 		log.Fatalf("init db: %v", err)
 	}
 	if os.Getenv("GOSHOP_AUTO_MIGRATE") != "false" {
-		if err := initialize.RunSchemaAutoMigrate(global.DB); err != nil {
+		if err := initialize.RunAllSchemaMigrations(global.DB); err != nil {
 			log.Fatalf("auto migrate: %v", err)
 		}
 	} else {

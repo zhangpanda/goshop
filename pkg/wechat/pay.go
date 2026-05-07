@@ -8,6 +8,7 @@ import (
 
 	"github.com/wechatpay-apiv3/wechatpay-go/core"
 	"github.com/wechatpay-apiv3/wechatpay-go/core/option"
+	"github.com/wechatpay-apiv3/wechatpay-go/services/payments"
 	"github.com/wechatpay-apiv3/wechatpay-go/services/payments/app"
 	"github.com/wechatpay-apiv3/wechatpay-go/services/payments/h5"
 	"github.com/wechatpay-apiv3/wechatpay-go/services/payments/jsapi"
@@ -122,6 +123,16 @@ func (c *Client) PrepayNative(ctx context.Context, req *PrepayRequest) (string, 
 		return "", err
 	}
 	return *resp.CodeUrl, nil
+}
+
+// QueryOrderByOutTradeNo 按商户订单号查询微信支付状态（对账与回调补单）。
+func (c *Client) QueryOrderByOutTradeNo(ctx context.Context, outTradeNo string) (*payments.Transaction, error) {
+	svc := jsapi.JsapiApiService{Client: c.client}
+	resp, _, err := svc.QueryOrderByOutTradeNo(ctx, jsapi.QueryOrderByOutTradeNoRequest{
+		OutTradeNo: core.String(outTradeNo),
+		Mchid:      core.String(c.MchID),
+	})
+	return resp, err
 }
 
 // Refund 退款

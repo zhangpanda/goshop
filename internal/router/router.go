@@ -4,20 +4,30 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/compat/shopxo"
 	"github.com/zhangpanda/goshop/internal/handler"
 	"github.com/zhangpanda/goshop/internal/middleware"
 )
 
 func Setup(r *gin.Engine) {
-	r.Use(middleware.Cors(), middleware.Logger(), gin.Recovery())
 	r.MaxMultipartMemory = 8 << 20 // 8MB for file uploads
 
-	// 健康检查（不经过中间件链）
+	// 探活：尽量轻量，不挂 Prometheus/CORS/日志中间件（便于编排健康检查）
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 	r.GET("/ready", handler.ReadinessCheck)
+
+	if global.Cfg != nil && global.Cfg.Server.MetricsPath != "" {
+		r.Use(middleware.PrometheusHTTP())
+	}
+	r.Use(middleware.Cors(), middleware.Logger(), gin.Recovery())
+
+	if global.Cfg != nil && global.Cfg.Server.MetricsPath != "" {
+		r.GET(global.Cfg.Server.MetricsPath, gin.WrapH(promhttp.Handler()))
+	}
 
 	// 静态文件
 	r.StaticFS("/uploads", gin.Dir("./uploads", false))
