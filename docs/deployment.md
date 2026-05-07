@@ -16,9 +16,9 @@
          web (3000)  admin (3001)   GoShop (8080)
 ```
 
-**核心原则：同域反代，不跨域。**
+**核心原则：同域反代，不跨域（推荐）。**
 
-GoShop 的 CORS 策略仅放行 `localhost/127.0.0.1`（开发用途）。生产环境必须通过反向代理将前端和 API 统一到同一域名下，浏览器不会触发跨域请求。
+未配置 `server.cors_origins` 时，CORS 仅放行 `http://localhost:*` 与 `http://127.0.0.1:*`（开发）。生产环境**推荐**反向代理把前端与 API 收敛到**同一站点**，浏览器不触发 CORS。若必须前后端分离域名，再在 `config.yaml` 中配置 `server.cors_origins` 为**完整 Origin** 白名单（如 `https://shop.example.com`）。
 
 ## Nginx 配置示例
 
@@ -62,20 +62,12 @@ server {
 
 ### TrustedProxies
 
-当前代码 `r.SetTrustedProxies(nil)` 表示不信任任何代理头。这意味着：
+`cmd/server/main.go` 根据 **`server.trusted_proxies`** 调用 `SetTrustedProxies`：
 
-- `c.ClientIP()` 返回的是 TCP 连接的直接对端 IP
-- 如果 GoShop 在 Nginx 后面，`ClientIP()` 永远是 `127.0.0.1`
-- **限流、风控、日志中的 IP 都会失效**
+- **列表非空**：仅信任来自这些网段/地址的反代，Gin 可从 `X-Forwarded-For` / `X-Real-IP` 解析真实客户端 IP（**务必将列表收窄为实际反代来源**，避免任意客户端伪造 `X-Forwarded-For` 绕过 IP 限流）。
+- **列表为空（默认）**：等价于不信任代理头，`ClientIP()` 为直连对端。GoShop 若在 Nginx 之后且未配置本项，**限流、日志中的 IP 会长期为 `127.0.0.1`**。
 
-**生产环境必须配置 TrustedProxies：**
-
-```go
-// main.go 中修改为：
-r.SetTrustedProxies([]string{"127.0.0.1", "10.0.0.0/8", "172.16.0.0/12"})
-```
-
-或通过 config.yaml 配置：
+**生产环境在反代后部署时，建议在 config.yaml 中配置：**
 
 ```yaml
 server:
@@ -86,16 +78,16 @@ server:
     - "10.0.0.0/8"
 ```
 
-配置后 Gin 会从 `X-Forwarded-For` / `X-Real-IP` 中提取真实客户端 IP。
+按实际反代所在网段调整（例如仅 `127.0.0.1` 若只有本机 Nginx）。
 
 ### CORS
 
 | 场景 | 是否可用 | 说明 |
 |------|----------|------|
-| 同域反代（推荐） | ✅ | 浏览器不触发 CORS，无需额外配置 |
-| 前后端分离域名 | ❌ | 当前 CORS 策略会拒绝非 localhost origin |
+| 同域反代（推荐） | ✅ | 浏览器不触发 CORS，`cors_origins` 可不配 |
+| 前后端分离域名 | ✅（需配置） | 在 `server.cors_origins` 中列出允许的完整 Origin（与浏览器请求 `Origin` 头**完全一致**，含协议与端口） |
 
-如果必须跨域部署，需修改 `internal/middleware/cors.go` 中的 `AllowOriginFunc`，添加生产域名白名单。
+实现见 `internal/middleware/cors.go`（读取 `global.Cfg.Server.CorsOrigins`）。
 
 ### 限流
 
@@ -111,7 +103,7 @@ server:
 
 ### SQL Console
 
-SQL Console 功能（`/api/admin/sql`）默认**关闭**。启用需在 config.yaml 中显式配置：
+SQL Console 接口（`POST /api/admin/sql-console`，管理端「工具」权限）默认**关闭**。启用需在 config.yaml 中显式配置：
 
 ```yaml
 server:
@@ -146,7 +138,8 @@ server:
 - [ ] Nginx 反代配置完成（同域）
 - [ ] `config.yaml` 中 `server.mode: release`
 - [ ] `server.sql_console: false`（或不配置，默认关闭）
-- [ ] TrustedProxies 配置为实际代理 IP
+- [ ] `server.trusted_proxies` 配置为实际反代来源（若在 Nginx/K8s Ingress 后）
+- [ ] 若浏览器跨域调 API：已配置 `server.cors_origins`，且与同域反代方案二选一论证过
 - [ ] JWT Secret 使用强随机值（≥32 字符）
 - [ ] 数据库账号最小权限（应用账号不给 DROP/ALTER）
 - [ ] Redis 配置密码（如使用）

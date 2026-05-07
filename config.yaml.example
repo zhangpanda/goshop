@@ -4,6 +4,12 @@
 server:
   port: 8080          # 服务端口
   mode: debug         # debug 或 release（生产环境用 release）
+  # 以下为可选；详见 docs/deployment.md
+  # sql_console: false   # 默认 false。仅开发/调试可改为 true；需配合超级管理员权限，生产强烈建议关闭
+  # trusted_proxies:     # 反代在 Nginx/Cilium 之后时必配，否则 ClientIP/限流均为直连 IP
+  #   - "127.0.0.1"      # 本机 Nginx 反代
+  #   - "10.0.0.0/8"     # 内网段示例，按实际反代来源填写
+  # cors_origins: []     # 跨域 Origin 完整字符串白名单，如 ["https://shop.example.com"]；留空则仅允许 localhost/127.0.0.1 前缀（开发）。同域反代时一般无需配置
 
 db:
   host: 127.0.0.1     # MySQL 地址（Docker 部署改为 mysql）

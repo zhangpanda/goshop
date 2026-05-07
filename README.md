@@ -41,6 +41,7 @@ cp config.yaml.example config.yaml
 #   db.host 改为 mysql
 #   db.password 改为 goshop123（与 docker-compose.yml 中 MYSQL_ROOT_PASSWORD 一致）
 #   redis.host 改为 redis（或留空使用内存缓存）
+# 生产相关：trusted_proxies / cors_origins / sql_console 见 config.yaml.example 与 docs/deployment.md
 docker compose up -d
 # 后端 API: http://localhost:8080
 # 管理后台和 PC 前台需另行启动（见下方本地开发步骤）
@@ -60,7 +61,7 @@ docker compose up -d
 ```bash
 git clone https://github.com/zhangpanda/goshop.git
 cd goshop
-cp config.yaml.example config.yaml  # 修改数据库密码等配置
+cp config.yaml.example config.yaml  # 修改数据库密码等配置；反代部署见 docs/deployment.md（trusted_proxies 等）
 
 # 创建数据库（首次）
 mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS goshop CHARACTER SET utf8mb4;"
