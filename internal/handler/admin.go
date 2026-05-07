@@ -69,8 +69,10 @@ func AdminUpdateGoods(c *gin.Context) {
 
 func AdminDeleteGoods(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	global.DB.Where("goods_id = ?", id).Delete(&model.GoodsSKU{})
-	global.DB.Delete(&model.Goods{}, id)
+	if err := service.GoodsDeleteFull(uint(id)); err != nil {
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
 	response.OK(c, nil)
 }
 

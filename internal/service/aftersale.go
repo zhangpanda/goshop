@@ -135,15 +135,36 @@ func AftersaleRefuse(asID uint, reason string) error {
 
 func doRefund(as *model.OrderAftersale) error {
 	tx := global.DB.Begin()
-	tx.Model(as).Update("status", model.AftersaleStatusDone)
-	// 恢复库存
+	if err := tx.Error; err != nil {
+		return err
+	}
+	res := tx.Model(as).Update("status", model.AftersaleStatusDone)
+	if res.Error != nil {
+		tx.Rollback()
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		tx.Rollback()
+		return errors.New("售后单不存在或状态已变更")
+	}
 	if as.Number > 0 {
 		var item model.OrderItem
-		tx.First(&item, as.OrderDetailID)
-		tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).Update("stock", gorm.Expr("stock + ?", as.Number))
+		if err := tx.First(&item, as.OrderDetailID).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+		res := tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).
+			Update("stock", gorm.Expr("stock + ?", as.Number))
+		if res.Error != nil {
+			tx.Rollback()
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			tx.Rollback()
+			return errors.New("SKU不存在，无法恢复库存")
+		}
 	}
 	if err := tx.Commit().Error; err != nil {
-		// Tx is invalid after Commit returns; do not Rollback.
 		return err
 	}
 	addAftersaleHistory(as.ID, model.AftersaleStatusDone, fmt.Sprintf("退款完成 %d分", as.Price), "系统")

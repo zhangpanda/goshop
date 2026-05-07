@@ -36,6 +36,9 @@ func GoodsStatusUpdate(id uint, status int8) error {
 }
 func GoodsDeleteFull(id uint) error {
 	tx := global.DB.Begin()
+	if err := tx.Error; err != nil {
+		return err
+	}
 	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsSKU{}).Error; err != nil {
 		tx.Rollback()
 		return err
