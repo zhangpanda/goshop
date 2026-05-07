@@ -36,13 +36,34 @@ func GoodsStatusUpdate(id uint, status int8) error {
 }
 func GoodsDeleteFull(id uint) error {
 	tx := global.DB.Begin()
-	tx.Where("goods_id = ?", id).Delete(&model.GoodsSKU{})
-	tx.Where("goods_id = ?", id).Delete(&model.GoodsSpecBase{})
-	tx.Where("goods_id = ?", id).Delete(&model.GoodsPhoto{})
-	tx.Where("goods_id = ?", id).Delete(&model.GoodsParams{})
-	tx.Where("goods_id = ?", id).Delete(&model.GoodsCategoryJoin{})
-	tx.Where("goods_id = ?", id).Delete(&model.GoodsContentApp{})
-	tx.Delete(&model.Goods{}, id)
+	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsSKU{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsSpecBase{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsPhoto{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsParams{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsCategoryJoin{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsContentApp{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Delete(&model.Goods{}, id).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
 	return tx.Commit().Error
 }
 func GoodsTotal(status *int8) int64 {

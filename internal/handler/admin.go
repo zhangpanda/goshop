@@ -59,7 +59,11 @@ func AdminUpdateGoods(c *gin.Context) {
 			}
 		}
 	}
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		// Tx is invalid after Commit returns; do not Rollback.
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
 	response.OK(c, nil)
 }
 
