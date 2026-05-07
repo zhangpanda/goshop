@@ -135,6 +135,7 @@ server:
 
 ## 最小生产 checklist
 
+- [ ] **⚠️ 首次部署后立即修改默认管理员密码**（默认 admin/admin123，公网暴露等于送入口）
 - [ ] Nginx 反代配置完成（同域）
 - [ ] `config.yaml` 中 `server.mode: release`
 - [ ] `server.sql_console: false`（或不配置，默认关闭）

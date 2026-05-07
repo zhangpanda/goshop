@@ -88,6 +88,9 @@ func InitWechatPay() error {
 }
 
 func InitDefaultAdmin() {
+	if os.Getenv("GOSHOP_SKIP_DEFAULT_ADMIN") == "true" {
+		return
+	}
 	var count int64
 	global.DB.Model(&model.Admin{}).Count(&count)
 	if count > 0 {
@@ -97,7 +100,7 @@ func InitDefaultAdmin() {
 	global.DB.Create(&role)
 	hash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
 	global.DB.Create(&model.Admin{Username: "admin", Password: string(hash), Nickname: "管理员", RoleID: role.ID, Status: 1})
-	slog.Info("seed", "action", "admin_created", "username", "admin")
+	slog.Warn("seed", "action", "default_admin_created", "username", "admin", "password", "admin123", "msg", "CHANGE THIS PASSWORD BEFORE EXPOSING TO PUBLIC NETWORK")
 }
 
 func InitDefaultConfig() {
