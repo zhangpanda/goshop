@@ -119,19 +119,19 @@ server:
 - 大表加列可能锁表
 - 意外删列（GORM 不会删，但第三方工具可能）
 
-**拼团成员表 `group_order_members`：** 启动时会在 `AutoMigrate` 之前自动按 `(group_order_id, user_id)` 去重，每个键保留 **id 最小** 的一行（见 `initialize.DedupeGroupOrderMembersBeforeUniqueIndex`），以便安全创建唯一索引 `uniq_group_order_member`。若你自行执行 DDL 而未先清理重复数据，建唯一索引仍会失败。
+**拼团成员表 `group_order_members`：** 当未设置 `GOSHOP_AUTO_MIGRATE=false` 时，启动会在 `AutoMigrate` 之前自动按 `(group_order_id, user_id)` 去重，每个键保留 **id 最小** 的一行（见 `initialize.DedupeGroupOrderMembersBeforeUniqueIndex`），以便安全创建唯一索引 `uniq_group_order_member`。若你自行执行 DDL 而未先清理重复数据，建唯一索引仍会失败。
 
 **生产建议：**
 
 1. 首次部署后，将 AutoMigrate 移到独立的 migration 命令
 2. 后续 schema 变更通过手工 DDL 或 migration 工具管理
-3. 或通过环境变量控制：`GOSHOP_AUTO_MIGRATE=false` 跳过
+3. 或通过环境变量控制：`GOSHOP_AUTO_MIGRATE=false` 跳过启动时的 **去重 + AutoMigrate**（见 `cmd/server/main.go`）。此时若你手工执行 DDL（例如为 `group_order_members` 加唯一索引），请先自行清理重复 `(group_order_id, user_id)` 行。
 
 ## 环境变量
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `GOSHOP_AUTO_MIGRATE` | 是否执行 AutoMigrate | `true` |
+| `GOSHOP_AUTO_MIGRATE` | 为 `false` 时跳过启动时的拼团成员去重与 `AutoMigrate` | `true` |
 | `GOSHOP_SKIP_DEFAULT_ADMIN` | 为 `true` 时跳过创建默认管理员（适合自建账号流程） | （未设置） |
 | `GOSHOP_E2E` | 为 `1` 时管理端登录跳过验证码（**仅 CI/本地 E2E，禁止生产**） | （未设置） |
 | `NEXT_PUBLIC_BASE_PATH` | 前端 basePath | 空 |

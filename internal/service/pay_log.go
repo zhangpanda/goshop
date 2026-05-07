@@ -39,6 +39,15 @@ func uniqueUints(orderIDs []uint) []uint {
 	return out
 }
 
+// applyMultiOrderPaymentID 合并支付时将支付方式写入子单；应在同一事务内与后续扣款/建表一起调用。
+func applyMultiOrderPaymentID(tx *gorm.DB, userID uint, ids []uint, paymentRecordID uint) error {
+	if paymentRecordID == 0 {
+		return nil
+	}
+	return tx.Model(&model.Order{}).Where("id IN ? AND user_id = ?", ids, userID).
+		Update("payment_id", paymentRecordID).Error
+}
+
 /**
  * MultiOrderUnifiedPay 多笔待支付订单统一支付：线下/钱包在事务内批量更新；微信/支付宝先 CreatePayLog，out_trade_no 为 PayLog.pay_no。
  */
@@ -60,13 +69,6 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 		}
 	}
 
-	if paymentRecordID > 0 {
-		if err := global.DB.Model(&model.Order{}).Where("id IN ? AND user_id = ?", ids, userID).
-			Update("payment_id", paymentRecordID).Error; err != nil {
-			return nil, err
-		}
-	}
-
 	driver, err := GetPaymentDriver(paymentKey)
 	if err != nil {
 		return nil, err
@@ -75,6 +77,9 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 	if paymentKey == "offline" {
 		var paidIDs []uint
 		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+			if err := applyMultiOrderPaymentID(tx, userID, ids, paymentRecordID); err != nil {
+				return err
+			}
 			now := time.Now()
 			upd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
 			for _, o := range orders {
@@ -107,6 +112,9 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 		}
 		var paidIDs []uint
 		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+			if err := applyMultiOrderPaymentID(tx, userID, ids, paymentRecordID); err != nil {
+				return err
+			}
 			result := tx.Model(&model.User{}).Where("id = ? AND wallet_balance >= ?", userID, total).
 				Update("wallet_balance", gorm.Expr("wallet_balance - ?", total))
 			if result.Error != nil {
@@ -151,7 +159,15 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 	}
 
 	// clientType 写入 PayLog；兼容层用 "shopxo" 仅作来源标记，非第三方商标用法
-	pl, err := CreatePayLog(userID, ids, paymentRecordID, "shopxo")
+	var pl *model.PayLog
+	err = RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := applyMultiOrderPaymentID(tx, userID, ids, paymentRecordID); err != nil {
+			return err
+		}
+		var cerr error
+		pl, cerr = createPayLogWithDB(tx, userID, ids, paymentRecordID, "shopxo")
+		return cerr
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -174,11 +190,16 @@ func generatePayNo() string {
 
 // CreatePayLog 创建支付日志（支持合并支付多个订单）。clientType 为渠道/来源标识（如 api、shopxo）。
 func CreatePayLog(userID uint, orderIDs []uint, paymentID uint, clientType string) (*model.PayLog, error) {
+	return createPayLogWithDB(global.DB, userID, orderIDs, paymentID, clientType)
+}
+
+// createPayLogWithDB 使用指定 DB/事务句柄创建 PayLog，读单与写入在同一连接上便于与合并支付事务组合。
+func createPayLogWithDB(db *gorm.DB, userID uint, orderIDs []uint, paymentID uint, clientType string) (*model.PayLog, error) {
 	var totalPrice int64
 	ids := make([]string, len(orderIDs))
 	for i, oid := range orderIDs {
 		var order model.Order
-		if err := global.DB.First(&order, oid).Error; err != nil {
+		if err := db.First(&order, oid).Error; err != nil {
 			return nil, fmt.Errorf("订单%d不存在", oid)
 		}
 		if order.UserID != userID || order.Status != model.OrderStatusPending {
@@ -196,7 +217,7 @@ func CreatePayLog(userID uint, orderIDs []uint, paymentID uint, clientType strin
 		TotalPrice: totalPrice,
 		ClientType: clientType,
 	}
-	if err := global.DB.Create(&pl).Error; err != nil {
+	if err := db.Create(&pl).Error; err != nil {
 		return nil, err
 	}
 	return &pl, nil
