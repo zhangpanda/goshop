@@ -16,11 +16,11 @@ type GroupOrder struct {
 	CreatedAt   time.Time  `json:"created_at"`
 }
 
-// GroupOrderMember 拼团成员
+// GroupOrderMember 拼团成员（同一团同一用户仅一条，依赖 uniqueIndex 与事务内 FOR UPDATE）
 type GroupOrderMember struct {
 	ID           uint      `json:"id" gorm:"primaryKey"`
-	GroupOrderID uint      `json:"group_order_id" gorm:"index;not null"`
-	UserID       uint      `json:"user_id" gorm:"index;not null"`
+	GroupOrderID uint      `json:"group_order_id" gorm:"uniqueIndex:uniq_group_order_member;not null"`
+	UserID       uint      `json:"user_id" gorm:"uniqueIndex:uniq_group_order_member;not null;index"`
 	OrderID      uint      `json:"order_id" gorm:"comment:关联订单ID"`
 	CreatedAt    time.Time `json:"created_at"`
 }

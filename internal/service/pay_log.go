@@ -61,7 +61,10 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 	}
 
 	if paymentRecordID > 0 {
-		global.DB.Model(&model.Order{}).Where("id IN ?", ids).Update("payment_id", paymentRecordID)
+		if err := global.DB.Model(&model.Order{}).Where("id IN ? AND user_id = ?", ids, userID).
+			Update("payment_id", paymentRecordID).Error; err != nil {
+			return nil, err
+		}
 	}
 
 	driver, err := GetPaymentDriver(paymentKey)

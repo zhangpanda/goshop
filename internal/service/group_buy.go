@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
@@ -9,6 +10,17 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+// isDuplicateKeyError 检测 MySQL/SQLite 等下的唯一约束冲突（用于参团防重兜底）。
+func isDuplicateKeyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "duplicate") ||
+		strings.Contains(s, "unique constraint") ||
+		strings.Contains(s, "constraint failed")
+}
 
 type GroupBuyReq struct {
 	Name      string             `json:"name" binding:"required"`
@@ -147,6 +159,9 @@ func JoinGroup(userID, groupOrderID uint) error {
 			return errors.New("已售罄")
 		}
 		if err := tx.Create(&model.GroupOrderMember{GroupOrderID: groupOrderID, UserID: userID}).Error; err != nil {
+			if isDuplicateKeyError(err) {
+				return errors.New("已参加此拼团")
+			}
 			return err
 		}
 		if err := tx.Model(&model.GroupOrder{}).Where("id = ? AND status = ?", groupOrderID, 0).
