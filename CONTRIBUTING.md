@@ -19,6 +19,7 @@ cd goshop
 # 2. 配置
 cp config.yaml.example config.yaml
 # 编辑 config.yaml 填写数据库和 Redis 连接信息
+# **勿将 config.yaml、证书、真实密钥提交到 git**（仓库已 .gitignore `config.yaml` 与 `cert/`）
 
 # 3. 启动后端
 go run ./cmd/server/

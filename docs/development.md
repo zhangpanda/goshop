@@ -14,7 +14,7 @@ goshop/
 │   ├── model/                      # GORM 数据模型（95 张表，以 AutoMigrate / scripts/doc-metrics.sh 为准）
 │   ├── service/                    # 业务逻辑层
 │   ├── handler/                    # HTTP 处理器（Controller）
-│   │   ├── shopxo_compat.go        # ShopXO uni-app 兼容层（82 个 s= 动作，见 HANDOVER.md）
+│   │   ├── compat/shopxo/*.go      # ShopXO uni-app 兼容（82 个 s= 动作，调度见 compat.go）
 │   │   └── ...
 │   ├── router/router.go            # 路由注册（350 条 Gin 注册；全站合计 392 见 HANDOVER.md）
 │   └── middleware/                  # 中间件
@@ -178,7 +178,7 @@ export default function TagsPage() {
 
 > 此处「兼容」指 **HTTP 形态与移动端对接习惯**，便于衔接 shopxo-uniapp 等前端；GoShop 与 ShopXO 无代码隶属关系，行为以本仓库实现为准。
 
-`/api.php?s=controller/action` 入口由 `shopxo_compat.go` 处理，将 ShopXO 风格的请求映射为 GoShop 内部调用。
+`/api.php?s=controller/action` 入口由 `internal/compat/shopxo` 注册，将 ShopXO 风格的请求映射为 GoShop 内部调用。
 
 如需添加新的兼容接口，在 `routeMap` 中注册即可：
 

@@ -138,7 +138,7 @@ cd web && npm run dev           # PC前台 :3000
 - 验证覆盖：用户状态反转（ShopXO 0=正常→GoShop 1=正常）、金额 decimal→int64 分、Unix 时间戳→datetime、多对多分类→单值 category_id、SKU 价格转换、订单地址 JSON 拼装、无规格商品占位 SKU
 
 #### 管理后台纠偏（v1.5.3）
-- **批量导出**：`ExportData`（`internal/service/extend.go`）支持请求体 **`ids`**，仅导出勾选行；**`BatchActions`** 改为 `fetch` 下载 CSV，增加 **`exportType`**（`orders` / `users` / `goods`），与 **`ExportButton`** 行为一致。订单 / 用户 / 商品列表已接入「导出选中」。
+- **批量导出**：`ExportData`（`internal/service/config_ext.go`，HTTP 见 `internal/handler/extend.go`）支持请求体 **`ids`**，仅导出勾选行；**`BatchActions`** 改为 `fetch` 下载 CSV，增加 **`exportType`**（`orders` / `users` / `goods`），与 **`ExportButton`** 行为一致。订单 / 用户 / 商品列表已接入「导出选中」。
 - **用户批量操作**：新增 **`DELETE /admin/users/:id`**，实现为 **`AdminDisableUser`**（`status=0`，不物理删除，保留订单关联）；列表上按钮文案为 **批量禁用**，避免与真实删库混淆。
 - **售后列表**：移除无实际操作的 **`BatchActions`** 与行多选，避免「已选 N 条」无按钮。
 - **语言与货币**：管理端 **`GET/POST /admin/multilingual`**、**`GET/POST /admin/currency`**；前台菜单 **系统 → 语言与货币**（`admin/src/app/(dashboard)/locale/page.tsx`）。**`GetCurrencyConfig`** 从配置读取 **`currency_rate`**。
@@ -165,16 +165,29 @@ cd web && npm run dev           # PC前台 :3000
 
 ### 当前工程水准（自评，便于预期对齐）
 - **较强**：支付面与 ShopXO 兼容、默认数据补全策略、CI（含 race）与集成脚本、文档化指标脚本、**Playwright E2E 34 用例覆盖全部核心页面与 CRUD 交互**。
-- **仍薄**：大量 **handler 测试依赖真实库仍为 Skip**；秒杀/拼团/分销/售后等 **长链路端到端自动化覆盖不足**（E2E 验证了页面加载与弹窗交互，但未覆盖完整下单→支付→发货→售后链路）；生产级 **观测、优雅关停、真实三方对账** 仍待加强（与下表待办一致）。
+- **仍薄**：大量 **handler 测试依赖真实库仍为 Skip**；秒杀/拼团/分销/售后等 **长链路端到端自动化覆盖不足**（E2E 验证了页面加载与弹窗交互，但未覆盖完整下单→支付→发货→售后链路）；生产级 **观测、真实三方对账** 仍待加强（与下表待办一致）。
 
 **手工回归**：反向代理 + HTTPS 仍按 **`scripts/MANUAL_VERIFY_PROXY.md`** 与自动化互补。
+
+## 生产部署 checklist（与 `docs/deployment.md` 口径一致）
+
+上线或变更基础设施前建议逐项核对（细则、Nginx 示例与安全说明以 **`docs/deployment.md`** 为准；字段释义见 **`config.yaml.example`** 中 `server` 段注释）。
+
+- [ ] 反向代理 / 网关已就绪（**推荐同域反代**，避免浏览器 CORS 复杂度）
+- [ ] `config.yaml`：`server.mode: release`
+- [ ] 若 GoShop 在 Nginx / Ingress 等**反代之后**：配置 **`server.trusted_proxies`** 为实际反代来源网段或地址（否则 **`ClientIP()`、依赖 IP 的限流与日志** 会长期不准）
+- [ ] 若前端与 API 为**不同域名**（跨域）：配置 **`server.cors_origins`** 为完整 Origin 白名单（含协议与端口，与浏览器 `Origin` 头一致）；同域反代时一般**无需**配置
+- [ ] **`server.sql_console`**：生产保持**不配置或 `false`**（默认关闭）。接口为 **`POST /api/admin/sql-console`**（工具权限 + 超级管理员）；仅内网调试可临时开启
+- [ ] JWT Secret 使用强随机值（≥32 字符）；数据库应用账号**最小权限**（避免 DROP/ALTER 等）
+- [ ] 微信 / 支付宝密钥与私钥**不入 git**；使用 Redis 时建议设置密码
+- [ ] 首次大流量或 DDL 前评估 **`AutoMigrate`** 策略（见 `docs/deployment.md` 与 `GOSHOP_AUTO_MIGRATE`）
 
 ## 待办
 
 ### P3 - 未来
 1. **多语言前端** — i18n 国际化
 2. **性能优化** — 数据库索引、热点数据缓存
-3. **优雅关停** — 信号处理 + 请求排空
+3. **优雅关停深化** — `main` 已具备信号触发 `Shutdown`；若需「排空长请求 / 停止定时任务顺序」等可再细化
 4. **PayPal 对接** — 需海外商户账号
 5. **测试纵深** — handler 层 testcontainers 或固定夹具 DB；核心业务场景覆盖率目标化
 
@@ -198,7 +211,7 @@ internal/service/logistics.go      # 物流轨迹(快递100)
 internal/middleware/admin_auth.go  # AdminAuth + AdminPower
 internal/compat/shopxo/diyapi.go # diyapi + attachmentapi（含 baseURL、attachmentApiCatch）
 internal/compat/shopxo/compat.go  # ShopXO 兼容（含多订单 order/pay）
-internal/service/extend.go         # 导出 CSV（含 ids）、多语言/货币配置
+internal/handler/extend.go         # 导出 CSV（含 ids）、多语言/货币等管理接口
 internal/service/user.go         # AdminDisableUser
 ```
 

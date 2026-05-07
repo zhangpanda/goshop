@@ -403,7 +403,7 @@ SELECT MAX(id) + 1 AS next_ai FROM goshop.users;
 - [ ] 无规格商品的 `100000000+goods_id` SKU 与订单明细能对应
 - [ ] 管理员可登录；用户密码策略已落地
 - [ ] 图片路径、相册 JSON（`GROUP_CONCAT`+`JSON_QUOTE` 方案）已验证
-- [ ] uni-app / 收银台（若使用）与 `shopxo_compat` 行为已联调
+- [ ] uni-app / 收银台（若使用）与 `internal/compat/shopxo` 行为已联调
 
 ---
 

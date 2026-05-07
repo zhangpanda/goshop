@@ -11,7 +11,7 @@
 | **占位** | 界面或文档明示未完成，不应假设与 ShopXO 一致。 |
 | **不适用** | Go 栈/产品形态下无 1:1 对应（非「偷懒未做」）。 |
 
-> 统计口径与路由数以 `HANDOVER.md`、`scripts/doc-metrics.sh` 为准。本表侧重 **后台菜单与页面**；**uni-app** 以 `shopxo_compat.go` 的 82 个 `s=` 动作为准。
+> 统计口径与路由数以 `HANDOVER.md`、`scripts/doc-metrics.sh` 为准。本表侧重 **后台菜单与页面**；**uni-app** 以 `internal/compat/shopxo/compat.go` 中 `routeMap` 的 82 个 `s=` 动作为准。
 
 ---
 

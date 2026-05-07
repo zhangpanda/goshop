@@ -64,9 +64,23 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 	if paymentKey == "offline" {
 		now := time.Now()
 		upd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
+		tx := global.DB.Begin()
+		var paidIDs []uint
 		for _, o := range orders {
-			global.DB.Model(&model.Order{}).Where("id = ? AND status = ?", o.ID, model.OrderStatusPending).Updates(upd)
-			AddOrderStatusHistory(o.ID, model.OrderStatusPending, model.OrderStatusPaid, "线下支付", "系统")
+			r := tx.Model(&model.Order{}).Where("id = ? AND status = ?", o.ID, model.OrderStatusPending).Updates(upd)
+			if r.Error != nil {
+				tx.Rollback()
+				return nil, r.Error
+			}
+			if r.RowsAffected > 0 {
+				paidIDs = append(paidIDs, o.ID)
+			}
+		}
+		if err := tx.Commit().Error; err != nil {
+			return nil, err
+		}
+		for _, oid := range paidIDs {
+			AddOrderStatusHistory(oid, model.OrderStatusPending, model.OrderStatusPaid, "线下支付", "系统")
 		}
 		return &PayDriverResp{TradeNo: fmt.Sprintf("OFFLINE_MULTI_%d", ids[0])}, nil
 	}
@@ -91,14 +105,22 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 		})
 		now := time.Now()
 		wupd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
+		var paidIDs []uint
 		for _, o := range orders {
-			tx.Model(&model.Order{}).Where("id = ? AND status = ?", o.ID, model.OrderStatusPending).Updates(wupd)
+			r := tx.Model(&model.Order{}).Where("id = ? AND status = ?", o.ID, model.OrderStatusPending).Updates(wupd)
+			if r.Error != nil {
+				tx.Rollback()
+				return nil, r.Error
+			}
+			if r.RowsAffected > 0 {
+				paidIDs = append(paidIDs, o.ID)
+			}
 		}
 		if err := tx.Commit().Error; err != nil {
 			return nil, fmt.Errorf("支付失败: %w", err)
 		}
-		for _, o := range orders {
-			AddOrderStatusHistory(o.ID, model.OrderStatusPending, model.OrderStatusPaid, "钱包支付", "系统")
+		for _, oid := range paidIDs {
+			AddOrderStatusHistory(oid, model.OrderStatusPending, model.OrderStatusPaid, "钱包支付", "系统")
 		}
 		return &PayDriverResp{TradeNo: fmt.Sprintf("WALLET_MULTI_%d", time.Now().UnixNano())}, nil
 	}
@@ -156,8 +178,7 @@ func CreatePayLog(userID uint, orderIDs []uint, paymentID uint, clientType strin
 // PayLogSuccess 支付成功回调处理
 func PayLogSuccess(payNo, tradeNo string) error {
 	var pl model.PayLog
-	global.DB.Where("pay_no = ?", payNo).Find(&pl)
-	if pl.ID == 0 {
+	if err := global.DB.Where("pay_no = ?", payNo).First(&pl).Error; err != nil {
 		return fmt.Errorf("支付日志不存在")
 	}
 	if pl.Status != 0 {
@@ -165,24 +186,40 @@ func PayLogSuccess(payNo, tradeNo string) error {
 	}
 
 	now := time.Now()
-	global.DB.Model(&pl).Updates(map[string]interface{}{"status": 1, "trade_no": tradeNo, "paid_at": &now})
+	res := global.DB.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
+		Updates(map[string]interface{}{"status": 1, "trade_no": tradeNo, "paid_at": &now})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return nil // 并发下另一路已标记为已支付
+	}
 
 	// 更新关联订单状态
 	for _, idStr := range strings.Split(pl.OrderIDs, ",") {
 		var oid uint
 		fmt.Sscanf(idStr, "%d", &oid)
-		if oid > 0 {
-			upd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
-			if pl.PaymentID > 0 {
-				upd["payment_id"] = pl.PaymentID
-			}
-			global.DB.Model(&model.Order{}).Where("id = ? AND status = ?", oid, model.OrderStatusPending).Updates(upd)
-			AddOrderStatusHistory(oid, model.OrderStatusPending, model.OrderStatusPaid, "支付成功", "系统")
-			// 发消息
-			var order model.Order
-			global.DB.First(&order, oid)
-			NotifyOrderStatus(order.UserID, oid, order.OrderNo, "paid")
+		if oid == 0 {
+			continue
 		}
+		upd := map[string]interface{}{
+			"status": model.OrderStatusPaid, "paid_at": &now,
+			"transaction_id": tradeNo,
+		}
+		if pl.PaymentID > 0 {
+			upd["payment_id"] = pl.PaymentID
+		}
+		ores := global.DB.Model(&model.Order{}).Where("id = ? AND status = ?", oid, model.OrderStatusPending).Updates(upd)
+		if ores.Error != nil {
+			return ores.Error
+		}
+		if ores.RowsAffected == 0 {
+			continue
+		}
+		AddOrderStatusHistory(oid, model.OrderStatusPending, model.OrderStatusPaid, "支付成功", "系统")
+		var order model.Order
+		global.DB.First(&order, oid)
+		NotifyOrderStatus(order.UserID, oid, order.OrderNo, "paid")
 	}
 	return nil
 }

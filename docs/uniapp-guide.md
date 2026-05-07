@@ -9,7 +9,7 @@ GoShop 支持两种 uni-app 对接方式，**不要混用**：
 | 方案 | 说明 | 本文位置 |
 |------|------|----------|
 | **方案 A：GoShop 原生 REST** | 请求形如 `https://域名/api/...`，`Authorization: Bearer <token>`，与 Go 侧路由一致。 | 第 1～3 节 |
-| **方案 B：shopxo-uniapp + `api.php`** | 请求形如 `https://域名/api.php?s=模块/方法`，沿用 ShopXO 系前端的拼 URL 方式；依赖 `shopxo_compat` 兼容层。 | 第 4 节 |
+| **方案 B：shopxo-uniapp + `api.php`** | 请求形如 `https://域名/api.php?s=模块/方法`，沿用 ShopXO 系前端的拼 URL 方式；依赖 `internal/compat/shopxo` 兼容层。 | 第 4 节 |
 
 **方案 A 的 `utils/request.js` 与方案 B 的官方前端不是同一套**：不能只改 `BASE_URL` 就指望官方 shopxo-uniapp 走 REST；官方项目默认走 **方案 B**。
 
@@ -251,7 +251,7 @@ async function checkout(addressId, cartIds, userCouponId) {
 request_url: 'https://your-goshop-domain.com/',
 ```
 
-部署上需保证该域名下能访问 GoShop 的 **`/api.php`**（与兼容层路由一致）。未实现或行为不一致的 `s=` 动作需改前端或扩展 `shopxo_compat`。
+部署上需保证该域名下能访问 GoShop 的 **`/api.php`**（与兼容层路由一致）。未实现或行为不一致的 `s=` 动作需改前端或扩展 **`internal/compat/shopxo`**。
 
 ### 4.2 接口路径对照（仅当你重写为方案 A REST 时参考）
 
