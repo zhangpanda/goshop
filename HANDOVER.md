@@ -173,6 +173,7 @@ cd web && npm run dev           # PC前台 :3000
 
 上线或变更基础设施前建议逐项核对（细则、Nginx 示例与安全说明以 **`docs/deployment.md`** 为准；字段释义见 **`config.yaml.example`** 中 `server` 段注释）。
 
+- [ ] ⚠️ **首次部署后立即修改默认管理员密码**（默认 `admin/admin123`，公网暴露等于送入口；或设置 `GOSHOP_SKIP_DEFAULT_ADMIN=true` 跳过种子管理员）
 - [ ] 反向代理 / 网关已就绪（**推荐同域反代**，避免浏览器 CORS 复杂度）
 - [ ] `config.yaml`：`server.mode: release`
 - [ ] 若 GoShop 在 Nginx / Ingress 等**反代之后**：配置 **`server.trusted_proxies`** 为实际反代来源网段或地址（否则 **`ClientIP()`、依赖 IP 的限流与日志** 会长期不准）

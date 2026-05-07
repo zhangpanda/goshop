@@ -186,16 +186,23 @@ func PayLogSuccess(payNo, tradeNo string) error {
 	}
 
 	now := time.Now()
-	res := global.DB.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
+
+	// 整段事务：PayLog 标记 + 所有子订单更新，要么全成功要么全回滚
+	tx := global.DB.Begin()
+
+	res := tx.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
 		Updates(map[string]interface{}{"status": 1, "trade_no": tradeNo, "paid_at": &now})
 	if res.Error != nil {
+		tx.Rollback()
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
+		tx.Rollback()
 		return nil // 并发下另一路已标记为已支付
 	}
 
 	// 更新关联订单状态
+	var paidIDs []uint
 	for _, idStr := range strings.Split(pl.OrderIDs, ",") {
 		var oid uint
 		fmt.Sscanf(idStr, "%d", &oid)
@@ -209,13 +216,22 @@ func PayLogSuccess(payNo, tradeNo string) error {
 		if pl.PaymentID > 0 {
 			upd["payment_id"] = pl.PaymentID
 		}
-		ores := global.DB.Model(&model.Order{}).Where("id = ? AND status = ?", oid, model.OrderStatusPending).Updates(upd)
+		ores := tx.Model(&model.Order{}).Where("id = ? AND status = ?", oid, model.OrderStatusPending).Updates(upd)
 		if ores.Error != nil {
+			tx.Rollback()
 			return ores.Error
 		}
-		if ores.RowsAffected == 0 {
-			continue
+		if ores.RowsAffected > 0 {
+			paidIDs = append(paidIDs, oid)
 		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	// 事务提交后再写历史和通知（非关键路径，失败不影响支付结果）
+	for _, oid := range paidIDs {
 		AddOrderStatusHistory(oid, model.OrderStatusPending, model.OrderStatusPaid, "支付成功", "系统")
 		var order model.Order
 		global.DB.First(&order, oid)
