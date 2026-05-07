@@ -1,0 +1,29 @@
+# Third-Party Notices
+
+This project includes the following third-party software:
+
+## static/diy/ and static/form_input/
+
+These directories contain pre-built frontend assets for the DIY page editor and form builder.
+They are derived from the ShopXO ecosystem (MIT License) and include bundled dependencies:
+
+- **Vue.js** (MIT) - https://github.com/vuejs/core
+- **Element Plus** (MIT) - https://github.com/element-plus/element-plus
+- **Pinia** (MIT) - https://github.com/vuejs/pinia
+- **VueUse** (MIT) - https://github.com/vueuse/vueuse
+- **Lodash** (MIT) - https://github.com/lodash/lodash
+- **Swiper** (MIT) - https://github.com/nolimits4web/swiper
+- **tsParticles** (MIT) - https://github.com/tsparticles/tsparticles
+- **Uppy** (MIT) - https://github.com/transloadit/uppy
+- **Slate.js** (MIT) - https://github.com/ianstormtaylor/slate
+- **wangEditor** (MIT) - https://github.com/wangeditor-team/wangEditor
+
+## Go Dependencies
+
+All Go dependencies and their licenses are listed in `go.sum`.
+Run `go-licenses report ./...` for a full license report.
+
+## admin/ and web/
+
+Next.js frontend applications. Dependencies managed via `package.json`.
+Run `npm audit` and check `node_modules/*/LICENSE` for individual licenses.
