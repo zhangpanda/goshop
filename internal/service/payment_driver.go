@@ -395,14 +395,25 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 		return nil, err
 	}
 
-	// 线下支付：直接标记为待确认（管理员确认后变为已支付）
+	// 线下支付：单笔订单与钱包一致，事务内乐观更新 pending→已付
 	if req.PaymentKey == "offline" {
 		now := time.Now()
 		upd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
 		if req.PaymentRecordID > 0 {
 			upd["payment_id"] = req.PaymentRecordID
 		}
-		global.DB.Model(&order).Updates(upd)
+		if err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+			r := tx.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", order.ID, userID, model.OrderStatusPending).Updates(upd)
+			if r.Error != nil {
+				return r.Error
+			}
+			if r.RowsAffected == 0 {
+				return fmt.Errorf("订单状态已变更，请刷新后重试")
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
 		AddOrderStatusHistory(order.ID, model.OrderStatusPending, model.OrderStatusPaid, "线下支付", "系统")
 		return &PayDriverResp{TradeNo: "OFFLINE_" + order.OrderNo}, nil
 	}
