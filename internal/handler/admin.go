@@ -33,6 +33,10 @@ func AdminUpdateGoods(c *gin.Context) {
 		return
 	}
 	tx := global.DB.Begin()
+	if err := tx.Error; err != nil {
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
 	if err := tx.Model(&model.Goods{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"category_id": req.CategoryID, "title": req.Title, "subtitle": req.Subtitle,
 		"main_image": req.MainImage, "images": req.Images, "detail": req.Detail,

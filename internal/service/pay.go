@@ -100,13 +100,24 @@ func RefundOrder(userID uint, req *RefundReq) error {
 
 	// 恢复库存
 	tx := global.DB.Begin()
-	tx.Model(&order).Update("status", model.OrderStatusRefunded)
-	var items []model.OrderItem
-	tx.Where("order_id = ?", order.ID).Find(&items)
-	for _, item := range items {
-		tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).
-			Update("stock", gorm.Expr("stock + ?", item.Quantity))
+	if err := tx.Error; err != nil {
+		return err
 	}
-
+	if err := tx.Model(&order).Update("status", model.OrderStatusRefunded).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	var items []model.OrderItem
+	if err := tx.Where("order_id = ?", order.ID).Find(&items).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	for _, item := range items {
+		if err := tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).
+			Update("stock", gorm.Expr("stock + ?", item.Quantity)).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
 	return tx.Commit().Error
 }

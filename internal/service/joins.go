@@ -34,7 +34,7 @@ func SaveGoodsCategoryJoinRecords(goodsID uint, categoryIDs []uint) {
 		}
 	}
 	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
+		return
 	}
 }
 

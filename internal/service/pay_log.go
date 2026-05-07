@@ -66,6 +66,9 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 		now := time.Now()
 		upd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
 		tx := global.DB.Begin()
+		if err := tx.Error; err != nil {
+			return nil, err
+		}
 		var paidIDs []uint
 		for _, o := range orders {
 			r := tx.Model(&model.Order{}).Where("id = ? AND status = ?", o.ID, model.OrderStatusPending).Updates(upd)
@@ -77,8 +80,11 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 				paidIDs = append(paidIDs, o.ID)
 			}
 		}
-		if err := tx.Commit().Error; err != nil {
+		if len(paidIDs) != len(orders) {
 			tx.Rollback()
+			return nil, fmt.Errorf("部分订单状态已变更，请刷新后重试")
+		}
+		if err := tx.Commit().Error; err != nil {
 			return nil, err
 		}
 		for _, oid := range paidIDs {
@@ -93,18 +99,31 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 			total += o.PayAmount
 		}
 		tx := global.DB.Begin()
+		if err := tx.Error; err != nil {
+			return nil, err
+		}
 		result := tx.Model(&model.User{}).Where("id = ? AND wallet_balance >= ?", userID, total).
 			Update("wallet_balance", gorm.Expr("wallet_balance - ?", total))
+		if result.Error != nil {
+			tx.Rollback()
+			return nil, result.Error
+		}
 		if result.RowsAffected == 0 {
 			tx.Rollback()
 			return nil, fmt.Errorf("钱包余额不足")
 		}
 		var user model.User
-		tx.First(&user, userID)
-		tx.Create(&model.WalletLog{
+		if err := tx.First(&user, userID).Error; err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		if err := tx.Create(&model.WalletLog{
 			UserID: userID, Amount: -total, Balance: user.WalletBalance, Type: "pay",
 			RefID: 0, Remark: fmt.Sprintf("合并订单支付(%d笔)", len(orders)),
-		})
+		}).Error; err != nil {
+			tx.Rollback()
+			return nil, err
+		}
 		now := time.Now()
 		wupd := map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now}
 		var paidIDs []uint
@@ -118,8 +137,11 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 				paidIDs = append(paidIDs, o.ID)
 			}
 		}
-		if err := tx.Commit().Error; err != nil {
+		if len(paidIDs) != len(orders) {
 			tx.Rollback()
+			return nil, fmt.Errorf("部分订单状态已变更，请刷新后重试")
+		}
+		if err := tx.Commit().Error; err != nil {
 			return nil, fmt.Errorf("支付失败: %w", err)
 		}
 		for _, oid := range paidIDs {
@@ -174,7 +196,9 @@ func CreatePayLog(userID uint, orderIDs []uint, paymentID uint, clientType strin
 		TotalPrice: totalPrice,
 		ClientType: clientType,
 	}
-	global.DB.Create(&pl)
+	if err := global.DB.Create(&pl).Error; err != nil {
+		return nil, err
+	}
 	return &pl, nil
 }
 
@@ -192,6 +216,9 @@ func PayLogSuccess(payNo, tradeNo string) error {
 
 	// 整段事务：PayLog 标记 + 所有子订单更新，要么全成功要么全回滚
 	tx := global.DB.Begin()
+	if err := tx.Error; err != nil {
+		return err
+	}
 
 	res := tx.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
 		Updates(map[string]interface{}{"status": 1, "trade_no": tradeNo, "paid_at": &now})
@@ -265,7 +292,6 @@ func PayLogSuccess(payNo, tradeNo string) error {
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
 		return err
 	}
 
@@ -273,7 +299,10 @@ func PayLogSuccess(payNo, tradeNo string) error {
 	for _, oid := range paidIDs {
 		AddOrderStatusHistory(oid, model.OrderStatusPending, model.OrderStatusPaid, "支付成功", "系统")
 		var order model.Order
-		global.DB.First(&order, oid)
+		if err := global.DB.First(&order, oid).Error; err != nil {
+			slog.Warn("pay callback", "reason", "notify_skip_order_load", "order_id", oid, "err", err)
+			continue
+		}
 		NotifyOrderStatus(order.UserID, oid, order.OrderNo, "paid")
 	}
 	return nil
