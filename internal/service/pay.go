@@ -8,9 +8,9 @@ import (
 
 	"github.com/wechatpay-apiv3/wechatpay-go/services/payments/jsapi"
 	"github.com/zhangpanda/goshop/global"
-	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/wechat"
+	"gorm.io/gorm"
 )
 
 type PayOrderReq struct {

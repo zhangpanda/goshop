@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/zhangpanda/goshop/global"
-	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 // GoodsSpecInventorySync 仓库库存同步到商品SKU库存（所有启用仓库的该商品库存求和）

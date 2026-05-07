@@ -85,4 +85,3 @@ func sxSearchDataList(c *gin.Context) {
 	response.OK(c, resp)
 }
 func sxSearchStart(c *gin.Context) { response.OK(c, service.SearchStartData()) }
-

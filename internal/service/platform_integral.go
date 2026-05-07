@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
-	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
 	auth_pkg "github.com/zhangpanda/goshop/pkg/auth"
+	"gorm.io/gorm"
 )
 
 // ==================== 3. 多平台OAuth登录绑定 ====================

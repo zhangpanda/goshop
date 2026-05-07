@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
-	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 // CronOrderClose 自动关闭超时未支付订单（默认30分钟）

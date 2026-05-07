@@ -218,4 +218,3 @@ var routeMap = map[string]gin.HandlerFunc{
 	// ===== cashier（微信小程序收银台，对照 shopxo-uniapp cashier/paydata 约定）=====
 	"cashier/paydata": sxCashierPayData,
 }
-

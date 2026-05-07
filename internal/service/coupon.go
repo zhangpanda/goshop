@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
-	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 type CreateCouponReq struct {

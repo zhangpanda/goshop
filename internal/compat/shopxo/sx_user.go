@@ -245,4 +245,3 @@ func sxEmailBindVerifySend(c *gin.Context) {
 	service.AppEmailBindVerifySend(c.PostForm("email"))
 	response.OK(c, nil)
 }
-

@@ -2,8 +2,8 @@ package shopxo
 
 import (
 	"net/http"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/internal/handler"
@@ -239,4 +239,3 @@ func sxAftersaleCancel(c *gin.Context) {
 	service.AftersaleCancel(c.GetUint("user_id"), id)
 	response.OK(c, nil)
 }
-

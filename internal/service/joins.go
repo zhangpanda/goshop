@@ -2,8 +2,8 @@ package service
 
 import (
 	"github.com/zhangpanda/goshop/global"
-	"gorm.io/gorm"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 func CreateBrandCategoryRecord(name string, sort int) *model.BrandCategory {
