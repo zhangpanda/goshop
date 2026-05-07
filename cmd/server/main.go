@@ -38,6 +38,10 @@ func main() {
 	if err := initialize.InitDB(); err != nil {
 		log.Fatalf("init db: %v", err)
 	}
+	// 自动建表前：拼团成员历史重复数据去重，避免 uniq_group_order_member 迁移失败
+	if err := initialize.DedupeGroupOrderMembersBeforeUniqueIndex(global.DB); err != nil {
+		log.Fatalf("pre automigrate dedupe group_order_members: %v", err)
+	}
 	// 自动建表
 	if err := global.DB.AutoMigrate(
 		&model.User{}, &model.Category{}, &model.Goods{}, &model.GoodsSKU{},

@@ -119,6 +119,8 @@ server:
 - 大表加列可能锁表
 - 意外删列（GORM 不会删，但第三方工具可能）
 
+**拼团成员表 `group_order_members`：** 启动时会在 `AutoMigrate` 之前自动按 `(group_order_id, user_id)` 去重，每个键保留 **id 最小** 的一行（见 `initialize.DedupeGroupOrderMembersBeforeUniqueIndex`），以便安全创建唯一索引 `uniq_group_order_member`。若你自行执行 DDL 而未先清理重复数据，建唯一索引仍会失败。
+
 **生产建议：**
 
 1. 首次部署后，将 AutoMigrate 移到独立的 migration 命令
