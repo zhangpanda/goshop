@@ -24,22 +24,22 @@ func CreateSeckill(req *SeckillReq) (*model.Promotion, error) {
 		Name: req.Name, Type: "seckill",
 		StartTime: req.StartTime, EndTime: req.EndTime, Status: 1,
 	}
-	tx := global.DB.Begin()
-	if err := tx.Create(&promo).Error; err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-	for _, item := range req.Items {
-		pi := model.PromotionItem{
-			PromotionID: promo.ID, GoodsID: item.GoodsID, SKUID: item.SKUID,
-			PromoPrice: item.PromoPrice, PromoStock: item.PromoStock, PerLimit: item.PerLimit,
+	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Create(&promo).Error; err != nil {
+			return err
 		}
-		if err := tx.Create(&pi).Error; err != nil {
-			tx.Rollback()
-			return nil, err
+		for _, item := range req.Items {
+			pi := model.PromotionItem{
+				PromotionID: promo.ID, GoodsID: item.GoodsID, SKUID: item.SKUID,
+				PromoPrice: item.PromoPrice, PromoStock: item.PromoStock, PerLimit: item.PerLimit,
+			}
+			if err := tx.Create(&pi).Error; err != nil {
+				return err
+			}
 		}
-	}
-	if err := tx.Commit().Error; err != nil {
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	global.DB.Preload("Items").First(&promo, promo.ID)

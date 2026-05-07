@@ -9,6 +9,7 @@ import (
 
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 type ShipOrderReq struct {
@@ -26,15 +27,17 @@ func ShipOrder(req *ShipOrderReq) error {
 		return errors.New("订单状态不允许发货")
 	}
 
-	tx := global.DB.Begin()
-	now := time.Now()
-	tx.Model(&order).Updates(map[string]interface{}{"status": model.OrderStatusShipped, "shipped_at": &now})
-	tx.Create(&model.Shipment{
-		OrderID:        req.OrderID,
-		ExpressCompany: req.ExpressCompany,
-		ExpressNo:      req.ExpressNo,
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		now := time.Now()
+		if err := tx.Model(&order).Updates(map[string]interface{}{"status": model.OrderStatusShipped, "shipped_at": &now}).Error; err != nil {
+			return err
+		}
+		return tx.Create(&model.Shipment{
+			OrderID:        req.OrderID,
+			ExpressCompany: req.ExpressCompany,
+			ExpressNo:      req.ExpressNo,
+		}).Error
 	})
-	return tx.Commit().Error
 }
 
 func ConfirmReceive(userID, orderID uint) error {

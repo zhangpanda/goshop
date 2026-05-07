@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 // ---- 插件 ----
@@ -82,12 +83,17 @@ func AppTabbarList() ([]model.AppTabbar, error) {
 	return l, global.DB.Order("sort").Find(&l).Error
 }
 func AppTabbarSave(items []model.AppTabbar) error {
-	tx := global.DB.Begin()
-	tx.Where("1=1").Delete(&model.AppTabbar{})
-	for _, item := range items {
-		tx.Create(&item)
-	}
-	return tx.Commit().Error
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("1=1").Delete(&model.AppTabbar{}).Error; err != nil {
+			return err
+		}
+		for i := range items {
+			if err := tx.Create(&items[i]).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // ---- 快捷菜单 ----
@@ -96,12 +102,17 @@ func ShortcutMenuList() ([]model.ShortcutMenu, error) {
 	return l, global.DB.Order("sort").Find(&l).Error
 }
 func ShortcutMenuSave(items []model.ShortcutMenu) error {
-	tx := global.DB.Begin()
-	tx.Where("1=1").Delete(&model.ShortcutMenu{})
-	for _, item := range items {
-		tx.Create(&item)
-	}
-	return tx.Commit().Error
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("1=1").Delete(&model.ShortcutMenu{}).Error; err != nil {
+			return err
+		}
+		for i := range items {
+			if err := tx.Create(&items[i]).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // ---- 协议 ----

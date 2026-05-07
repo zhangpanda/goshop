@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 func CreatePower(parentID uint, name, control string, sort int) (*model.Power, error) {
@@ -22,12 +23,17 @@ func GetPowerTree() ([]model.Power, error) {
 func DeletePower(id uint) error { return global.DB.Delete(&model.Power{}, id).Error }
 
 func SaveRolePowers(roleID uint, powerIDs []uint) error {
-	tx := global.DB.Begin()
-	tx.Where("role_id = ?", roleID).Delete(&model.RolePower{})
-	for _, pid := range powerIDs {
-		tx.Create(&model.RolePower{RoleID: roleID, PowerID: pid})
-	}
-	return tx.Commit().Error
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("role_id = ?", roleID).Delete(&model.RolePower{}).Error; err != nil {
+			return err
+		}
+		for _, pid := range powerIDs {
+			if err := tx.Create(&model.RolePower{RoleID: roleID, PowerID: pid}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func GetRolePowers(roleID uint) ([]uint, error) {

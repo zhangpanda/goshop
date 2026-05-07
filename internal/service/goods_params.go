@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 type ParamsTemplateReq struct {
@@ -16,12 +17,17 @@ type ParamsConfigItem struct {
 
 func CreateParamsTemplate(req *ParamsTemplateReq) (*model.GoodsParamsTemplate, error) {
 	t := model.GoodsParamsTemplate{Name: req.Name}
-	tx := global.DB.Begin()
-	tx.Create(&t)
-	for i, c := range req.Configs {
-		tx.Create(&model.GoodsParamsConfig{TemplateID: t.ID, Name: c.Name, Value: c.Value, Sort: i})
-	}
-	if err := tx.Commit().Error; err != nil {
+	if err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Create(&t).Error; err != nil {
+			return err
+		}
+		for i, c := range req.Configs {
+			if err := tx.Create(&model.GoodsParamsConfig{TemplateID: t.ID, Name: c.Name, Value: c.Value, Sort: i}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	global.DB.Preload("Configs").First(&t, t.ID)

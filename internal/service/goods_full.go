@@ -5,6 +5,7 @@ import (
 
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 // GoodsSave 完整保存商品（含规格/参数/相册/分类）
@@ -18,25 +19,37 @@ type GoodsSaveReq struct {
 }
 
 func GoodsSave(id uint, req *GoodsSaveReq) (*model.Goods, error) {
-	tx := global.DB.Begin()
-	if id > 0 {
-		tx.Model(&model.Goods{}).Where("id = ?", id).Updates(map[string]interface{}{
-			"category_id": req.CategoryID, "title": req.Title, "subtitle": req.Subtitle,
-			"main_image": req.MainImage, "images": req.Images, "detail": req.Detail,
-		})
-		// 重建SKU
-		tx.Where("goods_id = ?", id).Delete(&model.GoodsSKU{})
-	} else {
-		g := model.Goods{CategoryID: req.CategoryID, Title: req.Title, Subtitle: req.Subtitle, MainImage: req.MainImage, Images: req.Images, Detail: req.Detail}
-		tx.Create(&g)
-		id = g.ID
-	}
-	for _, s := range req.SKUs {
-		tx.Create(&model.GoodsSKU{GoodsID: id, Name: s.Name, Price: s.Price, Stock: s.Stock, Image: s.Image, Specs: s.Specs, Status: 1})
-	}
-	if err := tx.Commit().Error; err != nil {
+	var finalID uint
+	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if id > 0 {
+			if err := tx.Model(&model.Goods{}).Where("id = ?", id).Updates(map[string]interface{}{
+				"category_id": req.CategoryID, "title": req.Title, "subtitle": req.Subtitle,
+				"main_image": req.MainImage, "images": req.Images, "detail": req.Detail,
+			}).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("goods_id = ?", id).Delete(&model.GoodsSKU{}).Error; err != nil {
+				return err
+			}
+			finalID = id
+		} else {
+			g := model.Goods{CategoryID: req.CategoryID, Title: req.Title, Subtitle: req.Subtitle, MainImage: req.MainImage, Images: req.Images, Detail: req.Detail}
+			if err := tx.Create(&g).Error; err != nil {
+				return err
+			}
+			finalID = g.ID
+		}
+		for _, s := range req.SKUs {
+			if err := tx.Create(&model.GoodsSKU{GoodsID: finalID, Name: s.Name, Price: s.Price, Stock: s.Stock, Image: s.Image, Specs: s.Specs, Status: 1}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
+	id = finalID
 	// 多分类
 	if len(req.CategoryIDs) > 0 {
 		SaveGoodsCategoryJoinRecords(id, req.CategoryIDs)

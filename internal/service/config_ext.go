@@ -11,6 +11,7 @@ import (
 
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 // ========== 多语言 ==========
@@ -177,24 +178,34 @@ func ExportData(w io.Writer, req *ExportReq) error {
 // ========== 账号注销 ==========
 
 func UserLogout(userID uint) error {
-	tx := global.DB.Begin()
-	// 软删除用户数据
-	tx.Where("user_id = ?", userID).Delete(&model.Address{})
-	tx.Where("user_id = ?", userID).Delete(&model.Cart{})
-	tx.Where("user_id = ?", userID).Delete(&model.Favorite{})
-	tx.Where("user_id = ?", userID).Delete(&model.BrowseHistory{})
-	tx.Where("user_id = ?", userID).Delete(&model.SearchHistory{})
-	tx.Where("user_id = ?", userID).Delete(&model.Message{})
-	// 禁用账号并清除敏感信息
-	tx.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-		"status":   0,
-		"username": fmt.Sprintf("deleted_%d_%d", userID, time.Now().Unix()),
-		"phone":    "",
-		"avatar":   "",
-		"open_id":  "",
-		"union_id": "",
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("user_id = ?", userID).Delete(&model.Address{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.Cart{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.Favorite{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.BrowseHistory{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.SearchHistory{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.Message{}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+			"status":   0,
+			"username": fmt.Sprintf("deleted_%d_%d", userID, time.Now().Unix()),
+			"phone":    "",
+			"avatar":   "",
+			"open_id":  "",
+			"union_id": "",
+		}).Error
 	})
-	return tx.Commit().Error
 }
 
 // ========== 缓存管理 ==========

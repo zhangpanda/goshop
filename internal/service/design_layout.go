@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 // Design
@@ -90,12 +91,17 @@ func PluginConfigSet(pluginID uint, key, value string) error {
 
 // RolePlugins
 func SaveRolePlugins(roleID uint, pluginIDs []uint) error {
-	tx := global.DB.Begin()
-	tx.Where("role_id = ?", roleID).Delete(&model.RolePlugins{})
-	for _, pid := range pluginIDs {
-		tx.Create(&model.RolePlugins{RoleID: roleID, PluginID: pid})
-	}
-	return tx.Commit().Error
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("role_id = ?", roleID).Delete(&model.RolePlugins{}).Error; err != nil {
+			return err
+		}
+		for _, pid := range pluginIDs {
+			if err := tx.Create(&model.RolePlugins{RoleID: roleID, PluginID: pid}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // GetRolePluginIDs 返回角色已绑定的插件 ID 列表。
@@ -113,14 +119,19 @@ func GetRolePluginIDs(roleID uint) ([]uint, error) {
 
 // FormTableUserFields
 func SaveFormFields(formID uint, fields []model.FormTableUserFields) error {
-	tx := global.DB.Begin()
-	tx.Where("form_id = ?", formID).Delete(&model.FormTableUserFields{})
-	for i := range fields {
-		fields[i].FormID = formID
-		fields[i].Sort = i
-		tx.Create(&fields[i])
-	}
-	return tx.Commit().Error
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("form_id = ?", formID).Delete(&model.FormTableUserFields{}).Error; err != nil {
+			return err
+		}
+		for i := range fields {
+			fields[i].FormID = formID
+			fields[i].Sort = i
+			if err := tx.Create(&fields[i]).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 func GetFormFields(formID uint) ([]model.FormTableUserFields, error) {
 	var l []model.FormTableUserFields

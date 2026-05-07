@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 type SpecTemplateReq struct {
@@ -16,16 +17,24 @@ type SpecTypeReq struct {
 
 func CreateSpecTemplate(req *SpecTemplateReq) (*model.SpecTemplate, error) {
 	t := model.SpecTemplate{Name: req.Name}
-	tx := global.DB.Begin()
-	tx.Create(&t)
-	for i, st := range req.Types {
-		typ := model.SpecType{TemplateID: t.ID, Name: st.Name, Sort: i}
-		tx.Create(&typ)
-		for j, v := range st.Values {
-			tx.Create(&model.SpecValue{TypeID: typ.ID, Value: v, Sort: j})
+	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Create(&t).Error; err != nil {
+			return err
 		}
-	}
-	if err := tx.Commit().Error; err != nil {
+		for i, st := range req.Types {
+			typ := model.SpecType{TemplateID: t.ID, Name: st.Name, Sort: i}
+			if err := tx.Create(&typ).Error; err != nil {
+				return err
+			}
+			for j, v := range st.Values {
+				if err := tx.Create(&model.SpecValue{TypeID: typ.ID, Value: v, Sort: j}).Error; err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	global.DB.Preload("Types.Values").First(&t, t.ID)
@@ -38,13 +47,19 @@ func GetSpecTemplateList() ([]model.SpecTemplate, error) {
 }
 
 func DeleteSpecTemplate(id uint) error {
-	tx := global.DB.Begin()
-	var types []model.SpecType
-	tx.Where("template_id = ?", id).Find(&types)
-	for _, t := range types {
-		tx.Where("type_id = ?", t.ID).Delete(&model.SpecValue{})
-	}
-	tx.Where("template_id = ?", id).Delete(&model.SpecType{})
-	tx.Delete(&model.SpecTemplate{}, id)
-	return tx.Commit().Error
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		var types []model.SpecType
+		if err := tx.Where("template_id = ?", id).Find(&types).Error; err != nil {
+			return err
+		}
+		for _, t := range types {
+			if err := tx.Where("type_id = ?", t.ID).Delete(&model.SpecValue{}).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("template_id = ?", id).Delete(&model.SpecType{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&model.SpecTemplate{}, id).Error
+	})
 }

@@ -177,43 +177,35 @@ func (s *OrderService) CreateOrder(userID uint, req *CreateOrderReq) (*model.Ord
 	}
 
 	// Transaction
-	tx := s.db.Begin()
-
-	if err := tx.Create(&order).Error; err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-	for i := range items {
-		items[i].OrderID = order.ID
-	}
-	if err := tx.Create(&items).Error; err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	// Deduct stock via repo
-	for _, c := range carts {
-		if err := s.sku.DeductStock(tx, c.SKUID, c.Quantity); err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("商品 %s 库存不足", c.Goods.Title)
+	err = RunInDBTx(s.db, func(tx *gorm.DB) error {
+		if err := tx.Create(&order).Error; err != nil {
+			return err
 		}
-	}
-
-	// Clear cart
-	if err := s.carts.DeleteByIDsAndUser(tx, req.CartIDs, userID); err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	// Mark coupon used
-	if usedCoupon != nil {
-		now := time.Now()
-		tx.Model(usedCoupon).Updates(map[string]interface{}{
-			"status": 1, "order_id": order.ID, "used_at": &now,
-		})
-	}
-
-	if err := tx.Commit().Error; err != nil {
+		for i := range items {
+			items[i].OrderID = order.ID
+		}
+		if err := tx.Create(&items).Error; err != nil {
+			return err
+		}
+		for _, c := range carts {
+			if err := s.sku.DeductStock(tx, c.SKUID, c.Quantity); err != nil {
+				return fmt.Errorf("商品 %s 库存不足", c.Goods.Title)
+			}
+		}
+		if err := s.carts.DeleteByIDsAndUser(tx, req.CartIDs, userID); err != nil {
+			return err
+		}
+		if usedCoupon != nil {
+			now := time.Now()
+			if err := tx.Model(usedCoupon).Updates(map[string]interface{}{
+				"status": 1, "order_id": order.ID, "used_at": &now,
+			}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -246,24 +238,22 @@ func (s *OrderService) CancelOrder(userID, orderID uint) error {
 		return errors.New("只有待付款订单可以取消")
 	}
 
-	tx := s.db.Begin()
-
-	if err := s.orders.UpdateStatus(tx, orderID, model.OrderStatusCancelled); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// Restore stock
-	var items []model.OrderItem
-	tx.Where("order_id = ?", orderID).Find(&items)
-	for _, item := range items {
-		if err := s.sku.RestoreStock(tx, item.SKUID, item.Quantity); err != nil {
-			tx.Rollback()
+	err = RunInDBTx(s.db, func(tx *gorm.DB) error {
+		if err := s.orders.UpdateStatus(tx, orderID, model.OrderStatusCancelled); err != nil {
 			return err
 		}
-	}
-
-	if err := tx.Commit().Error; err != nil {
+		var items []model.OrderItem
+		if err := tx.Where("order_id = ?", orderID).Find(&items).Error; err != nil {
+			return err
+		}
+		for _, item := range items {
+			if err := s.sku.RestoreStock(tx, item.SKUID, item.Quantity); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
 		return err
 	}
 

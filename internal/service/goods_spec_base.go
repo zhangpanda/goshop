@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 type SpecBaseReq struct {
@@ -19,17 +20,22 @@ type SpecBaseReq struct {
 }
 
 func SaveGoodsSpecBase(goodsID uint, specs []SpecBaseReq) error {
-	tx := global.DB.Begin()
-	tx.Where("goods_id = ?", goodsID).Delete(&model.GoodsSpecBase{})
-	for _, s := range specs {
-		tx.Create(&model.GoodsSpecBase{
-			GoodsID: goodsID, Price: s.Price, OriginalPrice: s.OriginalPrice,
-			Inventory: s.Inventory, BuyMinNumber: s.BuyMinNumber, BuyMaxNumber: s.BuyMaxNumber,
-			Weight: s.Weight, Volume: s.Volume, Coding: s.Coding, Barcode: s.Barcode,
-			SpecValues: s.SpecValues,
-		})
-	}
-	return tx.Commit().Error
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("goods_id = ?", goodsID).Delete(&model.GoodsSpecBase{}).Error; err != nil {
+			return err
+		}
+		for _, s := range specs {
+			if err := tx.Create(&model.GoodsSpecBase{
+				GoodsID: goodsID, Price: s.Price, OriginalPrice: s.OriginalPrice,
+				Inventory: s.Inventory, BuyMinNumber: s.BuyMinNumber, BuyMaxNumber: s.BuyMaxNumber,
+				Weight: s.Weight, Volume: s.Volume, Coding: s.Coding, Barcode: s.Barcode,
+				SpecValues: s.SpecValues,
+			}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func GetGoodsSpecBase(goodsID uint) ([]model.GoodsSpecBase, error) {
@@ -39,12 +45,17 @@ func GetGoodsSpecBase(goodsID uint) ([]model.GoodsSpecBase, error) {
 
 // SaveGoodsPhotos 保存商品相册
 func SaveGoodsPhotos(goodsID uint, images []string) error {
-	tx := global.DB.Begin()
-	tx.Where("goods_id = ?", goodsID).Delete(&model.GoodsPhoto{})
-	for i, img := range images {
-		tx.Create(&model.GoodsPhoto{GoodsID: goodsID, Image: img, Sort: i, IsShow: 1})
-	}
-	return tx.Commit().Error
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("goods_id = ?", goodsID).Delete(&model.GoodsPhoto{}).Error; err != nil {
+			return err
+		}
+		for i, img := range images {
+			if err := tx.Create(&model.GoodsPhoto{GoodsID: goodsID, Image: img, Sort: i, IsShow: 1}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func GetGoodsPhotos(goodsID uint) ([]model.GoodsPhoto, error) {

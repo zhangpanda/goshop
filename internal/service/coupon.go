@@ -67,23 +67,18 @@ func ReceiveCoupon(userID, couponID uint) error {
 		return errors.New("已达领取上限")
 	}
 
-	tx := global.DB.Begin()
-	result := tx.Model(&model.Coupon{}).Where("id = ? AND received < total", couponID).
-		Update("received", gorm.Expr("received + 1"))
-	if result.RowsAffected == 0 {
-		tx.Rollback()
-		return errors.New("领取失败")
-	}
-
-	uc := model.UserCoupon{UserID: userID, CouponID: couponID, Status: 0}
-	if err := tx.Create(&uc).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit().Error; err != nil {
-		return err
-	}
-	return nil
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		result := tx.Model(&model.Coupon{}).Where("id = ? AND received < total", couponID).
+			Update("received", gorm.Expr("received + 1"))
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("领取失败")
+		}
+		uc := model.UserCoupon{UserID: userID, CouponID: couponID, Status: 0}
+		return tx.Create(&uc).Error
+	})
 }
 
 func GetMyCoupons(userID uint, status *int8) ([]model.UserCoupon, error) {

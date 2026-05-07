@@ -19,16 +19,23 @@ func CronOrderClose(minutes int) (sucs, fail int) {
 	global.DB.Where("status = ? AND created_at < ?", model.OrderStatusPending, deadline).Find(&orders)
 
 	for _, o := range orders {
-		tx := global.DB.Begin()
-		tx.Model(&o).Update("status", model.OrderStatusCancelled)
-		// 恢复库存
-		var items []model.OrderItem
-		tx.Where("order_id = ?", o.ID).Find(&items)
-		for _, item := range items {
-			tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).
-				Update("stock", gorm.Expr("stock + ?", item.Quantity))
-		}
-		if err := tx.Commit().Error; err != nil {
+		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+			if err := tx.Model(&o).Update("status", model.OrderStatusCancelled).Error; err != nil {
+				return err
+			}
+			var items []model.OrderItem
+			if err := tx.Where("order_id = ?", o.ID).Find(&items).Error; err != nil {
+				return err
+			}
+			for _, item := range items {
+				if err := tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).
+					Update("stock", gorm.Expr("stock + ?", item.Quantity)).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
 			fail++
 			continue
 		}

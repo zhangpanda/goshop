@@ -159,14 +159,14 @@ func OrderGoodsIntegralGiving(userID, orderID uint, payAmount int64) error {
 	if points <= 0 {
 		return nil
 	}
-	tx := global.DB.Begin()
-	// 增加锁定积分
-	tx.Model(&model.User{}).Where("id = ?", userID).Update("locking_integral", gorm.Expr("locking_integral + ?", points))
-	// 记录赠送日志（状态0=锁定中）
-	tx.Create(&model.GoodsGiveIntegralLog{
-		OrderID: orderID, UserID: userID, Integral: points, Status: 0,
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Model(&model.User{}).Where("id = ?", userID).Update("locking_integral", gorm.Expr("locking_integral + ?", points)).Error; err != nil {
+			return err
+		}
+		return tx.Create(&model.GoodsGiveIntegralLog{
+			OrderID: orderID, UserID: userID, Integral: points, Status: 0,
+		}).Error
 	})
-	return tx.Commit().Error
 }
 
 // CronIntegralRelease 定时释放锁定积分（赠送后N天释放）
@@ -178,19 +178,24 @@ func CronIntegralRelease(limitMinutes int) (sucs, fail int) {
 	var logs []model.GoodsGiveIntegralLog
 	global.DB.Where("status = 0 AND created_at < ?", deadline).Limit(200).Find(&logs)
 	for _, log := range logs {
-		tx := global.DB.Begin()
-		// 锁定积分转正式积分
-		tx.Model(&model.User{}).Where("id = ?", log.UserID).
-			Update("locking_integral", gorm.Expr("locking_integral - ?", log.Integral))
-		tx.Model(&model.User{}).Where("id = ?", log.UserID).
-			Update("points", gorm.Expr("points + ?", log.Integral))
-		tx.Model(&log).Updates(map[string]interface{}{"status": 1, "updated_at": time.Now()})
-		// 积分日志
-		tx.Create(&model.PointsLog{
-			UserID: log.UserID, Points: log.Integral, Type: "goods_integral",
-			RefID: log.OrderID, Remark: fmt.Sprintf("商品赠送积分释放%d", log.Integral),
+		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+			if err := tx.Model(&model.User{}).Where("id = ?", log.UserID).
+				Update("locking_integral", gorm.Expr("locking_integral - ?", log.Integral)).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&model.User{}).Where("id = ?", log.UserID).
+				Update("points", gorm.Expr("points + ?", log.Integral)).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&log).Updates(map[string]interface{}{"status": 1, "updated_at": time.Now()}).Error; err != nil {
+				return err
+			}
+			return tx.Create(&model.PointsLog{
+				UserID: log.UserID, Points: log.Integral, Type: "goods_integral",
+				RefID: log.OrderID, Remark: fmt.Sprintf("商品赠送积分释放%d", log.Integral),
+			}).Error
 		})
-		if err := tx.Commit().Error; err != nil {
+		if err != nil {
 			fail++
 			continue
 		}
@@ -213,14 +218,19 @@ func OrderGoodsIntegralRollback(orderID, orderDetailID uint, refundAmount int64)
 	if deduct > log.Integral {
 		deduct = log.Integral
 	}
-	tx := global.DB.Begin()
-	tx.Model(&model.User{}).Where("id = ?", log.UserID).
-		Update("locking_integral", gorm.Expr("GREATEST(locking_integral - ?, 0)", deduct))
-	tx.Model(&log).Update("integral", log.Integral-deduct)
-	if log.Integral-deduct <= 0 {
-		tx.Model(&log).Update("status", 2) // 关闭
-	}
-	return tx.Commit().Error
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Model(&model.User{}).Where("id = ?", log.UserID).
+			Update("locking_integral", gorm.Expr("GREATEST(locking_integral - ?, 0)", deduct)).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&log).Update("integral", log.Integral-deduct).Error; err != nil {
+			return err
+		}
+		if log.Integral-deduct <= 0 {
+			return tx.Model(&log).Update("status", 2).Error
+		}
+		return nil
+	})
 }
 
 // ==================== 7. 微信小程序发货信息录入 ====================

@@ -9,6 +9,7 @@ import (
 
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/model"
+	"gorm.io/gorm"
 )
 
 // ---- 分类 ----
@@ -101,30 +102,28 @@ func CreateGoods(req *CreateGoodsReq) (*model.Goods, error) {
 		Detail:     req.Detail,
 	}
 
-	tx := global.DB.Begin()
-	if err := tx.Create(&goods).Error; err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	for _, s := range req.SKUs {
-		sku := model.GoodsSKU{
-			GoodsID: goods.ID,
-			Name:    s.Name,
-			Price:   s.Price,
-			Stock:   s.Stock,
-			Image:   s.Image,
-			Specs:   s.Specs,
-			Coding:  s.Coding,
-			Status:  1,
+	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Create(&goods).Error; err != nil {
+			return err
 		}
-		if err := tx.Create(&sku).Error; err != nil {
-			tx.Rollback()
-			return nil, err
+		for _, s := range req.SKUs {
+			sku := model.GoodsSKU{
+				GoodsID: goods.ID,
+				Name:    s.Name,
+				Price:   s.Price,
+				Stock:   s.Stock,
+				Image:   s.Image,
+				Specs:   s.Specs,
+				Coding:  s.Coding,
+				Status:  1,
+			}
+			if err := tx.Create(&sku).Error; err != nil {
+				return err
+			}
 		}
-	}
-
-	if err := tx.Commit().Error; err != nil {
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	// 重新查询带关联
