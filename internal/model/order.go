@@ -35,6 +35,7 @@ type Order struct {
 	Address         string      `json:"address" gorm:"type:text;comment:收货地址快照JSON"`
 	Items           []OrderItem `json:"items,omitempty" gorm:"foreignKey:OrderID"`
 	PaidAt          *time.Time  `json:"paid_at" gorm:"comment:支付时间"`
+	TransactionID   string      `json:"transaction_id" gorm:"size:64;comment:第三方支付流水号"`
 	ShippedAt       *time.Time  `json:"shipped_at" gorm:"comment:发货时间"`
 	CompletedAt     *time.Time  `json:"completed_at" gorm:"comment:完成时间"`
 	CreatedAt       time.Time   `json:"created_at"`

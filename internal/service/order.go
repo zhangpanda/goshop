@@ -28,7 +28,19 @@ func NewOrderService(db *gorm.DB, orders repository.OrderRepo, carts repository.
 }
 
 // DefaultOrderService returns an OrderService using the global DB and repository registry.
+// orderSvc is the singleton instance, initialized via InitOrderService from main.
+var orderSvc *OrderService
+
+// InitOrderService creates the singleton OrderService. Call once at startup.
+func InitOrderService(svc *OrderService) {
+	orderSvc = svc
+}
+
+// DefaultOrderService returns the singleton. Falls back to creating one from globals if not initialized.
 func DefaultOrderService() *OrderService {
+	if orderSvc != nil {
+		return orderSvc
+	}
 	return NewOrderService(global.DB, repository.Repos.Order, repository.Repos.Cart, repository.Repos.Address, repository.Repos.SKU)
 }
 

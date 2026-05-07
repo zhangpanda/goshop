@@ -28,9 +28,11 @@ type AlipayConfig struct {
 }
 
 type ServerConfig struct {
-	Port       int    `yaml:"port"`
-	Mode       string `yaml:"mode"`        // debug, release
-	SqlConsole bool   `yaml:"sql_console"` // 默认 false，仅开发环境启用
+	Port           int      `yaml:"port"`
+	Mode           string   `yaml:"mode"`            // debug, release
+	SqlConsole     bool     `yaml:"sql_console"`     // 默认 false，仅开发环境启用
+	TrustedProxies []string `yaml:"trusted_proxies"` // 反代 IP，如 ["127.0.0.1","10.0.0.0/8"]
+	CorsOrigins    []string `yaml:"cors_origins"`    // 允许的跨域 origin，空则仅 localhost
 }
 
 type DBConfig struct {

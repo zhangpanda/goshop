@@ -87,6 +87,12 @@ func main() {
 	// 初始化 Repository 层
 	repository.Init(global.DB)
 
+	// 初始化 OrderService 单例
+	service.InitOrderService(service.NewOrderService(
+		global.DB, repository.Repos.Order, repository.Repos.Cart,
+		repository.Repos.Address, repository.Repos.SKU,
+	))
+
 	// 初始化默认管理员
 	initialize.InitDefaultAdmin()
 
@@ -114,7 +120,11 @@ func main() {
 	// 启动定时任务
 	go service.StartCronJobs()
 	r := gin.New()
-	r.SetTrustedProxies(nil)
+	if len(cfg.Server.TrustedProxies) > 0 {
+		r.SetTrustedProxies(cfg.Server.TrustedProxies)
+	} else {
+		r.SetTrustedProxies(nil)
+	}
 	router.Setup(r)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)

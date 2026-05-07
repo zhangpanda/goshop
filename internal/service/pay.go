@@ -44,18 +44,26 @@ func PayOrder(userID uint, req *PayOrderReq) (*jsapi.PrepayWithRequestPaymentRes
 	return resp, nil
 }
 
-// HandlePayNotify 处理支付回调：先按订单号单笔；否则按 PayLog.pay_no（合并支付）
+// HandlePayNotify 处理支付回调：先按订单号单笔；否则按 PayLog.pay_no（合并支付）。
+// 幂等保护：通过 WHERE status = pending 条件更新，并发重复回调只有一个能成功。
 func HandlePayNotify(outTradeNo string, transactionID string) error {
 	var order model.Order
 	if err := global.DB.Where("order_no = ?", outTradeNo).First(&order).Error; err == nil {
 		if order.Status != model.OrderStatusPending {
-			return nil
+			return nil // 已处理，幂等返回
 		}
 		now := time.Now()
-		return global.DB.Model(&order).Updates(map[string]interface{}{
-			"status":  model.OrderStatusPaid,
-			"paid_at": &now,
-		}).Error
+		result := global.DB.Model(&model.Order{}).
+			Where("id = ? AND status = ?", order.ID, model.OrderStatusPending).
+			Updates(map[string]interface{}{
+				"status":         model.OrderStatusPaid,
+				"paid_at":        &now,
+				"transaction_id": transactionID,
+			})
+		if result.RowsAffected == 0 {
+			return nil // 并发竞争，另一个 goroutine 已处理
+		}
+		return result.Error
 	}
 	return PayLogSuccess(outTradeNo, transactionID)
 }

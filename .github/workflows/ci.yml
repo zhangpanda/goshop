@@ -50,6 +50,10 @@ jobs:
         run: |
           PKGS=$(go list ./... | grep -v '/node_modules/' || true)
           go test $PKGS -count=1 -race -timeout 5m
+      - name: Govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
       - name: Integration tests
         env:
           GOSHOP_DB_HOST: 127.0.0.1
