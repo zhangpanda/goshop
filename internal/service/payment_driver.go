@@ -386,9 +386,6 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 	if order.Status != model.OrderStatusPending {
 		return nil, errors.New("订单状态不允许支付")
 	}
-	if req.PaymentRecordID > 0 {
-		global.DB.Model(&order).Update("payment_id", req.PaymentRecordID)
-	}
 
 	driver, err := GetPaymentDriver(req.PaymentKey)
 	if err != nil {
@@ -455,6 +452,18 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 		}
 		AddOrderStatusHistory(order.ID, model.OrderStatusPending, model.OrderStatusPaid, "钱包支付", "系统")
 		return &PayDriverResp{TradeNo: "WALLET_" + order.OrderNo}, nil
+	}
+
+	// 微信/支付宝等：在调起第三方前回写支付方式；须限制 user+待支付并检查错误（线下/钱包已在事务内写入）
+	if req.PaymentRecordID > 0 {
+		r := global.DB.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", order.ID, userID, model.OrderStatusPending).
+			Update("payment_id", req.PaymentRecordID)
+		if r.Error != nil {
+			return nil, r.Error
+		}
+		if r.RowsAffected == 0 {
+			return nil, fmt.Errorf("订单状态已变更，请刷新后重试")
+		}
 	}
 
 	resp, err := driver.Pay(context.Background(), &PayDriverReq{
