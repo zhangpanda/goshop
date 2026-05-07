@@ -98,7 +98,11 @@ func InitDefaultAdmin() {
 	}
 	role := model.Role{Name: "超级管理员", Desc: "拥有所有权限", Powers: `["*"]`, Status: 1}
 	global.DB.Create(&role)
-	hash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	if err != nil {
+		slog.Error("seed", "action", "default_admin_hash_failed", "err", err)
+		return
+	}
 	global.DB.Create(&model.Admin{Username: "admin", Password: string(hash), Nickname: "管理员", RoleID: role.ID, Status: 1})
 	slog.Warn("seed", "action", "default_admin_created", "username", "admin", "msg", "已创建默认管理员，请立即修改密码后再对公网开放；勿在日志中输出明文口令")
 }

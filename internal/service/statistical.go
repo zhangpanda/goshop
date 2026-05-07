@@ -461,6 +461,14 @@ func ExecuteSQL(sqlStr string) ([]map[string]interface{}, error) {
 			return nil, fmt.Errorf("SQL 包含禁止关键字: %s", kw)
 		}
 	}
+	// 禁止访问系统库/元数据（开启 sql_console 时纵深防御）
+	for _, blocked := range []string{
+		"INFORMATION_SCHEMA", "PERFORMANCE_SCHEMA", "MYSQL.", "SYS.",
+	} {
+		if strings.Contains(upper, blocked) {
+			return nil, errors.New("禁止查询系统库或元数据")
+		}
+	}
 	// 带超时执行
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

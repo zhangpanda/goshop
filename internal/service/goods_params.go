@@ -40,11 +40,17 @@ func GetParamsTemplateList() ([]model.GoodsParamsTemplate, error) {
 }
 
 func SaveGoodsParams(goodsID uint, params []ParamsConfigItem) error {
-	global.DB.Where("goods_id = ?", goodsID).Delete(&model.GoodsParams{})
-	for i, p := range params {
-		global.DB.Create(&model.GoodsParams{GoodsID: goodsID, Name: p.Name, Value: p.Value, Sort: i})
-	}
-	return nil
+	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := tx.Where("goods_id = ?", goodsID).Delete(&model.GoodsParams{}).Error; err != nil {
+			return err
+		}
+		for i, p := range params {
+			if err := tx.Create(&model.GoodsParams{GoodsID: goodsID, Name: p.Name, Value: p.Value, Sort: i}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func GetGoodsParams(goodsID uint) ([]model.GoodsParams, error) {

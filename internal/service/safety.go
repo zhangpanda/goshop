@@ -27,7 +27,9 @@ func SendVerifyCode(account, typ string) error {
 		Type:     typ,
 		ExpireAt: time.Now().Add(5 * time.Minute),
 	}
-	global.DB.Create(&vc)
+	if err := global.DB.Create(&vc).Error; err != nil {
+		return err
+	}
 	// 发送短信或邮件
 	tpl := SmsTemplateValue(typ)
 	if tpl == "" {
@@ -45,9 +47,9 @@ func SendVerifyCode(account, typ string) error {
 // CheckVerifyCode 校验验证码
 func CheckVerifyCode(account, code, typ string) error {
 	var vc model.VerifyCode
-	global.DB.Where("account = ? AND type = ? AND status = 0 AND expire_at > ?", account, typ, time.Now()).
-		Order("id DESC").Find(&vc)
-	if vc.ID == 0 {
+	err := global.DB.Where("account = ? AND type = ? AND status = 0 AND expire_at > ?", account, typ, time.Now()).
+		Order("id DESC").First(&vc).Error
+	if err != nil || vc.ID == 0 {
 		return errors.New("验证码不存在或已过期")
 	}
 	if vc.Code != code {
@@ -71,7 +73,10 @@ func UpdatePassword(userID uint, req *UpdatePwdReq) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword)); err != nil {
 		return errors.New("原密码错误")
 	}
-	hash, _ := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("密码加密失败: %w", err)
+	}
 	return global.DB.Model(&user).Update("password", string(hash)).Error
 }
 
@@ -87,11 +92,13 @@ func ForgetPassword(req *ForgetPwdReq) error {
 		return err
 	}
 	var user model.User
-	global.DB.Where("phone = ? OR username = ?", req.Account, req.Account).Find(&user)
-	if user.ID == 0 {
+	if err := global.DB.Where("phone = ? OR username = ?", req.Account, req.Account).First(&user).Error; err != nil {
 		return errors.New("用户不存在")
 	}
-	hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("密码加密失败: %w", err)
+	}
 	return global.DB.Model(&user).Update("password", string(hash)).Error
 }
 
