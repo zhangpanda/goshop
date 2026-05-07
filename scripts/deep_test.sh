@@ -9,23 +9,23 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# 排除误扫入的 web/node_modules 下 Go 包
-PKGS="$(go list ./... | grep -v '/node_modules/' || true)"
+# 排除误扫入的 web/node_modules 下 Go 包（逐包传参，避免某些 shell 把换行包成单个参数）
+pkgs=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && pkgs+=("$line")
+done < <(go list ./... | grep -v '/node_modules/' || true)
 
 echo "========== go vet =========="
-# shellcheck disable=SC2086
-go vet $PKGS
+go vet "${pkgs[@]}"
 
 echo ""
 echo "========== go test (全模块) =========="
-# shellcheck disable=SC2086
-go test $PKGS -count=1
+go test "${pkgs[@]}" -count=1
 
 if [ "${GOSHOP_TEST_RACE:-}" = "1" ]; then
   echo ""
   echo "========== go test -race =========="
-  # shellcheck disable=SC2086
-  go test $PKGS -count=1 -race -timeout 5m
+  go test "${pkgs[@]}" -count=1 -race -timeout 5m
 fi
 
 echo ""

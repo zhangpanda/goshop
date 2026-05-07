@@ -26,14 +26,13 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.25.9'
       - name: Build
         run: go build -o bin/goshop ./cmd/server/
       # 与 scripts/deep_test.sh 一致：排除 web/node_modules 下误入的 Go 包
       - name: Vet
         run: |
-          PKGS=$(go list ./... | grep -v '/node_modules/' || true)
-          go vet $PKGS
+          go list ./... | grep -v '/node_modules/' | xargs -r go vet
       - name: Fmt check
         run: |
           OUT=$(find . -name '*.go' \
@@ -44,12 +43,10 @@ jobs:
           test -z "$OUT"
       - name: Unit tests
         run: |
-          PKGS=$(go list ./... | grep -v '/node_modules/' || true)
-          go test $PKGS -v -count=1
+          go list ./... | grep -v '/node_modules/' | xargs -r go test -v -count=1
       - name: Unit tests (race)
         run: |
-          PKGS=$(go list ./... | grep -v '/node_modules/' || true)
-          go test $PKGS -count=1 -race -timeout 5m
+          go list ./... | grep -v '/node_modules/' | xargs -r go test -count=1 -race -timeout 5m
       - name: Govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -128,7 +125,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.25.9'
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
