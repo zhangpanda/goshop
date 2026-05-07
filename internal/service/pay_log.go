@@ -44,8 +44,109 @@ func applyMultiOrderPaymentID(tx *gorm.DB, userID uint, ids []uint, paymentRecor
 	if paymentRecordID == 0 {
 		return nil
 	}
-	return tx.Model(&model.Order{}).Where("id IN ? AND user_id = ?", ids, userID).
-		Update("payment_id", paymentRecordID).Error
+	if err := tx.Model(&model.Order{}).Where("id IN ? AND user_id = ? AND status = ?", ids, userID, model.OrderStatusPending).
+		Update("payment_id", paymentRecordID).Error; err != nil {
+		return err
+	}
+	var n int64
+	if err := tx.Model(&model.Order{}).Where("id IN ? AND user_id = ? AND status = ? AND payment_id = ?", ids, userID, model.OrderStatusPending, paymentRecordID).
+		Count(&n).Error; err != nil {
+		return err
+	}
+	if int(n) != len(ids) {
+		return fmt.Errorf("合并支付更新支付方式失败，请刷新后重试")
+	}
+	return nil
+}
+
+// parsePayLogOrderIDList 解析 PayLog.order_ids 逗号分隔的订单 ID。
+func parsePayLogOrderIDList(csv string) []uint {
+	var out []uint
+	for _, idStr := range strings.Split(csv, ",") {
+		idStr = strings.TrimSpace(idStr)
+		if idStr == "" {
+			continue
+		}
+		var oid uint
+		_, _ = fmt.Sscanf(idStr, "%d", &oid)
+		if oid > 0 {
+			out = append(out, oid)
+		}
+	}
+	return out
+}
+
+// revertMergePayThirdPartyPrep 合并支付在第三方预下单失败时：关闭待支付 PayLog，并清零仍为待付款子单的 payment_id，便于用户重试。
+func revertMergePayThirdPartyPrep(pl *model.PayLog, userID uint, orderIDs []uint) {
+	if pl == nil || pl.ID == 0 {
+		return
+	}
+	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		now := time.Now()
+		res := tx.Model(&model.PayLog{}).Where("id = ? AND user_id = ? AND status = ?", pl.ID, userID, 0).
+			Updates(map[string]interface{}{"status": 2, "closed_at": &now})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return nil
+		}
+		for _, oid := range orderIDs {
+			if err := tx.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", oid, userID, model.OrderStatusPending).
+				Update("payment_id", 0).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		slog.Warn("pay", "action", "revert_merge_prep_failed", "pay_log_id", pl.ID, "err", err.Error())
+	}
+}
+
+// StalePendingPayLogsCleanup 关闭长时间仍处于待支付的 PayLog，并解除待付款子单的 payment_id（合并支付半开态兜底）。
+func StalePendingPayLogsCleanup(maxAgeMinutes int) (closed int) {
+	if maxAgeMinutes <= 0 {
+		maxAgeMinutes = 120
+	}
+	deadline := time.Now().Add(-time.Duration(maxAgeMinutes) * time.Minute)
+	var logs []model.PayLog
+	if err := global.DB.Where("status = ? AND created_at < ?", 0, deadline).Find(&logs).Error; err != nil {
+		slog.Warn("pay", "action", "stale_paylog_query", "err", err.Error())
+		return 0
+	}
+	for i := range logs {
+		pl := &logs[i]
+		ids := parsePayLogOrderIDList(pl.OrderIDs)
+		var rowsAff int64
+		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+			now := time.Now()
+			res := tx.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
+				Updates(map[string]interface{}{"status": 2, "closed_at": &now})
+			if res.Error != nil {
+				return res.Error
+			}
+			rowsAff = res.RowsAffected
+			if rowsAff == 0 {
+				return nil
+			}
+			for _, oid := range ids {
+				if err := tx.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", oid, pl.UserID, model.OrderStatusPending).
+					Update("payment_id", 0).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			slog.Warn("pay", "action", "stale_paylog_cleanup_fail", "pay_log_id", pl.ID, "err", err.Error())
+			continue
+		}
+		if rowsAff > 0 {
+			closed++
+		}
+	}
+	return closed
 }
 
 /**
@@ -179,7 +280,11 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 		ReturnURL:   returnURL,
 		ClientIP:    clientIP,
 	})
-	return resp, err
+	if err != nil {
+		revertMergePayThirdPartyPrep(pl, userID, ids)
+		return nil, err
+	}
+	return resp, nil
 }
 
 func generatePayNo() string {

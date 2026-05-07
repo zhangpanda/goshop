@@ -85,7 +85,7 @@ func OpenGroup(userID, itemID uint) (*model.GroupOrder, error) {
 	var out *model.GroupOrder
 	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
 		var item model.PromotionItem
-		if err := tx.First(&item, itemID).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, itemID).Error; err != nil {
 			return errors.New("拼团商品不存在")
 		}
 		var promo model.Promotion
@@ -112,6 +112,9 @@ func OpenGroup(userID, itemID uint) (*model.GroupOrder, error) {
 			return err
 		}
 		if err := tx.Create(&model.GroupOrderMember{GroupOrderID: grp.ID, UserID: userID}).Error; err != nil {
+			if isDuplicateKeyError(err) {
+				return errors.New("请勿重复提交开团请求")
+			}
 			return err
 		}
 		out = &grp
@@ -147,7 +150,7 @@ func JoinGroup(userID, groupOrderID uint) error {
 			return errors.New("已参加此拼团")
 		}
 		var item model.PromotionItem
-		if err := tx.First(&item, g.ItemID).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, g.ItemID).Error; err != nil {
 			return errors.New("拼团商品不存在")
 		}
 		res := tx.Model(&model.PromotionItem{}).Where("id = ? AND sold < promo_stock", item.ID).

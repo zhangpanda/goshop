@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"log/slog"
 	net_http "net/http"
 	"net/url"
 	"sort"
@@ -455,6 +456,7 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 	}
 
 	// 微信/支付宝等：在调起第三方前回写支付方式；须限制 user+待支付并检查错误（线下/钱包已在事务内写入）
+	didSetPayment := false
 	if req.PaymentRecordID > 0 {
 		r := global.DB.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", order.ID, userID, model.OrderStatusPending).
 			Update("payment_id", req.PaymentRecordID)
@@ -464,6 +466,7 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 		if r.RowsAffected == 0 {
 			return nil, fmt.Errorf("订单状态已变更，请刷新后重试")
 		}
+		didSetPayment = true
 	}
 
 	resp, err := driver.Pay(context.Background(), &PayDriverReq{
@@ -474,6 +477,12 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 		ReturnURL:   req.ReturnURL,
 		ClientIP:    req.ClientIP,
 	})
+	if err != nil && didSetPayment {
+		if e := global.DB.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", order.ID, userID, model.OrderStatusPending).
+			Update("payment_id", 0).Error; e != nil {
+			slog.Warn("pay", "action", "revert_single_payment_id_failed", "order_id", order.ID, "err", e.Error())
+		}
+	}
 	return resp, err
 }
 

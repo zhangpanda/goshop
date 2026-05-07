@@ -131,6 +131,17 @@ func StartCronJobs() {
 		}
 	}()
 
+	// 长时间未完成的合并支付 PayLog：关单并解除待付子单的 payment_id（与预下单失败回滚互补）
+	go func() {
+		for {
+			time.Sleep(15 * time.Minute)
+			n := StalePendingPayLogsCleanup(120)
+			if n > 0 {
+				slog.Info("cron", "job", "stale_paylog_close", "closed", n)
+			}
+		}
+	}()
+
 	// 锁定积分释放 - 每小时检查
 	go func() {
 		for {
