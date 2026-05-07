@@ -10,7 +10,7 @@
 
 ## 特性
 
-- **Go 后端**：Gin + GORM + MySQL，**392** 条 Gin 路由注册（`router.go` 350 + DIY/Form 41 + `/api.php` 1）；ShopXO uni-app **`s=` 动作 82**；12 种支付驱动，Redis 可选
+- **Go 后端**：Gin + GORM + MySQL，**394** 条 Gin 路由注册（`router.go` 352 + DIY/Form 41 + `/api.php` 1；以 `scripts/doc-metrics.sh` 为准）；ShopXO uni-app **`s=` 动作 82**；12 种支付驱动，Redis 可选
 - **营销功能**：秒杀（乐观锁+限购）、拼团（自动成团）、优惠券、促销
 - **管理后台**：Next.js + Ant Design，72 个页面；与 ShopXO 后台为**分级对照**（已对齐 / 部分 / 占位等，见 `docs/shopxo-admin-parity.md`）
 - **PC前台**：Next.js + Tailwind CSS，Apple风格UI
@@ -130,7 +130,7 @@ goshop/
 │   ├── handler/                # HTTP处理器 (约38个 Go 文件)
 │   ├── service/                # 业务逻辑 (约58个 Go 文件)
 │   ├── model/                  # 数据模型 (34个 Go 文件, 95张表，以 AutoMigrate / doc-metrics 为准)
-│   ├── router/router.go        # 路由注册 (350 条 Gin 注册 + 见 HANDOVER 合计 392)
+│   ├── router/router.go        # 路由注册 (352 条 Gin；全站合计 394 见 doc-metrics/HANDOVER)
 │   └── middleware/             # 中间件 (JWT/CORS/操作日志)
 ├── admin/                      # 管理后台 Next.js (70个页面)
 ├── web/                        # PC前台 Next.js (24页面)
@@ -193,6 +193,7 @@ goshop/
 | 文档 | 说明 |
 |------|------|
 | [安全政策](SECURITY.md) | 漏洞报告渠道与已知安全边界 |
+| [第三方声明](NOTICE) | DIY/Form 静态资源与前后端依赖的归属说明（合规查阅） |
 | [API 文档](docs/api.md) | 接口说明（公共/用户/管理后台及 `/api.php` 兼容；以源码为准） |
 | [ShopXO 迁移指南](docs/migration-from-shopxo.md) | 从 ShopXO 迁移数据到 GoShop |
 | [二次开发指南](docs/development.md) | 项目架构、添加接口/页面/支付方式的流程 |

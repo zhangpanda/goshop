@@ -16,7 +16,7 @@ goshop/
 │   ├── handler/                    # HTTP 处理器（Controller）
 │   │   ├── compat/shopxo/*.go      # ShopXO uni-app 兼容（82 个 s= 动作，调度见 compat.go）
 │   │   └── ...
-│   ├── router/router.go            # 路由注册（350 条 Gin 注册；全站合计 392 见 HANDOVER.md）
+│   ├── router/router.go            # 路由注册（352 条 Gin；全站合计 394 见 HANDOVER.md / doc-metrics.sh）
 │   └── middleware/                  # 中间件
 │       ├── jwt.go                  # 用户 JWT 认证
 │       ├── admin_auth.go           # 管理员 JWT 认证

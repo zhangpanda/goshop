@@ -33,14 +33,14 @@ cd web && npm run dev           # PC前台 :3000
 ### 核心数据
 | 指标 | 数值 |
 |------|------|
-| Go 后端代码 | **17579** 行（`internal`+`pkg`+`cmd`+`config`+`global`，不含 `*_test.go`） |
-| Gin HTTP 注册 | **392**（`internal/router/router.go` **350** + `diyapi_compat` **41** + `/api.php` **1**） |
+| Go 后端代码 | **18358** 行（`internal`+`pkg`+`cmd`+`config`+`global`，不含 `*_test.go`；以 `scripts/doc-metrics.sh` 为准） |
+| Gin HTTP 注册 | **394**（`internal/router/router.go` **352** + `diyapi_compat` **41** + `/api.php` **1**） |
 | ShopXO `api.php` | **82** 个 `s=` 动作（`routeMap`，单入口 `Any`） |
 | 数据库表 | **95**（`cmd/server/main.go` 中 `AutoMigrate` 的去重模型数） |
 | 管理后台页面 | **72**（`admin/src/app/**/page.tsx`） |
 | 管理后台组件 | **13**（`admin/src/components/*` 顶层文件） |
 | PC前台页面 | **24**（`web/src/app/**/page.tsx`） |
-| Go 单元测试 | **55**（`^func Test`，全仓 `*_test.go`） |
+| Go 单元测试 | **69**（`^func Test`，全仓 `*_test.go`；以 `scripts/doc-metrics.sh` 为准） |
 | Playwright E2E | **34**（`admin/e2e/*.spec.ts`：full-flow 19 + deep-flow 10 + marketing 4 + screenshots 1） |
 | 迁移测试 | **25 项验证**（`scripts/migration_test.sh`：21 项数据校验 + 4 项 API 验证） |
 | 自动化脚本 | **5**（`scripts/deep_test.sh`；`integration_test.sh`；`sandbox_pay_test.sh`；`distribution_test.sh`；`migration_test.sh`） |

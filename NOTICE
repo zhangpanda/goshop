@@ -20,8 +20,9 @@ They are derived from the ShopXO ecosystem (MIT License) and include bundled dep
 
 ## Go Dependencies
 
-All Go dependencies and their licenses are listed in `go.sum`.
-Run `go-licenses report ./...` for a full license report.
+Go module versions and cryptographic checksums are in `go.sum`（**不含**许可证全文）。若要生成依赖与许可证报告，请使用例如：
+
+`go install github.com/google/go-licenses@latest` 后执行 `go-licenses report ./...`（或你们选用的合规扫描工具）。
 
 ## admin/ and web/
 

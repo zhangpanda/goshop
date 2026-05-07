@@ -4,6 +4,7 @@ import (
 	"context"
 	crypto_rand "crypto/rand"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -77,6 +78,7 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 			}
 		}
 		if err := tx.Commit().Error; err != nil {
+			tx.Rollback()
 			return nil, err
 		}
 		for _, oid := range paidIDs {
@@ -117,6 +119,7 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 			}
 		}
 		if err := tx.Commit().Error; err != nil {
+			tx.Rollback()
 			return nil, fmt.Errorf("支付失败: %w", err)
 		}
 		for _, oid := range paidIDs {
@@ -203,12 +206,14 @@ func PayLogSuccess(payNo, tradeNo string) error {
 
 	// 更新关联订单状态
 	var paidIDs []uint
+	orderIDCount := 0
 	for _, idStr := range strings.Split(pl.OrderIDs, ",") {
 		var oid uint
 		fmt.Sscanf(idStr, "%d", &oid)
 		if oid == 0 {
 			continue
 		}
+		orderIDCount++
 		upd := map[string]interface{}{
 			"status": model.OrderStatusPaid, "paid_at": &now,
 			"transaction_id": tradeNo,
@@ -226,7 +231,41 @@ func PayLogSuccess(payNo, tradeNo string) error {
 		}
 	}
 
+	if orderIDCount == 0 {
+		tx.Rollback()
+		slog.Warn("pay callback", "reason", "pay_log_no_valid_order_ids", "pay_no", payNo)
+		return nil
+	}
+	if len(paidIDs) == 0 {
+		tx.Rollback()
+		// 渠道重复通知或订单已通过其他路径变为已支付：若子单已全部已付，仅补 PayLog；否则告警并返回成功以免第三方无限重试
+		var oids []uint
+		for _, idStr := range strings.Split(pl.OrderIDs, ",") {
+			var oid uint
+			fmt.Sscanf(idStr, "%d", &oid)
+			if oid > 0 {
+				oids = append(oids, oid)
+			}
+		}
+		allPaid := true
+		for _, oid := range oids {
+			var o model.Order
+			if err := global.DB.First(&o, oid).Error; err != nil || o.Status != model.OrderStatusPaid {
+				allPaid = false
+				break
+			}
+		}
+		if allPaid {
+			res2 := global.DB.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
+				Updates(map[string]interface{}{"status": 1, "trade_no": tradeNo, "paid_at": &now})
+			return res2.Error
+		}
+		slog.Warn("pay callback", "reason", "merge_pay_no_pending_and_not_all_paid", "pay_no", payNo)
+		return nil
+	}
+
 	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
 		return err
 	}
 
