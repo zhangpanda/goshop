@@ -15,7 +15,6 @@ import (
 	"github.com/zhangpanda/goshop/config"
 	"github.com/zhangpanda/goshop/global"
 	"github.com/zhangpanda/goshop/internal/initialize"
-	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/internal/repository"
 	"github.com/zhangpanda/goshop/internal/router"
 	"github.com/zhangpanda/goshop/internal/service"
@@ -39,48 +38,7 @@ func main() {
 		log.Fatalf("init db: %v", err)
 	}
 	if os.Getenv("GOSHOP_AUTO_MIGRATE") != "false" {
-		// 自动建表前：拼团成员历史重复数据去重，避免 uniq_group_order_member 迁移失败
-		if err := initialize.DedupeGroupOrderMembersBeforeUniqueIndex(global.DB); err != nil {
-			log.Fatalf("pre automigrate dedupe group_order_members: %v", err)
-		}
-		// 自动建表
-		if err := global.DB.AutoMigrate(
-			&model.User{}, &model.Category{}, &model.Goods{}, &model.GoodsSKU{},
-			&model.Cart{}, &model.Address{}, &model.Order{}, &model.OrderItem{}, &model.OrderStatusHistory{},
-			&model.Coupon{}, &model.UserCoupon{}, &model.Promotion{}, &model.PromotionItem{},
-			&model.Favorite{}, &model.BrowseHistory{}, &model.Review{},
-			&model.Shipment{}, &model.PointsLog{}, &model.Message{},
-			&model.Admin{}, &model.Role{},
-			&model.OrderAftersale{}, &model.AftersaleHistory{},
-			&model.Brand{}, &model.Article{}, &model.ArticleCategory{},
-			&model.SpecTemplate{}, &model.SpecType{}, &model.SpecValue{},
-			&model.GoodsParamsTemplate{}, &model.GoodsParamsConfig{}, &model.GoodsParams{},
-			&model.SearchHistory{}, &model.ScreeningPrice{},
-			&model.Config{}, &model.Region{}, &model.Slide{}, &model.Navigation{}, &model.Link{},
-			&model.Payment{}, &model.SmsLog{}, &model.EmailLog{},
-			&model.Attachment{}, &model.AttachmentCategory{}, &model.ErrorLog{},
-			&model.UserPlatform{}, &model.VerifyCode{},
-			&model.PayLog{}, &model.PayRequestLog{}, &model.RefundLog{},
-			&model.GoodsSpecBase{}, &model.GoodsPhoto{},
-			&model.Warehouse{}, &model.WarehouseGoods{}, &model.WarehouseGoodsSpec{},
-			&model.Express{}, &model.InventoryLog{}, &model.GoodsGiveIntegralLog{},
-			&model.BrandCategory{}, &model.BrandCategoryJoin{}, &model.GoodsCategoryJoin{},
-			&model.Power{}, &model.RolePower{},
-			&model.Plugin{}, &model.PluginCategory{},
-			&model.Diy{}, &model.CustomView{}, &model.ThemeData{},
-			&model.FormInput{}, &model.FormInputData{},
-			&model.AppHomeNav{}, &model.AppCenterNav{}, &model.AppTabbar{},
-			&model.ShortcutMenu{}, &model.Agreement{},
-			&model.OrderTraceSource{}, &model.OrderCurrency{},
-			&model.Design{}, &model.FormTableUserFields{}, &model.GoodsContentApp{},
-			&model.Layout{}, &model.OrderService{}, &model.PayLogValue{},
-			&model.PluginsDataConfig{}, &model.QuickNav{}, &model.RolePlugins{},
-			&model.Answer{},
-			&model.AppMini{}, &model.WalletLog{},
-			&model.AdminOperationLog{},
-			&model.GroupOrder{}, &model.GroupOrderMember{},
-			&model.Distributor{}, &model.CommissionLog{}, &model.WithdrawRequest{},
-		); err != nil {
+		if err := initialize.RunSchemaAutoMigrate(global.DB); err != nil {
 			log.Fatalf("auto migrate: %v", err)
 		}
 	} else {

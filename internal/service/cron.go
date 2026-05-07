@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/zhangpanda/goshop/global"
@@ -96,12 +98,23 @@ func CronGoodsGiveIntegral() (sucs, fail int) {
 	return
 }
 
-// StartCronJobs 启动所有定时任务
+// StartCronJobs 启动所有定时任务（多实例且使用 Redis 缓存时，每轮通过 SETNX 仅一台执行）。
 func StartCronJobs() {
+	if os.Getenv("GOSHOP_CRON_ENABLED") == "false" {
+		slog.Info("cron", "skipped", true, "env", "GOSHOP_CRON_ENABLED=false")
+		return
+	}
+
 	// 订单自动关闭 - 每分钟检查
 	go func() {
 		for {
 			time.Sleep(1 * time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ok := tryAcquireCronTick(ctx, "order_close", 50*time.Second)
+			cancel()
+			if !ok {
+				continue
+			}
 			s, f := CronOrderClose(30)
 			if s > 0 || f > 0 {
 				slog.Info("cron", "job", "order_close", "success", s, "fail", f)
@@ -113,6 +126,12 @@ func StartCronJobs() {
 	go func() {
 		for {
 			time.Sleep(1 * time.Hour)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ok := tryAcquireCronTick(ctx, "order_receive", 50*time.Minute)
+			cancel()
+			if !ok {
+				continue
+			}
 			s, f := CronOrderAutoReceive(15)
 			if s > 0 || f > 0 {
 				slog.Info("cron", "job", "order_receive", "success", s, "fail", f)
@@ -124,6 +143,12 @@ func StartCronJobs() {
 	go func() {
 		for {
 			time.Sleep(1 * time.Hour)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ok := tryAcquireCronTick(ctx, "goods_integral", 50*time.Minute)
+			cancel()
+			if !ok {
+				continue
+			}
 			s, f := CronGoodsGiveIntegral()
 			if s > 0 || f > 0 {
 				slog.Info("cron", "job", "goods_integral", "success", s, "fail", f)
@@ -135,6 +160,12 @@ func StartCronJobs() {
 	go func() {
 		for {
 			time.Sleep(15 * time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ok := tryAcquireCronTick(ctx, "stale_paylog_close", 12*time.Minute)
+			cancel()
+			if !ok {
+				continue
+			}
 			n := StalePendingPayLogsCleanup(120)
 			if n > 0 {
 				slog.Info("cron", "job", "stale_paylog_close", "closed", n)
@@ -146,6 +177,12 @@ func StartCronJobs() {
 	go func() {
 		for {
 			time.Sleep(1 * time.Hour)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ok := tryAcquireCronTick(ctx, "integral_release", 50*time.Minute)
+			cancel()
+			if !ok {
+				continue
+			}
 			s, _ := CronIntegralRelease(21600) // 15天
 			if s > 0 {
 				slog.Info("cron", "job", "integral_release", "success", s)

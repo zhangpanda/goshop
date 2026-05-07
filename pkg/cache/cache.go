@@ -42,6 +42,11 @@ func (r *RedisCache) Set(ctx context.Context, key string, value interface{}, exp
 	return r.client.Set(ctx, key, value, expiration).Err()
 }
 
+// SetNX 仅在 key 不存在时设置值并指定 TTL，用于短时分布式互斥（如多实例定时任务）。
+func (r *RedisCache) SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) (bool, error) {
+	return r.client.SetNX(ctx, key, value, expiration).Result()
+}
+
 func (r *RedisCache) Del(ctx context.Context, keys ...string) error {
 	return r.client.Del(ctx, keys...).Err()
 }

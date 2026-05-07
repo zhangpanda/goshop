@@ -114,24 +114,29 @@ server:
 
 ## AutoMigrate
 
-`main.go` 中的 `AutoMigrate` 在每次启动时执行。生产环境风险：
+`initialize.RunSchemaAutoMigrate`（由 `cmd/server` 在默认配置下于启动时调用，亦可由 **`go run ./cmd/migrate`** 单独执行）负责：拼团成员去重 + GORM `AutoMigrate`。生产环境风险：
 
 - 大表加列可能锁表
 - 意外删列（GORM 不会删，但第三方工具可能）
 
-**拼团成员表 `group_order_members`：** 当未设置 `GOSHOP_AUTO_MIGRATE=false` 时，启动会在 `AutoMigrate` 之前自动按 `(group_order_id, user_id)` 去重，每个键保留 **id 最小** 的一行（见 `initialize.DedupeGroupOrderMembersBeforeUniqueIndex`），以便安全创建唯一索引 `uniq_group_order_member`。若你自行执行 DDL 而未先清理重复数据，建唯一索引仍会失败。
+**拼团成员表 `group_order_members`：** 当未设置 `GOSHOP_AUTO_MIGRATE=false` 时，迁移前会自动按 `(group_order_id, user_id)` 去重，每个键保留 **id 最小** 的一行（见 `initialize.DedupeGroupOrderMembersBeforeUniqueIndex`），以便安全创建唯一索引 `uniq_group_order_member`。若你自行执行 DDL 而未先清理重复数据，建唯一索引仍会失败。
 
 **生产建议：**
 
-1. 首次部署后，将 AutoMigrate 移到独立的 migration 命令
-2. 后续 schema 变更通过手工 DDL 或 migration 工具管理
-3. 或通过环境变量控制：`GOSHOP_AUTO_MIGRATE=false` 跳过启动时的 **去重 + AutoMigrate**（见 `cmd/server/main.go`）。此时若你手工执行 DDL（例如为 `group_order_members` 加唯一索引），请先自行清理重复 `(group_order_id, user_id)` 行。
+1. **推荐：** 线上设 `GOSHOP_AUTO_MIGRATE=false`，在发布流水线或 Job 中于工作目录执行 **`go run ./cmd/migrate`**（或编译后的 `migrate` 二进制），再滚动发布应用（避免应用 Pod 抢跑 DDL）。
+2. 后续 schema 变更可逐步过渡到手写 DDL 或专业 migration 工具，与 `internal/initialize/automigrate.go` 中的模型列表对齐。
+3. `GOSHOP_AUTO_MIGRATE=false` 时跳过启动时的 **去重 + AutoMigrate**（见 `cmd/server/main.go`）。自行加唯一索引前请先清理重复 `(group_order_id, user_id)` 行。
+
+## 定时任务（多实例）
+
+后台定时任务由 `service.StartCronJobs` 启动。**多实例且 `global.Cache` 为 Redis** 时，每轮任务通过 Redis **`SETNX`**（`pkg/cache.RedisCache.SetNX`）抢执行权，默认仅一个实例执行本轮。**纯内存缓存**时进程间不互斥：多副本可能重复跑任务，启动时会打 **warn** 日志；请为纯 API 副本设置 **`GOSHOP_CRON_ENABLED=false`**，或必须配置 Redis。
 
 ## 环境变量
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `GOSHOP_AUTO_MIGRATE` | 为 `false` 时跳过启动时的拼团成员去重与 `AutoMigrate` | `true` |
+| `GOSHOP_CRON_ENABLED` | 为 `false` 时不启动任何内置定时任务 | （未设置，等同启用） |
 | `GOSHOP_SKIP_DEFAULT_ADMIN` | 为 `true` 时跳过创建默认管理员（适合自建账号流程） | （未设置） |
 | `GOSHOP_E2E` | 为 `1` 时管理端登录跳过验证码（**仅 CI/本地 E2E，禁止生产**） | （未设置） |
 | `NEXT_PUBLIC_BASE_PATH` | 前端 basePath | 空 |

@@ -4,7 +4,8 @@
 
 ```
 goshop/
-├── cmd/server/main.go              # 入口：加载配置 → 初始化DB/Redis → 建表 → Seed → 启动HTTP
+├── cmd/server/main.go              # 入口：加载配置 → 初始化DB/Redis → 可选建表 → Seed → 启动HTTP
+├── cmd/migrate/main.go             # 独立迁移：与启动相同的 RunSchemaAutoMigrate（CI/发布 Job）
 ├── config/config.go                # 配置结构体定义
 ├── global/global.go                # 全局变量（DB/Redis/Config/WxPay）
 ├── internal/
@@ -50,7 +51,7 @@ type GoodsTag struct {
 
 ### 2. 注册 AutoMigrate
 
-在 `cmd/server/main.go` 的 `AutoMigrate()` 中添加 `&model.GoodsTag{}`。
+在 `internal/initialize/automigrate.go` 的 `autoMigrateModelList()` 中加入 `&model.GoodsTag{}`（与 `RunSchemaAutoMigrate` / `cmd/migrate` 共用同一份列表）。
 
 ### 3. 编写 Service
 
