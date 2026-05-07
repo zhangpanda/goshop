@@ -10,10 +10,9 @@
 
 **请勿通过公开 Issue 报告安全漏洞。**
 
-如果你发现安全问题，请通过以下方式私下报告：
+请**优先**使用本仓库的 **GitHub Security Advisories**（页面：`https://github.com/zhangpanda/goshop/security/advisories/new`）私下提交，便于协查、CVE 与修复版本对齐。
 
-- Email: security@goshop.dev
-- GitHub Security Advisories: https://github.com/zhangpanda/goshop/security/advisories/new
+若无法使用 GitHub，可联系维护者在 **GitHub Profile** 上公开的邮箱。**请勿在 Issue 中公开未修复漏洞的利用细节。**
 
 我们会在 72 小时内确认收到，并在 7 个工作日内给出初步评估。
 

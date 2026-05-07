@@ -130,6 +130,8 @@ server:
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `GOSHOP_AUTO_MIGRATE` | 是否执行 AutoMigrate | `true` |
+| `GOSHOP_SKIP_DEFAULT_ADMIN` | 为 `true` 时跳过创建默认管理员（适合自建账号流程） | （未设置） |
+| `GOSHOP_E2E` | 为 `1` 时管理端登录跳过验证码（**仅 CI/本地 E2E，禁止生产**） | （未设置） |
 | `NEXT_PUBLIC_BASE_PATH` | 前端 basePath | 空 |
 | `NODE_ENV` | Next.js 环境 | `development` |
 

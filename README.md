@@ -47,7 +47,7 @@ docker compose up -d
 # 管理后台和 PC 前台需另行启动（见下方本地开发步骤）
 ```
 
-> Docker 镜像仅包含 Go 后端。管理后台（Next.js :3010）和 PC 前台（Next.js :3000）需在宿主机或单独容器中运行。
+> Docker 镜像仅包含 Go 后端。管理后台（Next.js :3010）和 PC 前台（Next.js :3000）需在宿主机或单独容器中运行。首次启动仍会创建默认管理员，**公网前须改密**（见 [部署指南](docs/deployment.md)）。
 
 ### 本地开发
 
@@ -192,6 +192,7 @@ goshop/
 
 | 文档 | 说明 |
 |------|------|
+| [安全政策](SECURITY.md) | 漏洞报告渠道与已知安全边界 |
 | [API 文档](docs/api.md) | 接口说明（公共/用户/管理后台及 `/api.php` 兼容；以源码为准） |
 | [ShopXO 迁移指南](docs/migration-from-shopxo.md) | 从 ShopXO 迁移数据到 GoShop |
 | [二次开发指南](docs/development.md) | 项目架构、添加接口/页面/支付方式的流程 |
