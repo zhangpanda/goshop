@@ -42,6 +42,19 @@ UNKNOWN_ROUTE_MARK = "接口不存在"
 PNG_ROUTES = frozenset({"user/userverifyentry", "forminput/verifyentry"})
 
 
+def _ascii_safe_request_path(path_qs: str) -> str:
+    """
+    将 path 中 `?` 后的 query 重新 urlencode，避免 http.client 对 request-target 使用 ASCII 编码时，
+    因 wd=手机 等非 ASCII 查询值触发 UnicodeEncodeError。
+    """
+    if "?" not in path_qs:
+        return path_qs
+    path_only, q = path_qs.split("?", 1)
+    pairs = urllib.parse.parse_qsl(q, keep_blank_values=True)
+    encoded = urllib.parse.urlencode(pairs, quote_via=urllib.parse.quote)
+    return f"{path_only}?{encoded}"
+
+
 def _load_auth_required() -> set[str]:
     text = COMPAT_FILE.read_text(encoding="utf-8", errors="replace")
     i = text.index("var authRequiredRoutes")
@@ -66,7 +79,7 @@ def _req(
     data: bytes | None = None,
     headers: dict[str, str] | None = None,
 ) -> tuple[int, str, dict[str, str]]:
-    url = base.rstrip("/") + path_qs
+    url = base.rstrip("/") + _ascii_safe_request_path(path_qs)
     h = {"User-Agent": "goshop-smoke-shopxo/1.0"}
     if headers:
         h.update(headers)
