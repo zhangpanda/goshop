@@ -3,7 +3,7 @@ package service
 import (
 	"errors"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -40,9 +40,9 @@ func CreateAddress(userID uint, req *AddressReq) (*model.Address, error) {
 	}
 	// 如果设为默认，先取消其他默认
 	if req.IsDefault {
-		global.DB.Model(&model.Address{}).Where("user_id = ?", userID).Update("is_default", false)
+		app.Must().DB.Model(&model.Address{}).Where("user_id = ?", userID).Update("is_default", false)
 	}
-	if err := global.DB.Create(&addr).Error; err != nil {
+	if err := app.Must().DB.Create(&addr).Error; err != nil {
 		return nil, err
 	}
 	return &addr, nil
@@ -50,7 +50,7 @@ func CreateAddress(userID uint, req *AddressReq) (*model.Address, error) {
 
 func GetAddressList(userID uint) ([]model.Address, error) {
 	var list []model.Address
-	err := global.DB.Where("user_id = ?", userID).Order("is_default DESC, id DESC").Find(&list).Error
+	err := app.Must().DB.Where("user_id = ?", userID).Order("is_default DESC, id DESC").Find(&list).Error
 	return list, err
 }
 
@@ -59,7 +59,7 @@ func GetAddressList(userID uint) ([]model.Address, error) {
  */
 func GetAddress(userID, addrID uint) (*model.Address, error) {
 	var addr model.Address
-	if err := global.DB.Where("id = ? AND user_id = ?", addrID, userID).First(&addr).Error; err != nil {
+	if err := app.Must().DB.Where("id = ? AND user_id = ?", addrID, userID).First(&addr).Error; err != nil {
 		return nil, errors.New("地址不存在")
 	}
 	return &addr, nil
@@ -67,13 +67,13 @@ func GetAddress(userID, addrID uint) (*model.Address, error) {
 
 func UpdateAddress(userID, addrID uint, req *AddressReq) error {
 	var addr model.Address
-	if err := global.DB.Where("id = ? AND user_id = ?", addrID, userID).First(&addr).Error; err != nil {
+	if err := app.Must().DB.Where("id = ? AND user_id = ?", addrID, userID).First(&addr).Error; err != nil {
 		return errors.New("地址不存在")
 	}
 	if req.IsDefault {
-		global.DB.Model(&model.Address{}).Where("user_id = ? AND id != ?", userID, addrID).Update("is_default", false)
+		app.Must().DB.Model(&model.Address{}).Where("user_id = ? AND id != ?", userID, addrID).Update("is_default", false)
 	}
-	return global.DB.Model(&addr).Updates(map[string]interface{}{
+	return app.Must().DB.Model(&addr).Updates(map[string]interface{}{
 		"name": req.Name, "phone": req.Phone, "province": req.Province,
 		"city": req.City, "district": req.District, "detail": req.Detail,
 		"lng": req.Lng, "lat": req.Lat, "id_card": req.IDCard,
@@ -83,5 +83,5 @@ func UpdateAddress(userID, addrID uint, req *AddressReq) error {
 }
 
 func DeleteAddress(userID, addrID uint) error {
-	return global.DB.Where("id = ? AND user_id = ?", addrID, userID).Delete(&model.Address{}).Error
+	return app.Must().DB.Where("id = ? AND user_id = ?", addrID, userID).Delete(&model.Address{}).Error
 }

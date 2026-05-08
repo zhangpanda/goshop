@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
 // SendMessage 发送站内信
 func SendMessage(userID uint, title, content, typ string, refID uint) error {
-	return global.DB.Create(&model.Message{
+	return app.Must().DB.Create(&model.Message{
 		UserID:  userID,
 		Title:   title,
 		Content: content,
@@ -23,32 +23,32 @@ func SendMessage(userID uint, title, content, typ string, refID uint) error {
 
 func GetMessages(userID uint, page, pageSize int) ([]model.Message, int64, error) {
 	var total int64
-	global.DB.Model(&model.Message{}).Where("user_id = ?", userID).Count(&total)
+	app.Must().DB.Model(&model.Message{}).Where("user_id = ?", userID).Count(&total)
 	var list []model.Message
-	err := global.DB.Where("user_id = ?", userID).
+	err := app.Must().DB.Where("user_id = ?", userID).
 		Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 
 func ReadMessage(userID, msgID uint) error {
-	return global.DB.Model(&model.Message{}).Where("id = ? AND user_id = ?", msgID, userID).
+	return app.Must().DB.Model(&model.Message{}).Where("id = ? AND user_id = ?", msgID, userID).
 		Update("is_read", true).Error
 }
 
 func ReadAllMessages(userID uint) error {
-	return global.DB.Model(&model.Message{}).Where("user_id = ? AND is_read = false", userID).
+	return app.Must().DB.Model(&model.Message{}).Where("user_id = ? AND is_read = false", userID).
 		Update("is_read", true).Error
 }
 
 func UnreadCount(userID uint) int64 {
 	var count int64
-	global.DB.Model(&model.Message{}).Where("user_id = ? AND is_read = false", userID).Count(&count)
+	app.Must().DB.Model(&model.Message{}).Where("user_id = ? AND is_read = false", userID).Count(&count)
 	return count
 }
 
 // SendWxTemplateMsg 发送微信模板消息
 func SendWxTemplateMsg(openID, templateID string, data map[string]interface{}, page string) error {
-	cfg := global.Cfg.Wechat
+	cfg := app.Must().Cfg.Wechat
 	if cfg.AppID == "" {
 		return nil
 	}

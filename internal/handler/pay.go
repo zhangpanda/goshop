@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/wechatpay-apiv3/wechatpay-go/core/notify"
 	"github.com/wechatpay-apiv3/wechatpay-go/services/payments"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/service"
 	"github.com/zhangpanda/goshop/pkg/response"
 )
@@ -53,7 +53,7 @@ func AlipayNotify(c *gin.Context) {
 			params[k] = v[0]
 		}
 	}
-	if !service.AlipayVerifySign(params, global.Cfg.Alipay.PublicKey) {
+	if !service.AlipayVerifySign(params, app.Must().Cfg.Alipay.PublicKey) {
 		c.String(http.StatusOK, "fail")
 		return
 	}
@@ -68,7 +68,7 @@ func AlipayNotify(c *gin.Context) {
 }
 
 func PayNotify(c *gin.Context) {
-	handler, err := notify.NewRSANotifyHandler(global.Cfg.Wechat.MchAPIKey, nil)
+	handler, err := notify.NewRSANotifyHandler(app.Must().Cfg.Wechat.MchAPIKey, nil)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": "FAIL", "message": "初始化失败"})
 		return
@@ -96,7 +96,7 @@ func PayNotify(c *gin.Context) {
 
 // SandboxCallback 沙盒支付回调（模拟第三方回调，仅 payment.sandbox=true 时可用）
 func SandboxCallback(c *gin.Context) {
-	if !global.Cfg.Payment.Sandbox {
+	if !app.Must().Cfg.Payment.Sandbox {
 		response.Fail(c, http.StatusForbidden, "沙盒模式未开启")
 		return
 	}

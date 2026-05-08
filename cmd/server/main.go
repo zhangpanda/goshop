@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/config"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/initialize"
 	"github.com/zhangpanda/goshop/internal/repository"
 	"github.com/zhangpanda/goshop/internal/router"
@@ -26,7 +26,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}
-	global.Cfg = cfg
+	deps := &app.Deps{Cfg: cfg}
+	app.Register(deps)
 
 	if p := os.Getenv("GOSHOP_METRICS_PATH"); p != "" {
 		cfg.Server.MetricsPath = p
@@ -45,7 +46,7 @@ func main() {
 		log.Fatalf("init db: %v", err)
 	}
 	if os.Getenv("GOSHOP_AUTO_MIGRATE") != "false" {
-		if err := initialize.RunAllSchemaMigrations(global.DB); err != nil {
+		if err := initialize.RunAllSchemaMigrations(app.Must().DB); err != nil {
 			log.Fatalf("auto migrate: %v", err)
 		}
 	} else {
@@ -58,11 +59,11 @@ func main() {
 	}
 
 	// 初始化 Repository 层
-	repository.Init(global.DB)
+	repository.Init(app.Must().DB)
 
 	// 初始化 OrderService 单例
 	service.InitOrderService(service.NewOrderService(
-		global.DB, repository.Repos.Order, repository.Repos.Cart,
+		app.Must().DB, repository.Repos.Order, repository.Repos.Cart,
 		repository.Repos.Address, repository.Repos.SKU,
 	))
 
@@ -90,8 +91,9 @@ func main() {
 	// 启动 HTTP 服务
 	gin.SetMode(cfg.Server.Mode)
 
-	// 启动定时任务
-	go service.StartCronJobs()
+	cronCtx, cronCancel := context.WithCancel(context.Background())
+	go service.StartCronJobs(cronCtx, deps)
+
 	r := gin.New()
 	if len(cfg.Server.TrustedProxies) > 0 {
 		r.SetTrustedProxies(cfg.Server.TrustedProxies)
@@ -116,10 +118,15 @@ func main() {
 	<-quit
 	slog.Info("server shutting down")
 
+	cronCancel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatalf("server forced to shutdown: %v", err)
+	}
+	if err := deps.Close(); err != nil {
+		slog.Warn("shutdown", "deps_close", err.Error())
 	}
 	slog.Info("server exited")
 }

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/response"
 )
@@ -18,16 +18,16 @@ import (
 func AdminCaptcha(c *gin.Context) {
 	// 限速：同IP 60秒内最多5次
 	ipKey := fmt.Sprintf("captcha_rate:%s", c.ClientIP())
-	if count, _ := global.Cache.Get(c, ipKey); count != "" {
+	if count, _ := app.Must().Cache.Get(c, ipKey); count != "" {
 		n := 0
 		fmt.Sscanf(count, "%d", &n)
 		if n >= 5 {
 			response.Fail(c, 429, "请求过于频繁，请稍后再试")
 			return
 		}
-		global.Cache.Set(c, ipKey, fmt.Sprintf("%d", n+1), 60*time.Second)
+		app.Must().Cache.Set(c, ipKey, fmt.Sprintf("%d", n+1), 60*time.Second)
 	} else {
-		global.Cache.Set(c, ipKey, "1", 60*time.Second)
+		app.Must().Cache.Set(c, ipKey, "1", 60*time.Second)
 	}
 
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
@@ -35,28 +35,39 @@ func AdminCaptcha(c *gin.Context) {
 	if key == "captcha:" {
 		key = fmt.Sprintf("captcha:%d", time.Now().UnixNano())
 	}
-	global.Cache.Set(c, key, code, 5*time.Minute)
+	app.Must().Cache.Set(c, key, code, 5*time.Minute)
+	writeCaptchaPNG(c, code, key)
+}
 
-	// 生成简单图片
+// ShopXOCompatCaptchaPNG 供 shopxo-uniapp 在 /api.php 中通过 userverifyentry、forminput/verifyentry 拉取 PNG 验证码（<img src=...>）。
+// 校验值存入 Cache，key 置于响应头 X-Captcha-Key；登录校验需客户端回传该 key（与 ShopXO 行为对齐程度取决于前端实现）。
+func ShopXOCompatCaptchaPNG(c *gin.Context) {
+	suffix := c.DefaultQuery("type", "")
+	if suffix == "" {
+		suffix = "form:" + c.DefaultQuery("t", "0")
+	}
+	key := fmt.Sprintf("captcha:shopxo:%s:%s", suffix, c.ClientIP())
+	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	app.Must().Cache.Set(c, key, code, 5*time.Minute)
+	writeCaptchaPNG(c, code, key)
+}
+
+func writeCaptchaPNG(c *gin.Context, code, cacheKey string) {
 	img := image.NewRGBA(image.Rect(0, 0, 160, 40))
-	// 背景
 	for x := 0; x < 160; x++ {
 		for y := 0; y < 40; y++ {
 			img.Set(x, y, color.RGBA{240, 240, 240, 255})
 		}
 	}
-	// 简单噪点
 	for i := 0; i < 150; i++ {
 		img.Set(rand.Intn(160), rand.Intn(40), color.RGBA{uint8(rand.Intn(200)), uint8(rand.Intn(200)), uint8(rand.Intn(200)), 255})
 	}
-	// 数字（简单像素字体）
 	digits := []byte(code)
 	for i, d := range digits {
 		drawDigit(img, int(d-'0'), 15+i*25, 8)
 	}
-
 	c.Header("Content-Type", "image/png")
-	c.Header("X-Captcha-Key", key)
+	c.Header("X-Captcha-Key", cacheKey)
 	png.Encode(c.Writer, img)
 }
 
@@ -95,8 +106,8 @@ func AdminOperationLogList(c *gin.Context) {
 	fmt.Sscanf(c.DefaultQuery("page", "1"), "%d", &page)
 	fmt.Sscanf(c.DefaultQuery("page_size", "20"), "%d", &pageSize)
 	var total int64
-	global.DB.Model(&model.AdminOperationLog{}).Count(&total)
+	app.Must().DB.Model(&model.AdminOperationLog{}).Count(&total)
 	var list []model.AdminOperationLog
-	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
+	app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }

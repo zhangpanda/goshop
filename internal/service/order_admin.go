@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -24,7 +24,7 @@ func OrderServiceData(orderID uint) []model.OrderService {
 func OrderListHandle(list []model.Order) []model.Order {
 	for i := range list {
 		if list[i].Items == nil {
-			global.DB.Where("order_id = ?", list[i].ID).Find(&list[i].Items)
+			app.Must().DB.Where("order_id = ?", list[i].ID).Find(&list[i].Items)
 		}
 	}
 	return list
@@ -38,7 +38,7 @@ func OrderPayLogInsert(userID uint, orderIDs []uint, paymentID uint, clientType 
 // OrderPayLogValueList 支付日志关联订单
 func OrderPayLogValueList(payLogID uint) []model.PayLogValue {
 	var list []model.PayLogValue
-	global.DB.Where("pay_log_id = ?", payLogID).Find(&list)
+	app.Must().DB.Where("pay_log_id = ?", payLogID).Find(&list)
 	return list
 }
 
@@ -59,18 +59,18 @@ func OrderAddressData(order *model.Order) map[string]interface{} {
 func ThemeAdminList() ([]model.ThemeData, error) { return ThemeList() }
 func ThemeAdminSave(name, data string) error     { return ThemeCreate(name, data) }
 func ThemeAdminSwitch(id uint) error {
-	global.DB.Model(&model.ThemeData{}).Where("status = 1").Update("status", 0)
-	return global.DB.Model(&model.ThemeData{}).Where("id = ?", id).Update("status", 1).Error
+	app.Must().DB.Model(&model.ThemeData{}).Where("status = 1").Update("status", 0)
+	return app.Must().DB.Model(&model.ThemeData{}).Where("id = ?", id).Update("status", 1).Error
 }
-func ThemeAdminDelete(id uint) error { return global.DB.Delete(&model.ThemeData{}, id).Error }
+func ThemeAdminDelete(id uint) error { return app.Must().DB.Delete(&model.ThemeData{}, id).Error }
 func ThemeAdminConfig(id uint) *model.ThemeData {
 	var t model.ThemeData
-	global.DB.First(&t, id)
+	app.Must().DB.First(&t, id)
 	return &t
 }
 func DefaultTheme() *model.ThemeData {
 	var t model.ThemeData
-	global.DB.Where("status = 1").First(&t)
+	app.Must().DB.Where("status = 1").First(&t)
 	return &t
 }
 
@@ -78,11 +78,11 @@ func DefaultTheme() *model.ThemeData {
 
 func ThemeDataSave(id uint, name, data string) error {
 	if id > 0 {
-		return global.DB.Model(&model.ThemeData{}).Where("id = ?", id).Updates(map[string]interface{}{"name": name, "data": data}).Error
+		return app.Must().DB.Model(&model.ThemeData{}).Where("id = ?", id).Updates(map[string]interface{}{"name": name, "data": data}).Error
 	}
 	return ThemeCreate(name, data)
 }
-func ThemeDataDelete(id uint) error { return global.DB.Delete(&model.ThemeData{}, id).Error }
+func ThemeDataDelete(id uint) error { return app.Must().DB.Delete(&model.ThemeData{}, id).Error }
 func ThemeDataStatusUpdate(id uint, status int8) error {
 	return statusUpdate("theme_data", id, "status", status)
 }
@@ -92,7 +92,7 @@ func ThemeDataListHandle(list []model.ThemeData) []model.ThemeData { return list
 
 func DiyData(id uint) *model.Diy {
 	var d model.Diy
-	global.DB.First(&d, id)
+	app.Must().DB.First(&d, id)
 	return &d
 }
 func DiySave(id uint, name, data string) error {
@@ -113,7 +113,7 @@ func DiyPreviewData(id uint) map[string]interface{} {
 }
 func AppClientHomeDiyData() map[string]interface{} {
 	var d model.Diy
-	global.DB.Where("status = 1").Order("id DESC").First(&d)
+	app.Must().DB.Where("status = 1").Order("id DESC").First(&d)
 	if d.ID == 0 {
 		return nil
 	}
@@ -123,7 +123,7 @@ func AppClientHomeDiyData() map[string]interface{} {
 }
 func AppClientHomeDiyId() uint {
 	var d model.Diy
-	global.DB.Where("status = 1").Select("id").First(&d)
+	app.Must().DB.Where("status = 1").Select("id").First(&d)
 	return d.ID
 }
 
@@ -138,7 +138,7 @@ func DesignSave(id uint, name, data string) error {
 }
 func DesignSync(id uint) error {
 	d := &model.Design{}
-	global.DB.First(d, id)
+	app.Must().DB.First(d, id)
 	return LayoutSave(d.Name, "home", d.Data)
 }
 
@@ -146,7 +146,7 @@ func DesignSync(id uint) error {
 
 func FormInputDetail(id uint) *model.FormInput {
 	var f model.FormInput
-	global.DB.First(&f, id)
+	app.Must().DB.First(&f, id)
 	return &f
 }
 func FormInputPreview(id uint) map[string]interface{} {
@@ -161,32 +161,32 @@ func FormInputPreview(id uint) map[string]interface{} {
 // ==================== Plugins补全 ====================
 
 func PluginsStatus(id uint, status int8) error {
-	return global.DB.Model(&model.Plugin{}).Where("id = ?", id).Update("status", status).Error
+	return app.Must().DB.Model(&model.Plugin{}).Where("id = ?", id).Update("status", status).Error
 }
-func PluginsData(id uint) *model.Plugin { var p model.Plugin; global.DB.First(&p, id); return &p }
+func PluginsData(id uint) *model.Plugin { var p model.Plugin; app.Must().DB.First(&p, id); return &p }
 func PluginsCheck(name string) bool {
 	var c int64
-	global.DB.Model(&model.Plugin{}).Where("name = ? AND status = 1", name).Count(&c)
+	app.Must().DB.Model(&model.Plugin{}).Where("name = ? AND status = 1", name).Count(&c)
 	return c > 0
 }
 func PluginsField(name, field string) string {
 	var p model.Plugin
-	global.DB.Where("name = ?", name).Select(field).First(&p)
+	app.Must().DB.Where("name = ?", name).Select(field).First(&p)
 	return ""
 }
 func PluginsDataSave(id uint, config string) error {
-	return global.DB.Model(&model.Plugin{}).Where("id = ?", id).Update("config", config).Error
+	return app.Must().DB.Model(&model.Plugin{}).Where("id = ?", id).Update("config", config).Error
 }
 func PluginsDataHandle(list []model.Plugin) []model.Plugin { return list }
 func PluginsBaseList() ([]model.Plugin, error)             { return PluginList() }
 func PluginsHomeDataList() []model.Plugin {
 	var l []model.Plugin
-	global.DB.Where("status = 1").Find(&l)
+	app.Must().DB.Where("status = 1").Find(&l)
 	return l
 }
 func PluginsSortList() []model.Plugin {
 	var l []model.Plugin
-	global.DB.Where("status = 1").Order("sort DESC, id ASC").Find(&l)
+	app.Must().DB.Where("status = 1").Order("sort DESC, id ASC").Find(&l)
 	return l
 }
 func PluginsNewVersionCheck() bool                                                      { return false }
@@ -198,7 +198,7 @@ func PluginsControlCall(name, method string, params map[string]interface{}) inte
 func PluginsAdminList() ([]model.Plugin, error)           { return PluginList() }
 func PluginsAdminSave(id uint, config string) error       { return PluginsDataSave(id, config) }
 func PluginsAdminStatusUpdate(id uint, status int8) error { return PluginsStatus(id, status) }
-func PluginsAdminDelete(id uint) error                    { return global.DB.Delete(&model.Plugin{}, id).Error }
+func PluginsAdminDelete(id uint) error                    { return app.Must().DB.Delete(&model.Plugin{}, id).Error }
 
 // ==================== Config补全 ====================
 
@@ -265,6 +265,6 @@ func AppBaseConfig() map[string]string {
 
 func AppMiniConfig(platform string) map[string]string {
 	var m model.AppMini
-	global.DB.Where("platform = ?", platform).First(&m)
+	app.Must().DB.Where("platform = ?", platform).First(&m)
 	return map[string]string{"app_id": m.AppID, "title": m.Title, "describe": m.Describe, "status": fmt.Sprint(m.Status)}
 }

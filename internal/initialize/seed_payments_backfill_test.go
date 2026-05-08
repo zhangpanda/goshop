@@ -2,16 +2,22 @@ package initialize
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/internal/service"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+func TestMain(m *testing.M) {
+	app.Register(&app.Deps{})
+	os.Exit(m.Run())
+}
 
 var sqliteMemSeq atomic.Uint64
 
@@ -33,31 +39,31 @@ func testSQLiteDB(t *testing.T) *gorm.DB {
 }
 
 func TestEnsureDefaultPayments_FullAndIdempotent(t *testing.T) {
-	prev := global.DB
-	t.Cleanup(func() { global.DB = prev })
+	prev := app.Must().DB
+	t.Cleanup(func() { app.Must().DB = prev })
 
-	global.DB = testSQLiteDB(t)
+	app.Must().DB = testSQLiteDB(t)
 	EnsureDefaultPayments()
 
 	var n int64
-	global.DB.Model(&model.Payment{}).Count(&n)
+	app.Must().DB.Model(&model.Payment{}).Count(&n)
 	if n != 12 {
 		t.Fatalf("首次补全应 12 条，得到 %d", n)
 	}
 
 	EnsureDefaultPayments()
-	global.DB.Model(&model.Payment{}).Count(&n)
+	app.Must().DB.Model(&model.Payment{}).Count(&n)
 	if n != 12 {
 		t.Fatalf("幂等：仍应为 12 条，得到 %d", n)
 	}
 }
 
 func TestEnsureDefaultPayments_PartialOnlyOffline(t *testing.T) {
-	prev := global.DB
-	t.Cleanup(func() { global.DB = prev })
+	prev := app.Must().DB
+	t.Cleanup(func() { app.Must().DB = prev })
 
-	global.DB = testSQLiteDB(t)
-	global.DB.Create(&model.Payment{
+	app.Must().DB = testSQLiteDB(t)
+	app.Must().DB.Create(&model.Payment{
 		Name:   "线下支付",
 		Config: `{"payment_key":"offline"}`,
 		Sort:   100,
@@ -66,18 +72,18 @@ func TestEnsureDefaultPayments_PartialOnlyOffline(t *testing.T) {
 	EnsureDefaultPayments()
 
 	var n int64
-	global.DB.Model(&model.Payment{}).Count(&n)
+	app.Must().DB.Model(&model.Payment{}).Count(&n)
 	if n != 12 {
 		t.Fatalf("仅有 offline 时应补 11 条共 12，得到 %d", n)
 	}
 }
 
 func TestEnsureDefaultPayments_OldStyleWechatName(t *testing.T) {
-	prev := global.DB
-	t.Cleanup(func() { global.DB = prev })
+	prev := app.Must().DB
+	t.Cleanup(func() { app.Must().DB = prev })
 
-	global.DB = testSQLiteDB(t)
-	global.DB.Create(&model.Payment{
+	app.Must().DB = testSQLiteDB(t)
+	app.Must().DB.Create(&model.Payment{
 		Name:   "微信支付",
 		Config: "{}",
 		Status: 1,
@@ -85,7 +91,7 @@ func TestEnsureDefaultPayments_OldStyleWechatName(t *testing.T) {
 	EnsureDefaultPayments()
 
 	var rows []model.Payment
-	global.DB.Find(&rows)
+	app.Must().DB.Find(&rows)
 	if len(rows) != 12 {
 		t.Fatalf("名称推断 wechat_jsapi 后应补其余 11 条共 12，得到 %d", len(rows))
 	}

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -20,14 +20,14 @@ type ShipOrderReq struct {
 
 func ShipOrder(req *ShipOrderReq) error {
 	var order model.Order
-	if err := global.DB.First(&order, req.OrderID).Error; err != nil {
+	if err := app.Must().DB.First(&order, req.OrderID).Error; err != nil {
 		return errors.New("订单不存在")
 	}
 	if order.Status != model.OrderStatusPaid {
 		return errors.New("订单状态不允许发货")
 	}
 
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		now := time.Now()
 		if err := tx.Model(&order).Updates(map[string]interface{}{"status": model.OrderStatusShipped, "shipped_at": &now}).Error; err != nil {
 			return err
@@ -42,14 +42,14 @@ func ShipOrder(req *ShipOrderReq) error {
 
 func ConfirmReceive(userID, orderID uint) error {
 	var order model.Order
-	if err := global.DB.Where("id = ? AND user_id = ?", orderID, userID).First(&order).Error; err != nil {
+	if err := app.Must().DB.Where("id = ? AND user_id = ?", orderID, userID).First(&order).Error; err != nil {
 		return errors.New("订单不存在")
 	}
 	if order.Status != model.OrderStatusShipped {
 		return errors.New("订单状态不允许确认收货")
 	}
 	now := time.Now()
-	if err := global.DB.Model(&order).Updates(map[string]interface{}{
+	if err := app.Must().DB.Model(&order).Updates(map[string]interface{}{
 		"status": model.OrderStatusCompleted, "completed_at": &now,
 	}).Error; err != nil {
 		return err
@@ -61,7 +61,7 @@ func ConfirmReceive(userID, orderID uint) error {
 
 func GetShipment(orderID uint) (*model.Shipment, error) {
 	var s model.Shipment
-	global.DB.Where("order_id = ?", orderID).Find(&s)
+	app.Must().DB.Where("order_id = ?", orderID).Find(&s)
 	if s.ID == 0 {
 		return nil, errors.New("暂无物流信息")
 	}

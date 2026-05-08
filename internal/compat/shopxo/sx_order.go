@@ -1,6 +1,7 @@
 package shopxo
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -206,7 +207,22 @@ func sxOrderDelete(c *gin.Context) {
 func sxOrderComments(c *gin.Context) {
 	id := getID(c)
 	items := service.OrderItemList(id)
-	response.OK(c, items)
+	rows := make([]map[string]interface{}, 0, len(items))
+	for i := range items {
+		it := &items[i]
+		rows = append(rows, map[string]interface{}{
+			"goods_id":  it.GoodsID,
+			"images":    it.Image,
+			"goods_url": fmt.Sprintf("/pages/goods-detail/goods-detail?id=%d", it.GoodsID),
+		})
+	}
+	response.OK(c, map[string]interface{}{
+		"data": map[string]interface{}{
+			"id":    id,
+			"items": rows,
+		},
+		"editor_path_type": "common",
+	})
 }
 
 func sxAftersaleIndex(c *gin.Context) {

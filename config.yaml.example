@@ -45,8 +45,9 @@ wechat:
 alipay:
   app_id: ""          # 支付宝应用 AppID
   private_key: ""     # 应用私钥（RSA2, PKCS8 格式）
-  public_key: ""      # 支付宝公钥（用于验签回调）
+  public_key: ""      # 支付宝公钥（用于验签：回调 + 所有 OpenAPI 同步响应）
   notify_url: "https://yourdomain.com/api/pay/alipay-notify"  # 支付回调地址（必须 HTTPS）
+  # gateway_url: ""   # 可选。默认 https://openapi.alipay.com/gateway.do；沙箱填 https://openapi.alipaydev.com 或完整 .../gateway.do
 
 # 支付沙盒模式（开发/测试用）
 # 开启后所有支付方式直接返回成功，不走真实第三方

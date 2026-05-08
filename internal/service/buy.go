@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -33,9 +33,9 @@ func BuyOrderInit(userID uint, cartIDs []uint, buyType string) (*BuyInitResp, er
 	resp := &BuyInitResp{}
 	// 默认地址
 	var addr model.Address
-	global.DB.Where("user_id = ? AND is_default = true", userID).First(&addr)
+	app.Must().DB.Where("user_id = ? AND is_default = true", userID).First(&addr)
 	if addr.ID == 0 {
-		global.DB.Where("user_id = ?", userID).Order("id DESC").First(&addr)
+		app.Must().DB.Where("user_id = ?", userID).Order("id DESC").First(&addr)
 	}
 	if addr.ID > 0 {
 		resp.Address = &addr
@@ -80,7 +80,7 @@ func BuyTypeGoodsList(userID uint, ids []uint, buyType string) ([]BuyGoodsItem, 
 	switch buyType {
 	case "cart":
 		var carts []model.Cart
-		global.DB.Where("id IN ? AND user_id = ?", ids, userID).Preload("Goods").Preload("SKU").Find(&carts)
+		app.Must().DB.Where("id IN ? AND user_id = ?", ids, userID).Preload("Goods").Preload("SKU").Find(&carts)
 		items := make([]BuyGoodsItem, len(carts))
 		for i, c := range carts {
 			items[i] = BuyGoodsItem{GoodsID: c.GoodsID, Quantity: c.Quantity}
@@ -100,9 +100,9 @@ func BuyTypeGoodsList(userID uint, ids []uint, buyType string) ([]BuyGoodsItem, 
 		}
 		goodsID, skuID := ids[0], ids[1]
 		var goods model.Goods
-		global.DB.First(&goods, goodsID)
+		app.Must().DB.First(&goods, goodsID)
 		var sku model.GoodsSKU
-		global.DB.First(&sku, skuID)
+		app.Must().DB.First(&sku, skuID)
 		return []BuyGoodsItem{{GoodsID: goodsID, Title: goods.Title, Image: goods.MainImage, SKUName: sku.Name, Price: sku.Price, Quantity: 1}}, nil
 	}
 	return nil, errors.New("不支持的购买类型")
@@ -111,14 +111,14 @@ func BuyTypeGoodsList(userID uint, ids []uint, buyType string) ([]BuyGoodsItem, 
 // BuyGoodsCheck 购买前商品校验
 func BuyGoodsCheck(goodsID, skuID uint, quantity int) error {
 	var goods model.Goods
-	if err := global.DB.First(&goods, goodsID).Error; err != nil {
+	if err := app.Must().DB.First(&goods, goodsID).Error; err != nil {
 		return errors.New("商品不存在")
 	}
 	if goods.Status != 1 {
 		return errors.New("商品已下架")
 	}
 	var sku model.GoodsSKU
-	if err := global.DB.First(&sku, skuID).Error; err != nil {
+	if err := app.Must().DB.First(&sku, skuID).Error; err != nil {
 		return errors.New("规格不存在")
 	}
 	if sku.Stock < quantity {
@@ -130,11 +130,11 @@ func BuyGoodsCheck(goodsID, skuID uint, quantity int) error {
 // BuyDataStorage 购买数据临时存储（Redis）
 func BuyDataStorage(userID uint, data interface{}) error {
 	b, _ := json.Marshal(data)
-	return global.Cache.Set(context.Background(), fmt.Sprintf("buy_data_%d", userID), string(b), 30*time.Minute)
+	return app.Must().Cache.Set(context.Background(), fmt.Sprintf("buy_data_%d", userID), string(b), 30*time.Minute)
 }
 
 func BuyDataRead(userID uint) (map[string]interface{}, error) {
-	val, err := global.Cache.Get(context.Background(), fmt.Sprintf("buy_data_%d", userID))
+	val, err := app.Must().Cache.Get(context.Background(), fmt.Sprintf("buy_data_%d", userID))
 	if err != nil {
 		return nil, err
 	}
@@ -144,13 +144,13 @@ func BuyDataRead(userID uint) (map[string]interface{}, error) {
 }
 
 func BuyDataDelete(userID uint) {
-	global.Cache.Del(context.Background(), fmt.Sprintf("buy_data_%d", userID))
+	app.Must().Cache.Del(context.Background(), fmt.Sprintf("buy_data_%d", userID))
 }
 
 // SingleOrderPayBeginCheck 单订单支付前校验
 func SingleOrderPayBeginCheck(userID, orderID uint) error {
 	var order model.Order
-	if err := global.DB.Where("id = ? AND user_id = ?", orderID, userID).First(&order).Error; err != nil {
+	if err := app.Must().DB.Where("id = ? AND user_id = ?", orderID, userID).First(&order).Error; err != nil {
 		return errors.New("订单不存在")
 	}
 	if order.Status != model.OrderStatusPending {

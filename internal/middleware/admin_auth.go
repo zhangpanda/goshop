@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/internal/service"
 	"github.com/zhangpanda/goshop/pkg/auth"
@@ -20,14 +20,14 @@ func AdminAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		claims, err := auth.ParseToken(strings.TrimPrefix(token, "Bearer "), global.Cfg.JWT.Secret)
+		claims, err := auth.ParseToken(strings.TrimPrefix(token, "Bearer "), app.Must().Cfg.JWT.Secret)
 		if err != nil || !claims.IsAdmin {
 			response.Fail(c, http.StatusUnauthorized, "token无效")
 			c.Abort()
 			return
 		}
 		var admin model.Admin
-		if err := global.DB.First(&admin, claims.UserID).Error; err != nil || admin.Status == 0 {
+		if err := app.Must().DB.First(&admin, claims.UserID).Error; err != nil || admin.Status == 0 {
 			response.Fail(c, http.StatusUnauthorized, "账号已禁用或不存在")
 			c.Abort()
 			return

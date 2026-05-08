@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	auth_pkg "github.com/zhangpanda/goshop/pkg/auth"
 	"gorm.io/gorm"
@@ -41,7 +41,7 @@ type platformOAuthConfig struct {
 
 var platformConfigs = map[string]platformOAuthConfig{
 	"alipay": {
-		TokenURL:    "https://openapi.alipay.com/gateway.do?method=alipay.system.oauth.token&grant_type=authorization_code",
+		// TokenURL 不使用：换码走 AlipayGatewayDoURL + alipay.system.oauth.token（RSA2 签名与同步验签）
 		OpenIDField: "user_id",
 	},
 	"baidu": {
@@ -65,7 +65,7 @@ var platformConfigs = map[string]platformOAuthConfig{
 func PlatformLogin(req *PlatformLoginReq) (*PlatformLoginResp, error) {
 	// 从小程序配置中获取appid/secret
 	var mini model.AppMini
-	global.DB.Where("platform = ? AND status = 1", req.Platform).First(&mini)
+	app.Must().DB.Where("platform = ? AND status = 1", req.Platform).First(&mini)
 	if mini.ID == 0 {
 		return nil, fmt.Errorf("平台 %s 未配置", req.Platform)
 	}
@@ -76,36 +76,36 @@ func PlatformLogin(req *PlatformLoginReq) (*PlatformLoginResp, error) {
 	}
 
 	// code换openid
-	openID, unionID, err := exchangeCode(cfg, mini.AppID, mini.AppSecret, req.Code)
+	openID, unionID, err := exchangeCode(cfg, req.Platform, mini.AppID, mini.AppSecret, req.Code)
 	if err != nil {
 		return nil, fmt.Errorf("%s登录失败: %w", req.Platform, err)
 	}
 
 	// 查找或创建用户
 	var platform model.UserPlatform
-	global.DB.Where("platform = ? AND openid = ?", req.Platform, openID).First(&platform)
+	app.Must().DB.Where("platform = ? AND openid = ?", req.Platform, openID).First(&platform)
 
 	var user model.User
 	isNew := false
 
 	if platform.ID > 0 {
-		global.DB.First(&user, platform.UserID)
+		app.Must().DB.First(&user, platform.UserID)
 	} else {
 		// 尝试通过unionid关联
 		if unionID != "" {
-			global.DB.Where("platform = ? AND unionid = ?", req.Platform, unionID).First(&platform)
+			app.Must().DB.Where("platform = ? AND unionid = ?", req.Platform, unionID).First(&platform)
 			if platform.ID > 0 {
-				global.DB.First(&user, platform.UserID)
+				app.Must().DB.First(&user, platform.UserID)
 			}
 		}
 		if user.ID == 0 {
 			// 新用户
 			user = model.User{Nickname: req.Nickname, Avatar: req.Avatar, Status: 1}
-			global.DB.Create(&user)
+			app.Must().DB.Create(&user)
 			isNew = true
 		}
 		// 绑定平台
-		global.DB.Create(&model.UserPlatform{
+		app.Must().DB.Create(&model.UserPlatform{
 			UserID: user.ID, Platform: req.Platform, OpenID: openID, UnionID: unionID,
 		})
 	}
@@ -119,14 +119,17 @@ func PlatformLogin(req *PlatformLoginReq) (*PlatformLoginResp, error) {
 		if req.Avatar != "" {
 			updates["avatar"] = req.Avatar
 		}
-		global.DB.Model(&user).Updates(updates)
+		app.Must().DB.Model(&user).Updates(updates)
 	}
 
 	token, _ := generateUserToken(user.ID)
 	return &PlatformLoginResp{Token: token, User: user, IsNew: isNew}, nil
 }
 
-func exchangeCode(cfg platformOAuthConfig, appID, secret, code string) (openID, unionID string, err error) {
+func exchangeCode(cfg platformOAuthConfig, platform, appID, secret, code string) (openID, unionID string, err error) {
+	if platform == "alipay" {
+		return alipayOAuthExchange(appID, code)
+	}
 	reqURL := fmt.Sprintf("%s&appid=%s&secret=%s&js_code=%s", cfg.TokenURL, appID, secret, code)
 	resp, err := http.Get(reqURL)
 	if err != nil {
@@ -148,7 +151,7 @@ func exchangeCode(cfg platformOAuthConfig, appID, secret, code string) (openID, 
 }
 
 func generateUserToken(userID uint) (string, error) {
-	return auth_pkg.GenerateToken(userID, false, global.Cfg.JWT.Secret, global.Cfg.JWT.Expire)
+	return auth_pkg.GenerateToken(userID, false, app.Must().Cfg.JWT.Secret, app.Must().Cfg.JWT.Expire)
 }
 
 // ==================== 5. 积分锁定释放完整逻辑 ====================
@@ -159,7 +162,7 @@ func OrderGoodsIntegralGiving(userID, orderID uint, payAmount int64) error {
 	if points <= 0 {
 		return nil
 	}
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Model(&model.User{}).Where("id = ?", userID).Update("locking_integral", gorm.Expr("locking_integral + ?", points)).Error; err != nil {
 			return err
 		}
@@ -170,15 +173,15 @@ func OrderGoodsIntegralGiving(userID, orderID uint, payAmount int64) error {
 }
 
 // CronIntegralRelease 定时释放锁定积分（赠送后N天释放）
-func CronIntegralRelease(limitMinutes int) (sucs, fail int) {
+func CronIntegralRelease(deps *app.Deps, limitMinutes int) (sucs, fail int) {
 	if limitMinutes <= 0 {
 		limitMinutes = 21600 // 默认15天=21600分钟
 	}
 	deadline := time.Now().Add(-time.Duration(limitMinutes) * time.Minute)
 	var logs []model.GoodsGiveIntegralLog
-	global.DB.Where("status = 0 AND created_at < ?", deadline).Limit(200).Find(&logs)
+	deps.DB.Where("status = 0 AND created_at < ?", deadline).Limit(200).Find(&logs)
 	for _, log := range logs {
-		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		err := RunInDBTx(deps.DB, func(tx *gorm.DB) error {
 			if err := tx.Model(&model.User{}).Where("id = ?", log.UserID).
 				Update("locking_integral", gorm.Expr("locking_integral - ?", log.Integral)).Error; err != nil {
 				return err
@@ -207,7 +210,7 @@ func CronIntegralRelease(limitMinutes int) (sucs, fail int) {
 // OrderGoodsIntegralRollback 售后退款扣减锁定积分
 func OrderGoodsIntegralRollback(orderID, orderDetailID uint, refundAmount int64) error {
 	var log model.GoodsGiveIntegralLog
-	global.DB.Where("order_id = ? AND status = 0", orderID).First(&log)
+	app.Must().DB.Where("order_id = ? AND status = 0", orderID).First(&log)
 	if log.ID == 0 {
 		return nil
 	}
@@ -218,7 +221,7 @@ func OrderGoodsIntegralRollback(orderID, orderDetailID uint, refundAmount int64)
 	if deduct > log.Integral {
 		deduct = log.Integral
 	}
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Model(&model.User{}).Where("id = ?", log.UserID).
 			Update("locking_integral", gorm.Expr("GREATEST(locking_integral - ?, 0)", deduct)).Error; err != nil {
 			return err
@@ -236,7 +239,7 @@ func OrderGoodsIntegralRollback(orderID, orderDetailID uint, refundAmount int64)
 // ==================== 7. 微信小程序发货信息录入 ====================
 
 func OrderDeliverySyncWeixin(orderNo, tradeNo, openID, goodsTitle, expressName, expressNumber, tel string, orderModel int8) error {
-	cfg := global.Cfg.Wechat
+	cfg := app.Must().Cfg.Wechat
 	if cfg.AppID == "" || cfg.AppSecret == "" {
 		return nil
 	}
@@ -291,43 +294,43 @@ func OrderDeliverySyncWeixin(orderNo, tradeNo, openID, goodsTitle, expressName, 
 // ==================== 8. 短信/邮件日志完整service ====================
 
 func SmsLogAdd(phone, content, typ string, status int8) {
-	global.DB.Create(&model.SmsLog{Phone: phone, Content: content, Type: typ, Status: status})
+	app.Must().DB.Create(&model.SmsLog{Phone: phone, Content: content, Type: typ, Status: status})
 }
 
 func SmsLogList(page, pageSize int) ([]model.SmsLog, int64, error) {
 	var total int64
-	global.DB.Model(&model.SmsLog{}).Count(&total)
+	app.Must().DB.Model(&model.SmsLog{}).Count(&total)
 	var list []model.SmsLog
-	err := global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
+	err := app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 
 func SmsLogDelete(ids []uint) error {
-	return global.DB.Where("id IN ?", ids).Delete(&model.SmsLog{}).Error
+	return app.Must().DB.Where("id IN ?", ids).Delete(&model.SmsLog{}).Error
 }
 
 func SmsLogAllDelete() error {
-	return global.DB.Where("1=1").Delete(&model.SmsLog{}).Error
+	return app.Must().DB.Where("1=1").Delete(&model.SmsLog{}).Error
 }
 
 func EmailLogAdd(email, title, content string, status int8) {
-	global.DB.Create(&model.EmailLog{Email: email, Title: title, Content: content, Status: status})
+	app.Must().DB.Create(&model.EmailLog{Email: email, Title: title, Content: content, Status: status})
 }
 
 func EmailLogList(page, pageSize int) ([]model.EmailLog, int64, error) {
 	var total int64
-	global.DB.Model(&model.EmailLog{}).Count(&total)
+	app.Must().DB.Model(&model.EmailLog{}).Count(&total)
 	var list []model.EmailLog
-	err := global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
+	err := app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 
 func EmailLogDelete(ids []uint) error {
-	return global.DB.Where("id IN ?", ids).Delete(&model.EmailLog{}).Error
+	return app.Must().DB.Where("id IN ?", ids).Delete(&model.EmailLog{}).Error
 }
 
 func EmailLogAllDelete() error {
-	return global.DB.Where("1=1").Delete(&model.EmailLog{}).Error
+	return app.Must().DB.Where("1=1").Delete(&model.EmailLog{}).Error
 }
 
 // ==================== 9. 商品缺失方法 ====================
@@ -336,12 +339,12 @@ func EmailLogAllDelete() error {
 func GoodsStock(goodsID uint, spec string) (int, error) {
 	if spec == "" {
 		var total int64
-		global.DB.Model(&model.GoodsSKU{}).Where("goods_id = ? AND status = 1", goodsID).
+		app.Must().DB.Model(&model.GoodsSKU{}).Where("goods_id = ? AND status = 1", goodsID).
 			Select("COALESCE(SUM(stock),0)").Scan(&total)
 		return int(total), nil
 	}
 	var sku model.GoodsSKU
-	global.DB.Where("goods_id = ? AND specs LIKE ? AND status = 1", goodsID, "%"+spec+"%").First(&sku)
+	app.Must().DB.Where("goods_id = ? AND specs LIKE ? AND status = 1", goodsID, "%"+spec+"%").First(&sku)
 	return sku.Stock, nil
 }
 
@@ -359,7 +362,7 @@ type GoodsSpecDetailResp struct {
 func GoodsSpecDetail(goodsID uint, specValues string) (*GoodsSpecDetailResp, error) {
 	// 先查GoodsSpecBase
 	var base model.GoodsSpecBase
-	global.DB.Where("goods_id = ? AND spec_values = ?", goodsID, specValues).First(&base)
+	app.Must().DB.Where("goods_id = ? AND spec_values = ?", goodsID, specValues).First(&base)
 	if base.ID > 0 {
 		return &GoodsSpecDetailResp{
 			Price: base.Price, Stock: base.Inventory, Coding: base.Coding,
@@ -368,7 +371,7 @@ func GoodsSpecDetail(goodsID uint, specValues string) (*GoodsSpecDetailResp, err
 	}
 	// 回退查SKU
 	var sku model.GoodsSKU
-	global.DB.Where("goods_id = ? AND name = ?", goodsID, specValues).First(&sku)
+	app.Must().DB.Where("goods_id = ? AND name = ?", goodsID, specValues).First(&sku)
 	if sku.ID == 0 {
 		return nil, fmt.Errorf("规格不存在")
 	}
@@ -388,14 +391,14 @@ type GoodsScoreData struct {
 
 func GoodsScore(goodsID uint) *GoodsScoreData {
 	d := &GoodsScoreData{}
-	global.DB.Model(&model.Review{}).Where("goods_id = ?", goodsID).Count(&d.Total)
+	app.Must().DB.Model(&model.Review{}).Where("goods_id = ?", goodsID).Count(&d.Total)
 	if d.Total == 0 {
 		return d
 	}
-	global.DB.Model(&model.Review{}).Where("goods_id = ?", goodsID).Select("COALESCE(AVG(rating),0)").Scan(&d.Average)
+	app.Must().DB.Model(&model.Review{}).Where("goods_id = ?", goodsID).Select("COALESCE(AVG(rating),0)").Scan(&d.Average)
 	for i := 1; i <= 5; i++ {
 		var c int64
-		global.DB.Model(&model.Review{}).Where("goods_id = ? AND rating = ?", goodsID, i).Count(&c)
+		app.Must().DB.Model(&model.Review{}).Where("goods_id = ? AND rating = ?", goodsID, i).Count(&c)
 		switch i {
 		case 1:
 			d.Star1 = c
@@ -424,11 +427,11 @@ func HomeFloorList(maxCount int) []HomeFloor {
 		maxCount = 8
 	}
 	var cats []model.Category
-	global.DB.Where("parent_id = 0 AND status = 1").Order("sort DESC").Find(&cats)
+	app.Must().DB.Where("parent_id = 0 AND status = 1").Order("sort DESC").Find(&cats)
 	var floors []HomeFloor
 	for _, cat := range cats {
 		var goods []model.Goods
-		global.DB.Where("category_id = ? AND status = 1", cat.ID).
+		app.Must().DB.Where("category_id = ? AND status = 1", cat.ID).
 			Preload("SKUs").Order("sort DESC, sales_count DESC").Limit(maxCount).Find(&goods)
 		if len(goods) > 0 {
 			floors = append(floors, HomeFloor{CategoryID: cat.ID, CategoryName: cat.Name, Goods: goods})
@@ -445,12 +448,12 @@ func GuessYouLike(userID uint, limit int) []model.Goods {
 	// 取用户最近浏览的分类
 	var catIDs []uint
 	if userID > 0 {
-		global.DB.Model(&model.BrowseHistory{}).
+		app.Must().DB.Model(&model.BrowseHistory{}).
 			Joins("JOIN goods ON goods.id = browse_histories.goods_id").
 			Where("browse_histories.user_id = ?", userID).
 			Select("DISTINCT goods.category_id").Limit(5).Pluck("goods.category_id", &catIDs)
 	}
-	db := global.DB.Where("status = 1")
+	db := app.Must().DB.Where("status = 1")
 	if len(catIDs) > 0 {
 		db = db.Where("category_id IN ?", catIDs)
 	}
@@ -469,7 +472,7 @@ func OrderStatusGroupTotal(userID uint) map[string]int64 {
 		Count  int64
 	}
 	var counts []StatusCount
-	db := global.DB.Model(&model.Order{})
+	db := app.Must().DB.Model(&model.Order{})
 	if userID > 0 {
 		db = db.Where("user_id = ?", userID)
 	}
@@ -482,7 +485,7 @@ func OrderStatusGroupTotal(userID uint) map[string]int64 {
 	}
 	// 售后数量
 	var asCount int64
-	db2 := global.DB.Model(&model.OrderAftersale{})
+	db2 := app.Must().DB.Model(&model.OrderAftersale{})
 	if userID > 0 {
 		db2 = db2.Where("user_id = ?", userID)
 	}
@@ -529,14 +532,14 @@ func OrderOperateButtons(order *model.Order) *OrderOperate {
 // AdminOrderPayUnderLine 管理员确认线下支付收款
 func AdminOrderPayUnderLine(orderID, adminID uint) error {
 	var order model.Order
-	if err := global.DB.First(&order, orderID).Error; err != nil {
+	if err := app.Must().DB.First(&order, orderID).Error; err != nil {
 		return fmt.Errorf("订单不存在")
 	}
 	if order.Status != model.OrderStatusPending {
 		return fmt.Errorf("订单状态不允许确认收款")
 	}
 	now := time.Now()
-	global.DB.Model(&order).Updates(map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now})
+	app.Must().DB.Model(&order).Updates(map[string]interface{}{"status": model.OrderStatusPaid, "paid_at": &now})
 	AddOrderStatusHistory(orderID, model.OrderStatusPending, model.OrderStatusPaid,
 		fmt.Sprintf("管理员(ID:%d)确认线下收款", adminID), "管理员")
 	NotifyOrderStatus(order.UserID, orderID, order.OrderNo, "paid")

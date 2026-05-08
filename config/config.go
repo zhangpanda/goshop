@@ -25,6 +25,7 @@ type AlipayConfig struct {
 	PrivateKey string `yaml:"private_key"`
 	PublicKey  string `yaml:"public_key"`
 	NotifyURL  string `yaml:"notify_url"`
+	GatewayURL string `yaml:"gateway_url"` // 可选。默认生产 https://openapi.alipay.com/gateway.do；沙箱示例 https://openapi.alipaydev.com/gateway.do
 }
 
 type ServerConfig struct {

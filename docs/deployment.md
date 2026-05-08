@@ -20,6 +20,10 @@
 
 未配置 `server.cors_origins` 时，CORS 仅放行 `http://localhost:*` 与 `http://127.0.0.1:*`（开发）。生产环境**推荐**反向代理把前端与 API 收敛到**同一站点**，浏览器不触发 CORS。若必须前后端分离域名，再在 `config.yaml` 中配置 `server.cors_origins` 为**完整 Origin** 白名单（如 `https://shop.example.com`）。
 
+## Docker 与 Go 工具链
+
+仓库根目录 **`Dockerfile`** 构建阶段使用 **`golang:1.25.10-alpine`**，与 **`go.mod`**（`go` / **`toolchain`**）、**CI**（`actions/setup-go` → **`1.25.10`**）、**`mise.toml`**、**`.tool-versions`** 对齐。`docker compose` 中的 **`goshop`** 服务由此构建；仅含后端二进制，管理端与 PC 前台仍需按根目录 `README.md` 另行启动。升级补丁见 **`docs/development.md`** 同步清单。
+
 ## Nginx 配置示例
 
 ```nginx
@@ -87,7 +91,7 @@ server:
 | 同域反代（推荐） | ✅ | 浏览器不触发 CORS，`cors_origins` 可不配 |
 | 前后端分离域名 | ✅（需配置） | 在 `server.cors_origins` 中列出允许的完整 Origin（与浏览器请求 `Origin` 头**完全一致**，含协议与端口） |
 
-实现见 `internal/middleware/cors.go`（读取 `global.Cfg.Server.CorsOrigins`）。
+实现见 `internal/middleware/cors.go`（读取 `app.Must().Cfg.Server.CorsOrigins`）。
 
 ### 限流
 
@@ -137,11 +141,11 @@ server:
 ## 可观测性与限流
 
 - **`server.metrics_path`**（或环境变量 **`GOSHOP_METRICS_PATH`**）：非空时注册 Prometheus 指标（`goshop_http_*`）并在该路径暴露 **`promhttp`**；**务必仅内网或带 ACL 访问**。
-- **`server.rate_limit_backend`**（或 **`GOSHOP_RATE_LIMIT_BACKEND`**）：`auto`（默认）在 **`global.RDB`（Redis）可用** 时使用 **Redis 滑动窗口限流**；`memory` 强制进程内；`redis` 强制 Redis（不可用时回退内存并打 warn）。登录/验证码等已统一走该中间件。
+- **`server.rate_limit_backend`**（或 **`GOSHOP_RATE_LIMIT_BACKEND`**）：`auto`（默认）在 **`app.Must().RDB`（Redis 客户端）可用** 时使用 **Redis 滑动窗口限流**；`memory` 强制进程内；`redis` 强制 Redis（不可用时回退内存并打 warn）。登录/验证码等已统一走该中间件。
 
 ## 定时任务（多实例）
 
-后台定时任务由 `service.StartCronJobs` 启动（含 **微信查单补单** `wechat_reconcile`，约每 5 分钟，需配置微信支付）。**多实例且 `global.Cache` 为 Redis** 时，每轮任务通过 Redis **`SETNX`** 抢执行权。**纯内存缓存**时见上文说明。
+后台定时任务由 `service.StartCronJobs(ctx, deps)` 启动（含 **微信+支付宝查单补单** `pay_reconcile`，约每 5 分钟：微信需 `WxPay`，支付宝需 `alipay.app_id`、私钥及 **公钥**，可选 **`alipay.gateway_url`** 切换沙箱网关，默认生产 `openapi.alipay.com`；查单/退款/OAuth 等 OpenAPI 同步响应均 RSA2 验签）。**多实例且 `deps.Cache` 底层为 Redis** 时，每轮任务通过 Redis **`SETNX`** 抢执行权。**纯内存缓存**时见上文说明。
 
 ## 环境变量
 
@@ -170,3 +174,4 @@ server:
 - [ ] 多实例已配置 **Redis**（缓存 + 限流 + Cron 抢锁）；`/ready` 会 Ping Redis
 - [ ] 若启用 `server.metrics_path`：仅内网或对公网加 ACL
 - [ ] 微信/支付宝密钥通过文件或环境变量注入，不入 git
+- [ ] 优雅关停：`SIGINT/SIGTERM` 后 HTTP `Shutdown` 完成会调用 **`app.Deps.Close()`** 关闭 MySQL 连接池与 Redis（若启用）

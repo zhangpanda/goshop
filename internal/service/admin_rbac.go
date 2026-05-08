@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/auth"
 	"golang.org/x/crypto/bcrypt"
@@ -46,7 +46,7 @@ type RoleReq struct {
 
 func AdminLogin(req *AdminLoginReq) (*AdminLoginResp, error) {
 	var admin model.Admin
-	if err := global.DB.Preload("Role").Where("username = ?", req.Username).First(&admin).Error; err != nil {
+	if err := app.Must().DB.Preload("Role").Where("username = ?", req.Username).First(&admin).Error; err != nil {
 		return nil, errors.New("管理员不存在")
 	}
 	if admin.Status == 0 {
@@ -55,7 +55,7 @@ func AdminLogin(req *AdminLoginReq) (*AdminLoginResp, error) {
 	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(req.Password)); err != nil {
 		return nil, errors.New("密码错误")
 	}
-	token, err := auth.GenerateToken(admin.ID, true, global.Cfg.JWT.Secret, global.Cfg.JWT.Expire)
+	token, err := auth.GenerateToken(admin.ID, true, app.Must().Cfg.JWT.Secret, app.Must().Cfg.JWT.Expire)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func AdminLogin(req *AdminLoginReq) (*AdminLoginResp, error) {
 
 func CreateAdmin(req *CreateAdminReq) (*model.Admin, error) {
 	var count int64
-	global.DB.Model(&model.Admin{}).Where("username = ?", req.Username).Count(&count)
+	app.Must().DB.Model(&model.Admin{}).Where("username = ?", req.Username).Count(&count)
 	if count > 0 {
 		return nil, errors.New("用户名已存在")
 	}
@@ -79,7 +79,7 @@ func CreateAdmin(req *CreateAdminReq) (*model.Admin, error) {
 		RoleID:   req.RoleID,
 		Status:   1,
 	}
-	if err := global.DB.Create(&admin).Error; err != nil {
+	if err := app.Must().DB.Create(&admin).Error; err != nil {
 		return nil, err
 	}
 	return &admin, nil
@@ -88,14 +88,14 @@ func CreateAdmin(req *CreateAdminReq) (*model.Admin, error) {
 func GetAdminList(page, pageSize int) (int64, []model.Admin, error) {
 	var total int64
 	var list []model.Admin
-	db := global.DB.Model(&model.Admin{})
+	db := app.Must().DB.Model(&model.Admin{})
 	db.Count(&total)
 	err := db.Preload("Role").Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return total, list, err
 }
 
 func UpdateAdminStatus(id uint, status int8) error {
-	return global.DB.Model(&model.Admin{}).Where("id = ?", id).Update("status", status).Error
+	return app.Must().DB.Model(&model.Admin{}).Where("id = ?", id).Update("status", status).Error
 }
 
 // ========== 角色 ==========
@@ -108,7 +108,7 @@ func CreateRole(req *RoleReq) (*model.Role, error) {
 		Powers: string(powersJSON),
 		Status: 1,
 	}
-	if err := global.DB.Create(&role).Error; err != nil {
+	if err := app.Must().DB.Create(&role).Error; err != nil {
 		return nil, err
 	}
 	return &role, nil
@@ -116,29 +116,29 @@ func CreateRole(req *RoleReq) (*model.Role, error) {
 
 func GetRoleList() ([]model.Role, error) {
 	var list []model.Role
-	err := global.DB.Order("id ASC").Find(&list).Error
+	err := app.Must().DB.Order("id ASC").Find(&list).Error
 	return list, err
 }
 
 func UpdateRole(id uint, req *RoleReq) error {
 	powersJSON, _ := json.Marshal(req.Powers)
-	return global.DB.Model(&model.Role{}).Where("id = ?", id).Updates(map[string]interface{}{
+	return app.Must().DB.Model(&model.Role{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"name": req.Name, "desc": req.Desc, "powers": string(powersJSON), "status": req.Status,
 	}).Error
 }
 
 func DeleteRole(id uint) error {
 	var count int64
-	global.DB.Model(&model.Admin{}).Where("role_id = ?", id).Count(&count)
+	app.Must().DB.Model(&model.Admin{}).Where("role_id = ?", id).Count(&count)
 	if count > 0 {
 		return errors.New("该角色下还有管理员，无法删除")
 	}
-	return global.DB.Delete(&model.Role{}, id).Error
+	return app.Must().DB.Delete(&model.Role{}, id).Error
 }
 
 func CheckPower(roleID uint, power string) bool {
 	var role model.Role
-	if err := global.DB.First(&role, roleID).Error; err != nil {
+	if err := app.Must().DB.First(&role, roleID).Error; err != nil {
 		return false
 	}
 	if role.Status == 0 {
@@ -159,7 +159,7 @@ func CheckPower(roleID uint, power string) bool {
 // IsSuperAdmin 判断角色是否为超级管理员（Powers包含"*"）
 func IsSuperAdmin(roleID uint) bool {
 	var role model.Role
-	if err := global.DB.First(&role, roleID).Error; err != nil {
+	if err := app.Must().DB.First(&role, roleID).Error; err != nil {
 		return false
 	}
 	var powers []string

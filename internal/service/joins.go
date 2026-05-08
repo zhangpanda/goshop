@@ -1,25 +1,25 @@
 package service
 
 import (
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
 
 func CreateBrandCategoryRecord(name string, sort int) *model.BrandCategory {
 	bc := model.BrandCategory{Name: name, Sort: sort}
-	global.DB.Create(&bc)
+	app.Must().DB.Create(&bc)
 	return &bc
 }
 
 func GetBrandCategoryListRecords() []model.BrandCategory {
 	var list []model.BrandCategory
-	global.DB.Order("sort DESC").Find(&list)
+	app.Must().DB.Order("sort DESC").Find(&list)
 	return list
 }
 
 func SaveGoodsCategoryJoinRecords(goodsID uint, categoryIDs []uint) {
-	_ = RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	_ = RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Where("goods_id = ?", goodsID).Delete(&model.GoodsCategoryJoin{}).Error; err != nil {
 			return err
 		}
@@ -34,12 +34,12 @@ func SaveGoodsCategoryJoinRecords(goodsID uint, categoryIDs []uint) {
 
 // GoodsSalesCountInc 商品销量增加
 func GoodsSalesCountInc(goodsID uint, count int) {
-	global.DB.Model(&model.Goods{}).Where("id = ?", goodsID).
+	app.Must().DB.Model(&model.Goods{}).Where("id = ?", goodsID).
 		Update("sales_count", gorm.Expr("sales_count + ?", count))
 }
 
 // GoodsAccessCountInc 商品访问量增加
 func GoodsAccessCountInc(goodsID uint) {
-	global.DB.Model(&model.Goods{}).Where("id = ?", goodsID).
+	app.Must().DB.Model(&model.Goods{}).Where("id = ?", goodsID).
 		Update("access_count", gorm.Expr("access_count + 1"))
 }

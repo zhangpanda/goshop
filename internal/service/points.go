@@ -4,14 +4,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
 
 // ChangePoints 变动积分（通用方法）
 func ChangePoints(userID uint, points int, typ string, refID uint, remark string) error {
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		result := tx.Model(&model.User{}).Where("id = ? AND points + ? >= 0", userID, points).
 			Update("points", gorm.Expr("points + ?", points))
 		if result.Error != nil {
@@ -64,9 +64,9 @@ func ExchangePoints(userID uint, points int) (int64, error) {
 
 func GetPointsLog(userID uint, page, pageSize int) ([]model.PointsLog, int64, error) {
 	var total int64
-	global.DB.Model(&model.PointsLog{}).Where("user_id = ?", userID).Count(&total)
+	app.Must().DB.Model(&model.PointsLog{}).Where("user_id = ?", userID).Count(&total)
 	var list []model.PointsLog
-	err := global.DB.Where("user_id = ?", userID).
+	err := app.Must().DB.Where("user_id = ?", userID).
 		Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }

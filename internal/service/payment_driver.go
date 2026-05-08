@@ -12,13 +12,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	net_http "net/http"
 	"net/url"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/wechat"
 	"gorm.io/gorm"
@@ -59,10 +58,10 @@ type RefundDriverReq struct {
 type WechatJSAPIDriver struct{}
 
 func (d *WechatJSAPIDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverResp, error) {
-	if global.WxPay == nil {
+	if app.Must().WxPay == nil {
 		return nil, errors.New("微信支付未配置")
 	}
-	resp, err := global.WxPay.Prepay(ctx, &wechat.PrepayRequest{OrderNo: req.OrderNo, Description: req.Description, Amount: req.Amount, OpenID: req.OpenID})
+	resp, err := app.Must().WxPay.Prepay(ctx, &wechat.PrepayRequest{OrderNo: req.OrderNo, Description: req.Description, Amount: req.Amount, OpenID: req.OpenID})
 	if err != nil {
 		return nil, err
 	}
@@ -78,10 +77,10 @@ func (d *WechatJSAPIDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDri
 }
 
 func (d *WechatJSAPIDriver) Refund(ctx context.Context, req *RefundDriverReq) error {
-	if global.WxPay == nil {
+	if app.Must().WxPay == nil {
 		return errors.New("微信支付未配置")
 	}
-	_, err := global.WxPay.Refund(ctx, &wechat.RefundRequest{OrderNo: req.OrderNo, RefundNo: req.RefundNo, Total: req.Total, Refund: req.Refund, Reason: req.Reason})
+	_, err := app.Must().WxPay.Refund(ctx, &wechat.RefundRequest{OrderNo: req.OrderNo, RefundNo: req.RefundNo, Total: req.Total, Refund: req.Refund, Reason: req.Reason})
 	return err
 }
 
@@ -90,10 +89,10 @@ func (d *WechatJSAPIDriver) Refund(ctx context.Context, req *RefundDriverReq) er
 type WechatH5Driver struct{}
 
 func (d *WechatH5Driver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverResp, error) {
-	if global.WxPay == nil {
+	if app.Must().WxPay == nil {
 		return nil, errors.New("微信支付未配置")
 	}
-	h5URL, err := global.WxPay.PrepayH5(ctx, &wechat.PrepayRequest{
+	h5URL, err := app.Must().WxPay.PrepayH5(ctx, &wechat.PrepayRequest{
 		OrderNo: req.OrderNo, Description: req.Description, Amount: req.Amount,
 	}, req.ClientIP)
 	if err != nil {
@@ -113,8 +112,8 @@ type AlipayDriver struct {
 }
 
 func (d *AlipayDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverResp, error) {
-	cfg := global.Cfg.Alipay
-	if cfg.AppID == "" {
+	cfg := app.Must().Cfg.Alipay
+	if cfg.AppID == "" || cfg.PrivateKey == "" {
 		return nil, errors.New("支付宝未配置")
 	}
 	bizContent, _ := json.Marshal(map[string]interface{}{
@@ -137,7 +136,10 @@ func (d *AlipayDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverRe
 		params["return_url"] = req.ReturnURL
 	}
 	params["sign"] = alipaySign(params, cfg.PrivateKey)
-	payURL := "https://openapi.alipay.com/gateway.do?" + alipayEncode(params)
+	if params["sign"] == "" {
+		return nil, errors.New("支付宝签名失败")
+	}
+	payURL := AlipayGatewayDoURL() + "?" + alipayEncode(params)
 	return &PayDriverResp{PayURL: payURL}, nil
 }
 
@@ -164,17 +166,20 @@ func (d *AlipayDriver) productCode() string {
 }
 
 func (d *AlipayDriver) Refund(ctx context.Context, req *RefundDriverReq) error {
-	// 支付宝退款需要调用 alipay.trade.refund 接口
-	cfg := global.Cfg.Alipay
-	if cfg.AppID == "" {
+	// 支付宝退款：alipay.trade.refund，同步响应 RSA2 验签
+	cfg := app.Must().Cfg.Alipay
+	if cfg.AppID == "" || cfg.PrivateKey == "" || cfg.PublicKey == "" {
 		return errors.New("支付宝未配置")
 	}
-	refundBiz, _ := json.Marshal(map[string]interface{}{
+	refundBiz, err := json.Marshal(map[string]interface{}{
 		"out_trade_no":   req.OrderNo,
 		"refund_amount":  fmt.Sprintf("%.2f", float64(req.Refund)/100),
 		"out_request_no": req.RefundNo,
 		"refund_reason":  req.Reason,
 	})
+	if err != nil {
+		return err
+	}
 	params := map[string]string{
 		"app_id":      cfg.AppID,
 		"method":      "alipay.trade.refund",
@@ -184,14 +189,40 @@ func (d *AlipayDriver) Refund(ctx context.Context, req *RefundDriverReq) error {
 		"version":     "1.0",
 		"biz_content": string(refundBiz),
 	}
-	params["sign"] = alipaySign(params, cfg.PrivateKey)
-	// 发起退款请求
-	data := url.Values{}
-	for k, v := range params {
-		data.Set(k, v)
+	body, err := alipayPostGateway(ctx, params)
+	if err != nil {
+		return err
 	}
-	_, err := (&net_http.Client{Timeout: 30 * time.Second}).PostForm("https://openapi.alipay.com/gateway.do", data)
-	return err
+	key, raw, err := alipayVerifyGatewayJSON(body, cfg.PublicKey)
+	if err != nil {
+		return err
+	}
+	if key == "error_response" {
+		var er struct {
+			Code    string `json:"code"`
+			Msg     string `json:"msg"`
+			SubCode string `json:"sub_code"`
+			SubMsg  string `json:"sub_msg"`
+		}
+		_ = json.Unmarshal(raw, &er)
+		return fmt.Errorf("alipay refund: code=%s msg=%s %s %s", er.Code, er.Msg, er.SubCode, er.SubMsg)
+	}
+	if key != "alipay_trade_refund_response" {
+		return fmt.Errorf("alipay refund 非预期响应: %s", key)
+	}
+	var r struct {
+		Code    string `json:"code"`
+		Msg     string `json:"msg"`
+		SubCode string `json:"sub_code"`
+		SubMsg  string `json:"sub_msg"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return fmt.Errorf("alipay refund body: %w", err)
+	}
+	if r.Code != "10000" {
+		return fmt.Errorf("alipay refund: code=%s msg=%s %s %s", r.Code, r.Msg, r.SubCode, r.SubMsg)
+	}
+	return nil
 }
 
 // ========== 线下支付 ==========
@@ -228,10 +259,10 @@ var paymentDrivers = map[string]PaymentDriver{
 type WechatAppDriver struct{}
 
 func (d *WechatAppDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverResp, error) {
-	if global.WxPay == nil {
+	if app.Must().WxPay == nil {
 		return nil, errors.New("微信支付未配置")
 	}
-	resp, err := global.WxPay.PrepayApp(ctx, &wechat.PrepayRequest{
+	resp, err := app.Must().WxPay.PrepayApp(ctx, &wechat.PrepayRequest{
 		OrderNo: req.OrderNo, Description: req.Description, Amount: req.Amount,
 	})
 	if err != nil {
@@ -251,10 +282,10 @@ func (d *WechatAppDriver) Refund(ctx context.Context, req *RefundDriverReq) erro
 type WechatNativeDriver struct{}
 
 func (d *WechatNativeDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverResp, error) {
-	if global.WxPay == nil {
+	if app.Must().WxPay == nil {
 		return nil, errors.New("微信支付未配置")
 	}
-	codeURL, err := global.WxPay.PrepayNative(ctx, &wechat.PrepayRequest{
+	codeURL, err := app.Must().WxPay.PrepayNative(ctx, &wechat.PrepayRequest{
 		OrderNo: req.OrderNo, Description: req.Description, Amount: req.Amount,
 	})
 	if err != nil {
@@ -271,7 +302,7 @@ func (d *WechatNativeDriver) Refund(ctx context.Context, req *RefundDriverReq) e
 type AlipayMiniDriver struct{}
 
 func (d *AlipayMiniDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverResp, error) {
-	cfg := global.Cfg.Alipay
+	cfg := app.Must().Cfg.Alipay
 	if cfg.AppID == "" {
 		return nil, errors.New("支付宝未配置")
 	}
@@ -288,7 +319,7 @@ func (d *AlipayMiniDriver) Refund(ctx context.Context, req *RefundDriverReq) err
 type AlipayFaceDriver struct{}
 
 func (d *AlipayFaceDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverResp, error) {
-	cfg := global.Cfg.Alipay
+	cfg := app.Must().Cfg.Alipay
 	if cfg.AppID == "" {
 		return nil, errors.New("支付宝未配置")
 	}
@@ -323,7 +354,7 @@ func GetPaymentDriver(name string) (PaymentDriver, error) {
 	if !ok {
 		return nil, fmt.Errorf("不支持的支付方式: %s", name)
 	}
-	if global.Cfg != nil && global.Cfg.Payment.Sandbox {
+	if app.Must().Cfg != nil && app.Must().Cfg.Payment.Sandbox {
 		return &SandboxDriver{Name: name, Real: d}, nil
 	}
 	return d, nil
@@ -381,7 +412,7 @@ type UnifiedPayReq struct {
 
 func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 	var order model.Order
-	if err := global.DB.Where("id = ? AND user_id = ?", req.OrderID, userID).First(&order).Error; err != nil {
+	if err := app.Must().DB.Where("id = ? AND user_id = ?", req.OrderID, userID).First(&order).Error; err != nil {
 		return nil, errors.New("订单不存在")
 	}
 	if order.Status != model.OrderStatusPending {
@@ -400,7 +431,7 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 		if req.PaymentRecordID > 0 {
 			upd["payment_id"] = req.PaymentRecordID
 		}
-		if err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		if err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 			r := tx.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", order.ID, userID, model.OrderStatusPending).Updates(upd)
 			if r.Error != nil {
 				return r.Error
@@ -418,7 +449,7 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 
 	// 钱包支付：原子扣余额
 	if req.PaymentKey == "wallet" {
-		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 			result := tx.Model(&model.User{}).Where("id = ? AND wallet_balance >= ?", userID, order.PayAmount).
 				Update("wallet_balance", gorm.Expr("wallet_balance - ?", order.PayAmount))
 			if result.Error != nil {
@@ -458,7 +489,7 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 	// 微信/支付宝等：在调起第三方前回写支付方式；须限制 user+待支付并检查错误（线下/钱包已在事务内写入）
 	didSetPayment := false
 	if req.PaymentRecordID > 0 {
-		r := global.DB.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", order.ID, userID, model.OrderStatusPending).
+		r := app.Must().DB.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", order.ID, userID, model.OrderStatusPending).
 			Update("payment_id", req.PaymentRecordID)
 		if r.Error != nil {
 			return nil, r.Error
@@ -478,7 +509,7 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 		ClientIP:    req.ClientIP,
 	})
 	if err != nil && didSetPayment {
-		if e := global.DB.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", order.ID, userID, model.OrderStatusPending).
+		if e := app.Must().DB.Model(&model.Order{}).Where("id = ? AND user_id = ? AND status = ?", order.ID, userID, model.OrderStatusPending).
 			Update("payment_id", 0).Error; e != nil {
 			slog.Warn("pay", "action", "revert_single_payment_id_failed", "order_id", order.ID, "err", e.Error())
 		}
@@ -597,4 +628,34 @@ func AlipayVerifySign(params map[string]string, publicKeyPEM string) bool {
 	h := sha256.New()
 	h.Write([]byte(buf.String()))
 	return rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, h.Sum(nil), sigBytes) == nil
+}
+
+// AlipayVerifyGatewaySyncSign 校验支付宝 OpenAPI 同步 JSON 中业务报文体（如 alipay_trade_query_response）的 RSA2 签名。
+// content 必须是网关响应里该字段的原文（解析为 json.RawMessage 后转 string），不得用 json.Marshal 重新序列化，避免字段顺序变化导致验签失败。
+func AlipayVerifyGatewaySyncSign(content, signBase64, publicKeyPEM string) bool {
+	if publicKeyPEM == "" || signBase64 == "" || content == "" {
+		return false
+	}
+	sigBytes, err := base64.StdEncoding.DecodeString(signBase64)
+	if err != nil {
+		return false
+	}
+	block, _ := pem.Decode([]byte(publicKeyPEM))
+	if block == nil {
+		publicKeyPEM = "-----BEGIN PUBLIC KEY-----\n" + publicKeyPEM + "\n-----END PUBLIC KEY-----"
+		block, _ = pem.Decode([]byte(publicKeyPEM))
+	}
+	if block == nil {
+		return false
+	}
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return false
+	}
+	rsaPub, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		return false
+	}
+	sum := sha256.Sum256([]byte(content))
+	return rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, sum[:], sigBytes) == nil
 }

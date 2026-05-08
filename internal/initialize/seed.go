@@ -7,15 +7,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
+	"github.com/zhangpanda/goshop/internal/compat/shopxo"
 	"github.com/zhangpanda/goshop/internal/model"
-	"github.com/zhangpanda/goshop/internal/service"
 )
 
 // InitDefaultSeedData 初始化展示数据（分类、品牌、商品+SKU、文章、优惠券）
 func InitDefaultSeedData() {
 	var count int64
-	global.DB.Model(&model.Goods{}).Count(&count)
+	app.Must().DB.Model(&model.Goods{}).Count(&count)
 	if count > 0 {
 		return
 	}
@@ -49,7 +49,7 @@ func InitDefaultSeedData() {
 		{ID: 62, ParentID: 6, Name: "冰箱", Sort: 40, Status: 1},
 		{ID: 63, ParentID: 6, Name: "洗衣机", Sort: 30, Status: 1},
 	}
-	global.DB.Create(&categories)
+	app.Must().DB.Create(&categories)
 
 	// ========== 品牌 ==========
 	brands := []model.Brand{
@@ -62,7 +62,7 @@ func InitDefaultSeedData() {
 		{ID: 7, Name: "COACH", Desc: "美国纽约轻奢时尚品牌", Sort: 40, Status: 1},
 		{ID: 8, Name: "海尔", Desc: "全球领先的美好生活和数字化转型解决方案服务商", Sort: 30, Status: 1},
 	}
-	global.DB.Create(&brands)
+	app.Must().DB.Create(&brands)
 
 	// ========== 商品 + SKU ==========
 	type goodsSeed struct {
@@ -209,12 +209,12 @@ func InitDefaultSeedData() {
 		g := s.goods
 		g.CreatedAt = now
 		g.UpdatedAt = now
-		global.DB.Create(&g)
+		app.Must().DB.Create(&g)
 		for _, sku := range s.skus {
 			sku.GoodsID = g.ID
 			sku.CreatedAt = now
 			sku.UpdatedAt = now
-			global.DB.Create(&sku)
+			app.Must().DB.Create(&sku)
 		}
 	}
 	slog.Info("seed", "action", "goods", "count", len(seeds))
@@ -226,7 +226,7 @@ func InitDefaultSeedData() {
 		{ID: 3, Name: "帮助中心", Sort: 30, Status: 1},
 		{ID: 4, Name: "关于我们", Sort: 20, Status: 1},
 	}
-	global.DB.Create(&articleCats)
+	app.Must().DB.Create(&articleCats)
 
 	articles := []model.Article{
 		{CategoryID: 1, Title: "iPhone 16 Pro Max 全新发布", Cover: "/uploads/seed/article-1.jpg", Content: "<p>Apple 今日正式发布 iPhone 16 Pro Max，搭载全新 A18 Pro 芯片，配备 4800 万像素四合一超级长焦镜头，支持 5 倍光学变焦。全新钛金属设计，提供沙漠色、黑色钛金属等多种配色。</p><p>iPhone 16 Pro Max 拥有 6.9 英寸超视网膜 XDR 显示屏，峰值亮度高达 2000 尼特，支持 ProMotion 自适应刷新率技术。全天候显示功能让你随时掌握重要信息。</p>", Author: "GoShop", Sort: 50, Status: 1},
@@ -240,7 +240,7 @@ func InitDefaultSeedData() {
 		{CategoryID: 4, Title: "关于 GoShop", Cover: "/uploads/seed/article-9.jpg", Content: "<p>GoShop 是一个追求品质与体验的电商平台。我们精选全球优质商品，致力于为用户提供简洁、高效、愉悦的购物体验。</p><p>我们相信，好的产品值得被更多人发现。无论是前沿科技产品，还是经典时尚单品，GoShop 都以严格的品质标准为你把关。</p>", Author: "GoShop", Sort: 20, Status: 1},
 		{CategoryID: 4, Title: "联系我们", Cover: "/uploads/seed/article-10.jpg", Content: "<p>如有任何问题，欢迎通过以下方式联系我们：</p><p>客服邮箱：hi@zhangpanda.com</p><p>工作时间：周一至周五 9:00-18:00</p><p>您也可以访问「支持」页面查看常见问题解答。</p>", Author: "GoShop", Sort: 18, Status: 1},
 	}
-	global.DB.Create(&articles)
+	app.Must().DB.Create(&articles)
 	slog.Info("seed", "action", "articles", "count", len(articles))
 
 	// ========== 优惠券 ==========
@@ -250,7 +250,7 @@ func InitDefaultSeedData() {
 		{Name: "数码专区 9 折券", Type: 2, MinAmount: 100000, Value: 90, Total: 3000, PerLimit: 1, StartTime: now, EndTime: now.AddDate(0, 2, 0), Status: 1},
 		{Name: "无门槛 ¥10 优惠券", Type: 3, MinAmount: 0, Value: 1000, Total: 20000, PerLimit: 3, StartTime: now, EndTime: now.AddDate(0, 6, 0), Status: 1},
 	}
-	global.DB.Create(&coupons)
+	app.Must().DB.Create(&coupons)
 	slog.Info("seed", "action", "coupons", "count", len(coupons))
 
 	// ========== 筛选价格区间 ==========
@@ -261,7 +261,7 @@ func InitDefaultSeedData() {
 		{ID: 4, Name: "5000-9999", MinPrice: 500000, MaxPrice: 999900, Sort: 20},
 		{ID: 5, Name: "10000以上", MinPrice: 1000000, MaxPrice: 99999900, Sort: 10},
 	}
-	global.DB.Create(&prices)
+	app.Must().DB.Create(&prices)
 	slog.Info("seed", "action", "screening_prices")
 
 	// ========== 轮播图 ==========
@@ -270,7 +270,7 @@ func InitDefaultSeedData() {
 		{Name: "MacBook Pro", Images: `["/uploads/seed/slide-2.jpg"]`, Sort: 20, Status: 1},
 		{Name: "春季新品上市", Images: `["/uploads/seed/slide-3.jpg"]`, Sort: 10, Status: 1},
 	}
-	global.DB.Create(&slides)
+	app.Must().DB.Create(&slides)
 	slog.Info("seed", "action", "slides", "count", len(slides))
 }
 
@@ -308,16 +308,16 @@ func defaultPaymentSeeds() []model.Payment {
 }
 
 // EnsureDefaultPayments 补全支付方式：新库写入全部默认行；老库按「解析后的驱动 key」只插入缺失项（不覆盖已有行）。
-// 已有行的 key 由 PaymentDriverKeyFromPayment 解析，与后台/ShopXO 系配置兼容。
+// 已有行的 key 由 shopxo.PaymentDriverKeyFromPayment 解析（含 PHP payment 类名），与 ShopXO 系后台/迁移兼容。
 func EnsureDefaultPayments() {
 	var existing []model.Payment
-	if err := global.DB.Find(&existing).Error; err != nil {
+	if err := app.Must().DB.Find(&existing).Error; err != nil {
 		slog.Error("seed", "action", "payments", "error", err)
 		return
 	}
 	have := make(map[string]struct{}, len(existing)+16)
 	for i := range existing {
-		key, _ := service.PaymentDriverKeyFromPayment(&existing[i])
+		key, _ := shopxo.PaymentDriverKeyFromPayment(&existing[i])
 		if key != "" {
 			have[key] = struct{}{}
 		}
@@ -338,7 +338,7 @@ func EnsureDefaultPayments() {
 	if len(toCreate) == 0 {
 		return
 	}
-	if err := global.DB.Create(&toCreate).Error; err != nil {
+	if err := app.Must().DB.Create(&toCreate).Error; err != nil {
 		slog.Error("seed", "action", "payment_create", "error", err)
 		return
 	}

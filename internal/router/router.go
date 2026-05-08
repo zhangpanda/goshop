@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/compat/shopxo"
 	"github.com/zhangpanda/goshop/internal/handler"
 	"github.com/zhangpanda/goshop/internal/middleware"
@@ -20,13 +20,13 @@ func Setup(r *gin.Engine) {
 	})
 	r.GET("/ready", handler.ReadinessCheck)
 
-	if global.Cfg != nil && global.Cfg.Server.MetricsPath != "" {
+	if app.Must().Cfg != nil && app.Must().Cfg.Server.MetricsPath != "" {
 		r.Use(middleware.PrometheusHTTP())
 	}
 	r.Use(middleware.Cors(), middleware.Logger(), gin.Recovery())
 
-	if global.Cfg != nil && global.Cfg.Server.MetricsPath != "" {
-		r.GET(global.Cfg.Server.MetricsPath, gin.WrapH(promhttp.Handler()))
+	if app.Must().Cfg != nil && app.Must().Cfg.Server.MetricsPath != "" {
+		r.GET(app.Must().Cfg.Server.MetricsPath, gin.WrapH(promhttp.Handler()))
 	}
 
 	// 静态文件

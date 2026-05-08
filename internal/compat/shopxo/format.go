@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/internal/service"
 	"github.com/zhangpanda/goshop/pkg/wechat"
@@ -115,11 +115,11 @@ func shopxoAddressDataFromOrder(o *model.Order) map[string]interface{} {
 }
 
 func shopxoPaymentNameByID(id uint) string {
-	if global.DB == nil || id == 0 {
+	if app.Must().DB == nil || id == 0 {
 		return ""
 	}
 	var p model.Payment
-	if err := global.DB.First(&p, id).Error; err != nil {
+	if err := app.Must().DB.First(&p, id).Error; err != nil {
 		return ""
 	}
 	return p.Name
@@ -232,7 +232,7 @@ func ShopXOOrderDetailView(o *model.Order) map[string]interface{} {
 
 // shopxoCurrencySymbol 未初始化 DB 时回退 ¥（单测、脚本）。
 func shopxoCurrencySymbol() string {
-	if global.DB == nil {
+	if app.Must().DB == nil {
 		return "¥"
 	}
 	return service.GetCurrencyConfig().Symbol
@@ -317,7 +317,7 @@ func ShopXOOrderListRow(o *model.Order) map[string]interface{} {
 
 // DefaultPaymentIDForShopXO 列表/详情用默认支付方式（订单无 payment_id 时回退）。
 func DefaultPaymentIDForShopXO() uint {
-	if global.DB == nil {
+	if app.Must().DB == nil {
 		return 0
 	}
 	if id := service.BuyDefaultPayment("common"); id > 0 {
@@ -327,7 +327,7 @@ func DefaultPaymentIDForShopXO() uint {
 		return id
 	}
 	var p model.Payment
-	if err := global.DB.Where("status = 1").Order("sort DESC, id").First(&p).Error; err == nil {
+	if err := app.Must().DB.Where("status = 1").Order("sort DESC, id").First(&p).Error; err == nil {
 		return p.ID
 	}
 	return 0
@@ -335,11 +335,11 @@ func DefaultPaymentIDForShopXO() uint {
 
 // ShopXOUserPaymentRows 用户端可选支付方式（启用中的配置行）。
 func ShopXOUserPaymentRows() ([]map[string]interface{}, error) {
-	if global.DB == nil {
+	if app.Must().DB == nil {
 		return []map[string]interface{}{}, nil
 	}
 	var list []model.Payment
-	if err := global.DB.Where("status = 1").Order("sort DESC, id").Find(&list).Error; err != nil {
+	if err := app.Must().DB.Where("status = 1").Order("sort DESC, id").Find(&list).Error; err != nil {
 		return nil, err
 	}
 	out := make([]map[string]interface{}, 0, len(list))
@@ -362,7 +362,7 @@ func ShopXOUserPaymentRows() ([]map[string]interface{}, error) {
 
 // ShopXOOrderIndexPayload 构造 order/index 的 data（user-order 列表所需最小字段集）。
 func ShopXOOrderIndexPayload(userID uint, req *service.OrderListReq) (map[string]interface{}, error) {
-	if global.DB == nil {
+	if app.Must().DB == nil {
 		return nil, fmt.Errorf("数据库未初始化")
 	}
 	pageSize := req.PageSize
@@ -394,11 +394,6 @@ func ShopXOOrderIndexPayload(userID uint, req *service.OrderListReq) (map[string
 		"payment_list":       payRows,
 		"default_payment_id": DefaultPaymentIDForShopXO(),
 	}, nil
-}
-
-// PaymentDriverKeyFromPayment 从支付方式配置解析 UnifiedPay 的 payment_key。
-func PaymentDriverKeyFromPayment(p *model.Payment) (string, error) {
-	return service.PaymentDriverKeyFromPayment(p)
 }
 
 // paymentShopXOIsWeixinAppMini 是否走「APP 拉起小程序收银台」模式（无 openid 时 order/pay 建 PayLog + weixinapp://）。
@@ -437,14 +432,6 @@ func shopxoCashierMiniPath(p *model.Payment) string {
 		return strings.TrimSpace(s)
 	}
 	return def
-}
-
-func shopxoPHPClassToDriverKey(class string) string {
-	return service.ShopxoPHPClassToDriverKey(class)
-}
-
-func inferPaymentKeyFromPaymentName(name string) string {
-	return service.InferPaymentKeyFromPaymentName(name)
 }
 
 // ShopXOPluginNameFromDriverKey 映射为 uni-app payment 组件期望的 data.payment.payment 字符串。
@@ -517,14 +504,14 @@ func ShopXOPayPayloadFromDriver(driverKey string, p *model.Payment, prep *servic
 // ShopXOCompatUnifiedPay 供 /api.php?s=order/pay：单笔或多笔订单（ids）+ 支付方式主键。
 // outerMsg 非空时外层 HTTP msg 用自定义文案（如线下支付提示）。
 func ShopXOCompatUnifiedPay(userID uint, orderIDs []uint, paymentID uint, openID, returnURL, clientIP string) (map[string]interface{}, *string, error) {
-	if global.DB == nil {
+	if app.Must().DB == nil {
 		return nil, nil, fmt.Errorf("数据库未初始化")
 	}
 	if len(orderIDs) == 0 {
 		return nil, nil, fmt.Errorf("请选择订单")
 	}
 	var pay model.Payment
-	if err := global.DB.First(&pay, paymentID).Error; err != nil {
+	if err := app.Must().DB.First(&pay, paymentID).Error; err != nil {
 		return nil, nil, fmt.Errorf("支付方式不存在")
 	}
 	if pay.Status != 1 {
@@ -532,7 +519,7 @@ func ShopXOCompatUnifiedPay(userID uint, orderIDs []uint, paymentID uint, openID
 	}
 	driverKey, keyErr := PaymentDriverKeyFromPayment(&pay)
 	if keyErr != nil || strings.TrimSpace(driverKey) == "" {
-		driverKey = inferPaymentKeyFromPaymentName(pay.Name)
+		driverKey = service.InferPaymentKeyFromPaymentName(pay.Name)
 	}
 
 	// APP 拉起小程序收银台：先建 PayLog，返回 weixinapp://；小程序内 cashier/paydata 完成 JSAPI 预下单（对照常见 WeixinAppMini 流程）。
@@ -596,12 +583,12 @@ func cashierOpenIDBelongsToUser(userID uint, openID string) bool {
 		return false
 	}
 	var n int64
-	global.DB.Model(&model.UserPlatform{}).Where("user_id = ? AND openid = ?", userID, openID).Count(&n)
+	app.Must().DB.Model(&model.UserPlatform{}).Where("user_id = ? AND openid = ?", userID, openID).Count(&n)
 	if n > 0 {
 		return true
 	}
 	var u model.User
-	if err := global.DB.First(&u, userID).Error; err != nil {
+	if err := app.Must().DB.First(&u, userID).Error; err != nil {
 		return false
 	}
 	return u.OpenID == openID
@@ -617,10 +604,10 @@ func ShopXOCashierPayData(authCode, payNo string) (map[string]interface{}, error
 	if payNo == "" {
 		return nil, errors.New("order_no 不能为空")
 	}
-	if global.Cfg == nil || strings.TrimSpace(global.Cfg.Wechat.AppID) == "" {
+	if app.Must().Cfg == nil || strings.TrimSpace(app.Must().Cfg.Wechat.AppID) == "" {
 		return nil, errors.New("微信小程序未配置")
 	}
-	sess, err := wechat.Code2Session(global.Cfg.Wechat.AppID, global.Cfg.Wechat.AppSecret, authCode)
+	sess, err := wechat.Code2Session(app.Must().Cfg.Wechat.AppID, app.Must().Cfg.Wechat.AppSecret, authCode)
 	if err != nil {
 		return nil, err
 	}
@@ -629,7 +616,7 @@ func ShopXOCashierPayData(authCode, payNo string) (map[string]interface{}, error
 		return nil, errors.New("未获取到 openid")
 	}
 	var pl model.PayLog
-	if err := global.DB.Where("pay_no = ?", payNo).First(&pl).Error; err != nil {
+	if err := app.Must().DB.Where("pay_no = ?", payNo).First(&pl).Error; err != nil {
 		return nil, errors.New("支付单不存在")
 	}
 	if pl.Status != 0 {
@@ -639,12 +626,12 @@ func ShopXOCashierPayData(authCode, payNo string) (map[string]interface{}, error
 		return nil, errors.New("当前微信与订单用户不一致，请使用下单账号对应小程序登录")
 	}
 	var pay model.Payment
-	if err := global.DB.First(&pay, pl.PaymentID).Error; err != nil {
+	if err := app.Must().DB.First(&pay, pl.PaymentID).Error; err != nil {
 		return nil, errors.New("支付方式不存在")
 	}
 	driverKey, _ := PaymentDriverKeyFromPayment(&pay)
 	if strings.TrimSpace(driverKey) == "" {
-		driverKey = inferPaymentKeyFromPaymentName(pay.Name)
+		driverKey = service.InferPaymentKeyFromPaymentName(pay.Name)
 	}
 	driver, err := service.GetPaymentDriver(driverKey)
 	if err != nil {

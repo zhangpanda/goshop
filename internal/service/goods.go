@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -22,7 +22,7 @@ type CategoryReq struct {
 }
 
 func InvalidateCategoryCache() {
-	global.Cache.Del(context.Background(), "category_tree")
+	app.Must().Cache.Del(context.Background(), "category_tree")
 }
 
 func CreateCategory(req *CategoryReq) (*model.Category, error) {
@@ -33,7 +33,7 @@ func CreateCategory(req *CategoryReq) (*model.Category, error) {
 		Sort:     req.Sort,
 		Status:   1,
 	}
-	if err := global.DB.Create(&cat).Error; err != nil {
+	if err := app.Must().DB.Create(&cat).Error; err != nil {
 		return nil, err
 	}
 	InvalidateCategoryCache()
@@ -43,7 +43,7 @@ func CreateCategory(req *CategoryReq) (*model.Category, error) {
 func GetCategoryTree() ([]model.Category, error) {
 	// 尝试从缓存读取
 	ctx := context.Background()
-	if cached, err := global.Cache.Get(ctx, "category_tree"); err == nil && cached != "" {
+	if cached, err := app.Must().Cache.Get(ctx, "category_tree"); err == nil && cached != "" {
 		var cats []model.Category
 		if json.Unmarshal([]byte(cached), &cats) == nil {
 			return cats, nil
@@ -51,18 +51,18 @@ func GetCategoryTree() ([]model.Category, error) {
 	}
 
 	var cats []model.Category
-	err := global.DB.Where("parent_id = 0 AND status = 1").
+	err := app.Must().DB.Where("parent_id = 0 AND status = 1").
 		Order("sort DESC").Find(&cats).Error
 	if err != nil {
 		return nil, err
 	}
 	for i := range cats {
-		global.DB.Where("parent_id = ? AND status = 1", cats[i].ID).Order("sort DESC").Find(&cats[i].Children)
+		app.Must().DB.Where("parent_id = ? AND status = 1", cats[i].ID).Order("sort DESC").Find(&cats[i].Children)
 	}
 
 	// 写入缓存 60 秒
 	if data, err := json.Marshal(cats); err == nil {
-		global.Cache.Set(ctx, "category_tree", string(data), 60*time.Second)
+		app.Must().Cache.Set(ctx, "category_tree", string(data), 60*time.Second)
 	}
 	return cats, nil
 }
@@ -102,7 +102,7 @@ func CreateGoods(req *CreateGoodsReq) (*model.Goods, error) {
 		Detail:     req.Detail,
 	}
 
-	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Create(&goods).Error; err != nil {
 			return err
 		}
@@ -127,7 +127,7 @@ func CreateGoods(req *CreateGoodsReq) (*model.Goods, error) {
 		return nil, err
 	}
 	// 重新查询带关联
-	global.DB.Preload("SKUs").Preload("Category").First(&goods, goods.ID)
+	app.Must().DB.Preload("SKUs").Preload("Category").First(&goods, goods.ID)
 	return &goods, nil
 }
 
@@ -154,7 +154,7 @@ type GoodsListResp struct {
 }
 
 func GetGoodsList(req *GoodsListReq) (*GoodsListResp, error) {
-	db := global.DB.Model(&model.Goods{})
+	db := app.Must().DB.Model(&model.Goods{})
 
 	if req.IDs != "" {
 		var ids []uint
@@ -173,7 +173,7 @@ func GetGoodsList(req *GoodsListReq) (*GoodsListResp, error) {
 	if req.Keyword != "" {
 		// 先尝试条码/编码精确匹配
 		var barcodeGoodsIDs []uint
-		global.DB.Model(&model.GoodsSpecBase{}).Where("barcode = ? OR coding = ?", req.Keyword, req.Keyword).
+		app.Must().DB.Model(&model.GoodsSpecBase{}).Where("barcode = ? OR coding = ?", req.Keyword, req.Keyword).
 			Pluck("goods_id", &barcodeGoodsIDs)
 		if len(barcodeGoodsIDs) > 0 {
 			db = db.Where("id IN ?", barcodeGoodsIDs)
@@ -182,7 +182,7 @@ func GetGoodsList(req *GoodsListReq) (*GoodsListResp, error) {
 			db = db.Where("title LIKE ? OR subtitle LIKE ?", "%"+req.Keyword+"%", "%"+req.Keyword+"%")
 		}
 		// 记录搜索热词
-		go func() { global.DB.Create(&model.SearchHistory{Keyword: req.Keyword}) }()
+		go func() { app.Must().DB.Create(&model.SearchHistory{Keyword: req.Keyword}) }()
 	}
 	if req.Status != nil {
 		db = db.Where("status = ?", *req.Status)
@@ -191,7 +191,7 @@ func GetGoodsList(req *GoodsListReq) (*GoodsListResp, error) {
 		db = db.Where("brand_id = ?", req.BrandID)
 	}
 	if req.MinPrice > 0 || req.MaxPrice > 0 {
-		subQ := global.DB.Model(&model.GoodsSKU{}).Select("goods_id")
+		subQ := app.Must().DB.Model(&model.GoodsSKU{}).Select("goods_id")
 		if req.MinPrice > 0 {
 			subQ = subQ.Where("price >= ?", req.MinPrice)
 		}
@@ -201,17 +201,17 @@ func GetGoodsList(req *GoodsListReq) (*GoodsListResp, error) {
 		db = db.Where("id IN (?)", subQ)
 	}
 	if req.SpecValues != "" {
-		db = db.Where("id IN (?)", global.DB.Model(&model.GoodsSpecBase{}).Select("goods_id").Where("spec_values LIKE ?", "%"+req.SpecValues+"%"))
+		db = db.Where("id IN (?)", app.Must().DB.Model(&model.GoodsSpecBase{}).Select("goods_id").Where("spec_values LIKE ?", "%"+req.SpecValues+"%"))
 	}
 	if req.ParamName != "" {
-		pq := global.DB.Model(&model.GoodsParams{}).Select("goods_id").Where("name = ?", req.ParamName)
+		pq := app.Must().DB.Model(&model.GoodsParams{}).Select("goods_id").Where("name = ?", req.ParamName)
 		if req.ParamValue != "" {
 			pq = pq.Where("value = ?", req.ParamValue)
 		}
 		db = db.Where("id IN (?)", pq)
 	}
 	if req.Region != "" {
-		db = db.Where("id IN (?)", global.DB.Model(&model.GoodsParams{}).Select("goods_id").Where("name = '产地' AND value LIKE ?", "%"+req.Region+"%"))
+		db = db.Where("id IN (?)", app.Must().DB.Model(&model.GoodsParams{}).Select("goods_id").Where("name = '产地' AND value LIKE ?", "%"+req.Region+"%"))
 	}
 
 	var total int64
@@ -240,7 +240,7 @@ func GetGoodsList(req *GoodsListReq) (*GoodsListResp, error) {
 
 func GetGoodsDetail(id uint) (*model.Goods, error) {
 	var goods model.Goods
-	err := global.DB.Preload("SKUs").Preload("Category").First(&goods, id).Error
+	err := app.Must().DB.Preload("SKUs").Preload("Category").First(&goods, id).Error
 	if err != nil {
 		return nil, err
 	}

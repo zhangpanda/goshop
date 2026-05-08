@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/internal/service"
 	"github.com/zhangpanda/goshop/pkg/response"
@@ -50,7 +50,7 @@ func DiyUpdateHandler(c *gin.Context) {
 }
 func DiyDeleteHandler(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	global.DB.Delete(&model.Diy{}, id)
+	app.Must().DB.Delete(&model.Diy{}, id)
 	response.OK(c, nil)
 }
 
@@ -96,12 +96,12 @@ func FormInputCreateHandler(c *gin.Context) {
 		return
 	}
 	form := model.FormInput{Name: r.Name, Config: r.Config, Status: 1}
-	global.DB.Create(&form)
+	app.Must().DB.Create(&form)
 	response.OK(c, gin.H{"id": form.ID})
 }
 func FormInputDeleteHandler(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	global.DB.Delete(&model.FormInput{}, id)
+	app.Must().DB.Delete(&model.FormInput{}, id)
 	response.OK(c, nil)
 }
 func FormInputDataSubmitHandler(c *gin.Context) {

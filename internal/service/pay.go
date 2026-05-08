@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/wechatpay-apiv3/wechatpay-go/services/payments/jsapi"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/wechat"
 	"gorm.io/gorm"
@@ -20,19 +20,19 @@ type PayOrderReq struct {
 
 // PayOrder 发起支付，返回小程序调起支付的参数
 func PayOrder(userID uint, req *PayOrderReq) (*jsapi.PrepayWithRequestPaymentResponse, error) {
-	if global.WxPay == nil {
+	if app.Must().WxPay == nil {
 		return nil, errors.New("微信支付未配置")
 	}
 
 	var order model.Order
-	if err := global.DB.Where("id = ? AND user_id = ?", req.OrderID, userID).First(&order).Error; err != nil {
+	if err := app.Must().DB.Where("id = ? AND user_id = ?", req.OrderID, userID).First(&order).Error; err != nil {
 		return nil, errors.New("订单不存在")
 	}
 	if order.Status != model.OrderStatusPending {
 		return nil, errors.New("订单状态不允许支付")
 	}
 
-	resp, err := global.WxPay.Prepay(context.Background(), &wechat.PrepayRequest{
+	resp, err := app.Must().WxPay.Prepay(context.Background(), &wechat.PrepayRequest{
 		OrderNo:     order.OrderNo,
 		Description: "商城订单",
 		Amount:      order.PayAmount,
@@ -48,12 +48,12 @@ func PayOrder(userID uint, req *PayOrderReq) (*jsapi.PrepayWithRequestPaymentRes
 // 幂等保护：通过 WHERE status = pending 条件更新，并发重复回调只有一个能成功。
 func HandlePayNotify(outTradeNo string, transactionID string) error {
 	var order model.Order
-	if err := global.DB.Where("order_no = ?", outTradeNo).First(&order).Error; err == nil {
+	if err := app.Must().DB.Where("order_no = ?", outTradeNo).First(&order).Error; err == nil {
 		if order.Status != model.OrderStatusPending {
 			return nil // 已处理，幂等返回
 		}
 		now := time.Now()
-		result := global.DB.Model(&model.Order{}).
+		result := app.Must().DB.Model(&model.Order{}).
 			Where("id = ? AND status = ?", order.ID, model.OrderStatusPending).
 			Updates(map[string]interface{}{
 				"status":         model.OrderStatusPaid,
@@ -74,12 +74,12 @@ type RefundReq struct {
 }
 
 func RefundOrder(userID uint, req *RefundReq) error {
-	if global.WxPay == nil {
+	if app.Must().WxPay == nil {
 		return errors.New("微信支付未配置")
 	}
 
 	var order model.Order
-	if err := global.DB.Where("id = ? AND user_id = ?", req.OrderID, userID).First(&order).Error; err != nil {
+	if err := app.Must().DB.Where("id = ? AND user_id = ?", req.OrderID, userID).First(&order).Error; err != nil {
 		return errors.New("订单不存在")
 	}
 	if order.Status != model.OrderStatusPaid && order.Status != model.OrderStatusShipped {
@@ -87,7 +87,7 @@ func RefundOrder(userID uint, req *RefundReq) error {
 	}
 
 	refundNo := fmt.Sprintf("R%d", time.Now().UnixNano())
-	_, err := global.WxPay.Refund(context.Background(), &wechat.RefundRequest{
+	_, err := app.Must().WxPay.Refund(context.Background(), &wechat.RefundRequest{
 		OrderNo:  order.OrderNo,
 		RefundNo: refundNo,
 		Total:    order.PayAmount,
@@ -99,7 +99,7 @@ func RefundOrder(userID uint, req *RefundReq) error {
 	}
 
 	// 恢复库存
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Model(&order).Update("status", model.OrderStatusRefunded).Error; err != nil {
 			return err
 		}

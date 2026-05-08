@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -122,7 +122,7 @@ func DiyUpload(zipPath string) (uint, error) {
 
 func DesignDownload(id uint) (string, error) {
 	var d model.Design
-	global.DB.First(&d, id)
+	app.Must().DB.First(&d, id)
 	if d.ID == 0 {
 		return "", errNotFound
 	}
@@ -222,37 +222,37 @@ func BuyDefaultPayment(platform string) uint {
 	json.Unmarshal([]byte(raw), &m)
 	if v, ok := m[platform]; ok {
 		var p model.Payment
-		global.DB.Where("name = ? AND status = 1", v).First(&p)
+		app.Must().DB.Where("name = ? AND status = 1", v).First(&p)
 		return p.ID
 	}
 	return 0
 }
 func PaymentSave(p *model.Payment) error {
 	if p.ID > 0 {
-		return global.DB.Save(p).Error
+		return app.Must().DB.Save(p).Error
 	}
-	return global.DB.Create(p).Error
+	return app.Must().DB.Create(p).Error
 }
-func PaymentDelete(id uint) error { return global.DB.Delete(&model.Payment{}, id).Error }
+func PaymentDelete(id uint) error { return app.Must().DB.Delete(&model.Payment{}, id).Error }
 func PaymentStatusUpdate(id uint, status int8) error {
 	return statusUpdate("payments", id, "status", status)
 }
 func PaymentOpenUserUpdate(id uint, open int8) error {
-	return global.DB.Model(&model.Payment{}).Where("id = ?", id).Update("open_user", open).Error
+	return app.Must().DB.Model(&model.Payment{}).Where("id = ?", id).Update("open_user", open).Error
 }
 
 // ==================== Navigation补全 ====================
 
 func NavDataAll() []model.Navigation {
 	var l []model.Navigation
-	global.DB.Order("sort DESC").Find(&l)
+	app.Must().DB.Order("sort DESC").Find(&l)
 	return l
 }
 func NavDataDealWith(list []model.Navigation) []model.Navigation  { return list }
 func NavigationHandle(list []model.Navigation) []model.Navigation { return list }
 func UserCenterMiniNavigationData() []model.Navigation {
 	var l []model.Navigation
-	global.DB.Where("type = 'user_mini' AND status = 1").Order("sort DESC").Find(&l)
+	app.Must().DB.Where("type = 'user_mini' AND status = 1").Order("sort DESC").Find(&l)
 	return l
 }
 func UserSafetyPanelList() []map[string]string {
@@ -307,7 +307,7 @@ func GoodsCommentsSave(userID uint, req *CreateReviewReq) (*model.Review, error)
 
 func AppMiniDetail(id uint) *model.AppMini {
 	var m model.AppMini
-	global.DB.First(&m, id)
+	app.Must().DB.First(&m, id)
 	return &m
 }
 
@@ -347,14 +347,14 @@ func exchangeCodeSimple(platform, appID, code string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("不支持: %s", platform)
 	}
-	openID, _, err := exchangeCode(cfg, appID, "", code)
+	openID, _, err := exchangeCode(cfg, platform, appID, "", code)
 	return openID, err
 }
 
 // ==================== Attachment补全 ====================
 
 func AttachmentTotal(categoryID uint) int64 {
-	db := global.DB.Model(&model.Attachment{})
+	db := app.Must().DB.Model(&model.Attachment{})
 	if categoryID > 0 {
 		db = db.Where("category_id = ?", categoryID)
 	}
@@ -364,7 +364,7 @@ func AttachmentTotal(categoryID uint) int64 {
 }
 func AttachmentDetail(id uint) *model.Attachment {
 	var a model.Attachment
-	global.DB.First(&a, id)
+	app.Must().DB.First(&a, id)
 	return &a
 }
 func AttachmentListHandle(list []model.Attachment) []model.Attachment { return list }
@@ -373,7 +373,7 @@ func AttachmentListHandle(list []model.Attachment) []model.Attachment { return l
 
 func AttachmentCategorySave(id uint, name string) error {
 	if id > 0 {
-		return global.DB.Model(&model.AttachmentCategory{}).Where("id = ?", id).Update("name", name).Error
+		return app.Must().DB.Model(&model.AttachmentCategory{}).Where("id = ?", id).Update("name", name).Error
 	}
 	return CreateAttachmentCategory(name)
 }
@@ -384,10 +384,10 @@ func StatisticalInit() {} // Go不需要
 func StatisticalBaseTotalCount() map[string]int64 {
 	m := map[string]int64{}
 	var userC, goodsC, orderC, sales int64
-	global.DB.Model(&model.User{}).Count(&userC)
-	global.DB.Model(&model.Goods{}).Where("status=1").Count(&goodsC)
-	global.DB.Model(&model.Order{}).Count(&orderC)
-	global.DB.Model(&model.Order{}).Where("status>0").Select("COALESCE(SUM(pay_amount),0)").Scan(&sales)
+	app.Must().DB.Model(&model.User{}).Count(&userC)
+	app.Must().DB.Model(&model.Goods{}).Where("status=1").Count(&goodsC)
+	app.Must().DB.Model(&model.Order{}).Count(&orderC)
+	app.Must().DB.Model(&model.Order{}).Where("status>0").Select("COALESCE(SUM(pay_amount),0)").Scan(&sales)
 	m["user"] = userC
 	m["goods"] = goodsC
 	m["order"] = orderC
@@ -407,7 +407,7 @@ func OrderSplitHandle(userID uint, req *CreateOrderReq) ([]*model.Order, error) 
 
 func BuyOrderPayBeginGoodsCheck(cartIDs []uint, userID uint) error {
 	var carts []model.Cart
-	global.DB.Where("id IN ? AND user_id = ?", cartIDs, userID).Preload("SKU").Preload("Goods").Find(&carts)
+	app.Must().DB.Where("id IN ? AND user_id = ?", cartIDs, userID).Preload("SKU").Preload("Goods").Find(&carts)
 	for _, c := range carts {
 		if c.Goods == nil || c.Goods.Status != 1 {
 			return fmt.Errorf("商品已下架")
@@ -424,7 +424,7 @@ func BuyOrderPayBeginGoodsCheck(cartIDs []uint, userID uint) error {
 func SearchAdd(userID uint, keyword string) { AddSearchHistory(userID, keyword) }
 func SearchGoodsMaxPrice() int64 {
 	var p int64
-	global.DB.Model(&model.GoodsSKU{}).Select("COALESCE(MAX(price),0)").Scan(&p)
+	app.Must().DB.Model(&model.GoodsSKU{}).Select("COALESCE(MAX(price),0)").Scan(&p)
 	return p
 }
 func SearchMapHandle(params map[string]interface{}) map[string]interface{} { return params }
@@ -443,13 +443,13 @@ func SearchParamsWhereTypeValue() string { return "like" }
 
 func ExpressSave(e *model.Express) error {
 	if e.ID > 0 {
-		return global.DB.Save(e).Error
+		return app.Must().DB.Save(e).Error
 	}
-	return global.DB.Create(e).Error
+	return app.Must().DB.Create(e).Error
 }
 func ExpressDetail(id uint) *model.Express {
 	var e model.Express
-	global.DB.First(&e, id)
+	app.Must().DB.First(&e, id)
 	return &e
 }
 
@@ -457,9 +457,9 @@ func ExpressDetail(id uint) *model.Express {
 
 func LinkSave(l *model.Link) error {
 	if l.ID > 0 {
-		return global.DB.Save(l).Error
+		return app.Must().DB.Save(l).Error
 	}
-	return global.DB.Create(l).Error
+	return app.Must().DB.Create(l).Error
 }
 func LinkListHandle(list []model.Link) []model.Link { return list }
 
@@ -467,9 +467,9 @@ func LinkListHandle(list []model.Link) []model.Link { return list }
 
 func SlideSave(s *model.Slide) error {
 	if s.ID > 0 {
-		return global.DB.Save(s).Error
+		return app.Must().DB.Save(s).Error
 	}
-	return global.DB.Create(s).Error
+	return app.Must().DB.Create(s).Error
 }
 func SlideListHandle(list []model.Slide) []model.Slide { return list }
 
@@ -478,7 +478,7 @@ func SlideListHandle(list []model.Slide) []model.Slide { return list }
 func MessageListHandle(list []model.Message) []model.Message { return list }
 func MessageListWhere(userID uint) []model.Message {
 	var l []model.Message
-	global.DB.Where("user_id = ?", userID).Order("id DESC").Find(&l)
+	app.Must().DB.Where("user_id = ?", userID).Order("id DESC").Find(&l)
 	return l
 }
 
@@ -493,7 +493,7 @@ func IntegralLogTotal(userID uint) int64 {
 }
 func UserIntegral(userID uint) map[string]int {
 	var u model.User
-	global.DB.Select("points, locking_integral").First(&u, userID)
+	app.Must().DB.Select("points, locking_integral").First(&u, userID)
 	return map[string]int{"integral": u.Points, "locking_integral": u.LockingIntegral}
 }
 
@@ -501,20 +501,20 @@ func UserIntegral(userID uint) map[string]int {
 
 func PayLogData(payNo string) *model.PayLog {
 	var p model.PayLog
-	global.DB.Where("pay_no = ?", payNo).First(&p)
+	app.Must().DB.Where("pay_no = ?", payNo).First(&p)
 	return &p
 }
 func PayLogListHandle(list []model.PayLog) []model.PayLog { return list }
 func PayLogPagesListData(page, pageSize int) ([]model.PayLog, int64, error) {
 	var total int64
-	global.DB.Model(&model.PayLog{}).Count(&total)
+	app.Must().DB.Model(&model.PayLog{}).Count(&total)
 	var list []model.PayLog
-	err := global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
+	err := app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 func PayLogPagesDetailData(id uint) *model.PayLog {
 	var p model.PayLog
-	global.DB.First(&p, id)
+	app.Must().DB.First(&p, id)
 	return &p
 }
 
@@ -522,31 +522,33 @@ func PayLogPagesDetailData(id uint) *model.PayLog {
 
 func WarehouseGoodsData(warehouseID, goodsID uint) *model.WarehouseGoods {
 	var wg model.WarehouseGoods
-	global.DB.Where("warehouse_id = ? AND goods_id = ?", warehouseID, goodsID).First(&wg)
+	app.Must().DB.Where("warehouse_id = ? AND goods_id = ?", warehouseID, goodsID).First(&wg)
 	if wg.ID == 0 {
 		return nil
 	}
 	return &wg
 }
-func WarehouseGoodsDelete(id uint) error { return global.DB.Delete(&model.WarehouseGoods{}, id).Error }
+func WarehouseGoodsDelete(id uint) error {
+	return app.Must().DB.Delete(&model.WarehouseGoods{}, id).Error
+}
 func WarehouseGoodsStatusUpdate(id uint, status int8) error {
-	return global.DB.Model(&model.WarehouseGoods{}).Where("id = ?", id).Update("is_enable", status).Error
+	return app.Must().DB.Model(&model.WarehouseGoods{}).Where("id = ?", id).Update("is_enable", status).Error
 }
 func WarehouseGoodsListHandle(list []model.WarehouseGoods) []model.WarehouseGoods { return list }
 func WarehouseGoodsSpecData(warehouseID, goodsID uint) []model.WarehouseGoodsSpec {
 	var l []model.WarehouseGoodsSpec
-	global.DB.Where("warehouse_id = ? AND goods_id = ?", warehouseID, goodsID).Find(&l)
+	app.Must().DB.Where("warehouse_id = ? AND goods_id = ?", warehouseID, goodsID).Find(&l)
 	return l
 }
 func WarehouseGoodsSpecInventory(warehouseID, goodsID, skuID uint) int {
 	var ws model.WarehouseGoodsSpec
-	global.DB.Where("warehouse_id = ? AND goods_id = ? AND sku_id = ?", warehouseID, goodsID, skuID).First(&ws)
+	app.Must().DB.Where("warehouse_id = ? AND goods_id = ? AND sku_id = ?", warehouseID, goodsID, skuID).First(&ws)
 	return ws.Inventory
 }
 func GoodsSearchListForWarehouse(warehouseID uint, keyword string) []model.Goods {
 	var existIDs []uint
-	global.DB.Model(&model.WarehouseGoods{}).Where("warehouse_id = ?", warehouseID).Pluck("goods_id", &existIDs)
-	db := global.DB.Where("status = 1")
+	app.Must().DB.Model(&model.WarehouseGoods{}).Where("warehouse_id = ?", warehouseID).Pluck("goods_id", &existIDs)
+	db := app.Must().DB.Where("status = 1")
 	if len(existIDs) > 0 {
 		db = db.Where("id NOT IN ?", existIDs)
 	}
@@ -563,13 +565,15 @@ func GoodsSearchListForWarehouse(warehouseID uint, keyword string) []model.Goods
 func OrderAftersaleListHandle(list []model.OrderAftersale) []model.OrderAftersale { return list }
 func OrderAftersaleListWhere(userID uint) []model.OrderAftersale {
 	var l []model.OrderAftersale
-	global.DB.Where("user_id = ?", userID).Preload("Histories").Order("id DESC").Find(&l)
+	app.Must().DB.Where("user_id = ?", userID).Preload("Histories").Order("id DESC").Find(&l)
 	return l
 }
-func OrderAftersaleDelete(id uint) error { return global.DB.Delete(&model.OrderAftersale{}, id).Error }
+func OrderAftersaleDelete(id uint) error {
+	return app.Must().DB.Delete(&model.OrderAftersale{}, id).Error
+}
 func OrderAftersaleDetailData(id uint) map[string]interface{} {
 	var as model.OrderAftersale
-	global.DB.Preload("Histories").First(&as, id)
+	app.Must().DB.Preload("Histories").First(&as, id)
 	return map[string]interface{}{
 		"aftersale": as, "steps": OrderAftersaleStepData(id),
 		"tips": OrderAftersaleTipsMsg(as.Status), "address": OrderAftersaleReturnGoodsAddress(as.OrderID),

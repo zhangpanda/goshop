@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -27,21 +27,21 @@ type ParamFilterItem struct {
 
 func SearchStartData() *SearchStartResp {
 	r := &SearchStartResp{}
-	global.DB.Where("status = 1").Order("sort DESC").Find(&r.Brands)
+	app.Must().DB.Where("status = 1").Order("sort DESC").Find(&r.Brands)
 	r.Categories = GoodsCategoryAll()
-	global.DB.Order("sort").Find(&r.Prices)
+	app.Must().DB.Order("sort").Find(&r.Prices)
 	r.HotWords, _ = GetHotKeywords(10)
 	r.SpecValues = SearchGoodsSpecValueList()
 	r.Params = SearchGoodsParamsValueList()
 	r.Regions = SearchGoodsProduceRegionList()
-	global.DB.Model(&model.GoodsSKU{}).Select("COALESCE(MAX(price),0)").Scan(&r.MaxPrice)
+	app.Must().DB.Model(&model.GoodsSKU{}).Select("COALESCE(MAX(price),0)").Scan(&r.MaxPrice)
 	return r
 }
 
 // SearchGoodsSpecValueList 获取所有可筛选的规格值
 func SearchGoodsSpecValueList() []SpecFilterItem {
 	var types []model.SpecType
-	global.DB.Preload("Values").Find(&types)
+	app.Must().DB.Preload("Values").Find(&types)
 	var result []SpecFilterItem
 	for _, t := range types {
 		vals := make([]string, len(t.Values))
@@ -59,7 +59,7 @@ func SearchGoodsSpecValueList() []SpecFilterItem {
 func SearchGoodsParamsValueList() []ParamFilterItem {
 	type row struct{ Name, Value string }
 	var rows []row
-	global.DB.Model(&model.GoodsParams{}).Select("DISTINCT name, value").Find(&rows)
+	app.Must().DB.Model(&model.GoodsParams{}).Select("DISTINCT name, value").Find(&rows)
 	m := map[string][]string{}
 	for _, r := range rows {
 		m[r.Name] = append(m[r.Name], r.Value)
@@ -74,7 +74,7 @@ func SearchGoodsParamsValueList() []ParamFilterItem {
 // SearchGoodsProduceRegionList 获取所有产地列表
 func SearchGoodsProduceRegionList() []string {
 	var vals []string
-	global.DB.Model(&model.GoodsParams{}).Where("name = '产地'").Distinct("value").Pluck("value", &vals)
+	app.Must().DB.Model(&model.GoodsParams{}).Where("name = '产地'").Distinct("value").Pluck("value", &vals)
 	return vals
 }
 
@@ -82,12 +82,12 @@ func SearchGoodsProduceRegionList() []string {
 func CategoryBrandList(categoryID uint) []model.Brand {
 	ids := GoodsCategoryItemsIds([]uint{categoryID}, 3)
 	var brandIDs []uint
-	global.DB.Model(&model.Goods{}).Where("category_id IN ? AND status = 1", ids).Distinct("brand_id").Where("brand_id > 0").Pluck("brand_id", &brandIDs)
+	app.Must().DB.Model(&model.Goods{}).Where("category_id IN ? AND status = 1", ids).Distinct("brand_id").Where("brand_id > 0").Pluck("brand_id", &brandIDs)
 	if len(brandIDs) == 0 {
 		return nil
 	}
 	var list []model.Brand
-	global.DB.Where("id IN ? AND status = 1", brandIDs).Find(&list)
+	app.Must().DB.Where("id IN ? AND status = 1", brandIDs).Find(&list)
 	return list
 }
 
@@ -130,7 +130,7 @@ func SearchRankingList(limit int) []SearchRankItem {
 		limit = 20
 	}
 	var list []SearchRankItem
-	global.DB.Model(&model.SearchHistory{}).Select("keyword, COUNT(*) as count").
+	app.Must().DB.Model(&model.SearchHistory{}).Select("keyword, COUNT(*) as count").
 		Group("keyword").Order("count DESC").Limit(limit).Find(&list)
 	return list
 }

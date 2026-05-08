@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -42,7 +42,7 @@ func SetMultilingualConfig(defaultLang string, available []string) {
 func GetLangPack(lang, module string) (map[string]string, error) {
 	var configs []model.Config
 	prefix := fmt.Sprintf("lang_%s_%s_", lang, module)
-	global.DB.Where("`key` LIKE ?", prefix+"%").Find(&configs)
+	app.Must().DB.Where("`key` LIKE ?", prefix+"%").Find(&configs)
 	result := make(map[string]string, len(configs))
 	for _, c := range configs {
 		k := strings.TrimPrefix(c.Key, prefix)
@@ -92,7 +92,7 @@ func SetCurrencyConfig(cfg *CurrencyConfig) {
 // SaveOrderCurrency 订单创建时保存货币信息
 func SaveOrderCurrency(orderID uint, amount int64) {
 	cfg := GetCurrencyConfig()
-	global.DB.Create(&model.OrderCurrency{
+	app.Must().DB.Create(&model.OrderCurrency{
 		OrderID:  orderID,
 		Currency: cfg.Code,
 		Rate:     cfg.Rate,
@@ -109,13 +109,13 @@ func IsBookingMode() bool {
 // BookingConfirm 管理员确认预约订单（从预约状态变为待支付）
 func BookingConfirm(orderID uint) error {
 	var order model.Order
-	if err := global.DB.First(&order, orderID).Error; err != nil {
+	if err := app.Must().DB.First(&order, orderID).Error; err != nil {
 		return fmt.Errorf("订单不存在")
 	}
 	if order.Status != model.OrderStatusBooking {
 		return fmt.Errorf("订单状态不允许确认")
 	}
-	global.DB.Model(&order).Update("status", model.OrderStatusPending)
+	app.Must().DB.Model(&order).Update("status", model.OrderStatusPending)
 	AddOrderStatusHistory(orderID, model.OrderStatusBooking, model.OrderStatusPending, "管理员确认预约", "管理员")
 	return nil
 }
@@ -137,7 +137,7 @@ func ExportData(w io.Writer, req *ExportReq) error {
 	case "orders":
 		writer.Write([]string{"订单号", "用户ID", "总金额", "实付金额", "状态", "创建时间"})
 		var list []model.Order
-		db := global.DB.Model(&model.Order{})
+		db := app.Must().DB.Model(&model.Order{})
 		if len(req.IDs) > 0 {
 			db = db.Where("id IN ?", req.IDs)
 		} else if req.Status != nil {
@@ -150,7 +150,7 @@ func ExportData(w io.Writer, req *ExportReq) error {
 	case "users":
 		writer.Write([]string{"ID", "用户名", "昵称", "手机", "积分", "状态", "注册时间"})
 		var list []model.User
-		dbu := global.DB.Model(&model.User{})
+		dbu := app.Must().DB.Model(&model.User{})
 		if len(req.IDs) > 0 {
 			dbu = dbu.Where("id IN ?", req.IDs)
 		}
@@ -161,7 +161,7 @@ func ExportData(w io.Writer, req *ExportReq) error {
 	case "goods":
 		writer.Write([]string{"ID", "标题", "分类ID", "状态", "销量", "创建时间"})
 		var list []model.Goods
-		dbg := global.DB.Model(&model.Goods{})
+		dbg := app.Must().DB.Model(&model.Goods{})
 		if len(req.IDs) > 0 {
 			dbg = dbg.Where("id IN ?", req.IDs)
 		}
@@ -178,7 +178,7 @@ func ExportData(w io.Writer, req *ExportReq) error {
 // ========== 账号注销 ==========
 
 func UserLogout(userID uint) error {
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ?", userID).Delete(&model.Address{}).Error; err != nil {
 			return err
 		}
@@ -214,21 +214,21 @@ func ClearCache(cacheType string) error {
 	ctx := context.Background()
 	switch cacheType {
 	case "all":
-		return global.Cache.FlushDB(ctx)
+		return app.Must().Cache.FlushDB(ctx)
 	default:
-		keys, err := global.Cache.Keys(ctx, cacheType+"*")
+		keys, err := app.Must().Cache.Keys(ctx, cacheType+"*")
 		if err != nil {
 			return err
 		}
 		if len(keys) > 0 {
-			return global.Cache.Del(ctx, keys...)
+			return app.Must().Cache.Del(ctx, keys...)
 		}
 		return nil
 	}
 }
 
 func GetCacheStats() map[string]interface{} {
-	info, _ := global.Cache.Info(context.Background())
-	dbSize, _ := global.Cache.DBSize(context.Background())
+	info, _ := app.Must().Cache.Info(context.Background())
+	dbSize, _ := app.Must().Cache.DBSize(context.Background())
 	return map[string]interface{}{"db_size": dbSize, "info": info}
 }

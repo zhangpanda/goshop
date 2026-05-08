@@ -17,6 +17,7 @@ services:
     ports:
       - "6379:6379"
 
+  # 后端：Dockerfile 构建；与 go.mod / CI / mise.toml / .tool-versions 对齐
   goshop:
     build: .
     ports:

@@ -191,6 +191,21 @@ R=$(api "$BASE/api.php?s=base/common")
 assert_code "ShopXO base/common" "0" "$(code "$R")"
 
 echo ""
+echo "--- ShopXO 扩展 s=（文章 / 装修 / 支付日志 / 验证码，对照 uni-app 常见请求） ---"
+R=$(api "$BASE/api.php?s=article/index")
+assert_code "ShopXO article/index" "0" "$(code "$R")"
+R=$(api -X POST "$BASE/api.php?s=article/datalist" -H 'Content-Type: application/x-www-form-urlencoded' -d 'id=1&page=1')
+assert_code "ShopXO article/datalist" "0" "$(code "$R")"
+R=$(api "$BASE/api.php?s=article/detail&id=1")
+assert_code "ShopXO article/detail" "0" "$(code "$R")"
+R=$(api "$BASE/api.php?s=design/index&id=0")
+assert_code "ShopXO design/index" "0" "$(code "$R")"
+R=$(api "$BASE/api.php?s=paylog/index&token=${TOKEN}")
+assert_code "ShopXO paylog/index" "0" "$(code "$R")"
+HTTP_CAP=$(curl -sS -o /dev/null -w "%{http_code}" "$BASE/api.php?s=user/userverifyentry&type=ci")
+assert_code "ShopXO user/userverifyentry 返回 200" "200" "$HTTP_CAP"
+
+echo ""
 echo "--- ShopXO order/pay 多订单线下支付 ---"
 R=$(api "$BASE/api/payments")
 PAY_OFFLINE=$(echo "$R" | python3 -c "import sys,json;d=json.load(sys.stdin);pid=0
@@ -259,6 +274,16 @@ print(x if isinstance(x,str)and x.startswith('/')else'')")
       assert_code "沙盒后订单2已付" "1" "$SS2"
     fi
   fi
+fi
+
+echo ""
+echo "--- ShopXO uni-app 全量 s= 冒烟（scripts/data/shopxo_uniapp_normal_routes.txt + smoke_shopxo_s_routes.py） ---"
+if ! BASE="$BASE" python3 scripts/smoke_shopxo_s_routes.py; then
+  FAIL=$((FAIL+1))
+  echo "  ❌ ShopXO 全量 s= 冒烟失败"
+else
+  echo "  ✅ ShopXO 全量 s= 冒烟通过"
+  PASS=$((PASS+1))
 fi
 
 echo ""

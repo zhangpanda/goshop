@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -27,7 +27,7 @@ func SendVerifyCode(account, typ string) error {
 		Type:     typ,
 		ExpireAt: time.Now().Add(5 * time.Minute),
 	}
-	if err := global.DB.Create(&vc).Error; err != nil {
+	if err := app.Must().DB.Create(&vc).Error; err != nil {
 		return err
 	}
 	// 发送短信或邮件
@@ -47,7 +47,7 @@ func SendVerifyCode(account, typ string) error {
 // CheckVerifyCode 校验验证码
 func CheckVerifyCode(account, code, typ string) error {
 	var vc model.VerifyCode
-	err := global.DB.Where("account = ? AND type = ? AND status = 0 AND expire_at > ?", account, typ, time.Now()).
+	err := app.Must().DB.Where("account = ? AND type = ? AND status = 0 AND expire_at > ?", account, typ, time.Now()).
 		Order("id DESC").First(&vc).Error
 	if err != nil || vc.ID == 0 {
 		return errors.New("验证码不存在或已过期")
@@ -55,7 +55,7 @@ func CheckVerifyCode(account, code, typ string) error {
 	if vc.Code != code {
 		return errors.New("验证码错误")
 	}
-	global.DB.Model(&vc).Update("status", 1)
+	app.Must().DB.Model(&vc).Update("status", 1)
 	return nil
 }
 
@@ -67,7 +67,7 @@ type UpdatePwdReq struct {
 
 func UpdatePassword(userID uint, req *UpdatePwdReq) error {
 	var user model.User
-	if err := global.DB.First(&user, userID).Error; err != nil {
+	if err := app.Must().DB.First(&user, userID).Error; err != nil {
 		return errors.New("用户不存在")
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword)); err != nil {
@@ -77,7 +77,7 @@ func UpdatePassword(userID uint, req *UpdatePwdReq) error {
 	if err != nil {
 		return fmt.Errorf("密码加密失败: %w", err)
 	}
-	return global.DB.Model(&user).Update("password", string(hash)).Error
+	return app.Must().DB.Model(&user).Update("password", string(hash)).Error
 }
 
 // ForgetPassword 忘记密码（通过验证码重置）
@@ -92,14 +92,14 @@ func ForgetPassword(req *ForgetPwdReq) error {
 		return err
 	}
 	var user model.User
-	if err := global.DB.Where("phone = ? OR username = ?", req.Account, req.Account).First(&user).Error; err != nil {
+	if err := app.Must().DB.Where("phone = ? OR username = ?", req.Account, req.Account).First(&user).Error; err != nil {
 		return errors.New("用户不存在")
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("密码加密失败: %w", err)
 	}
-	return global.DB.Model(&user).Update("password", string(hash)).Error
+	return app.Must().DB.Model(&user).Update("password", string(hash)).Error
 }
 
 // BindMobile 绑定手机号
@@ -112,11 +112,11 @@ func BindMobile(userID uint, req *BindMobileReq) error {
 	if err := CheckVerifyCode(req.Mobile, req.Code, "bind"); err != nil {
 		return err
 	}
-	return global.DB.Model(&model.User{}).Where("id = ?", userID).Update("phone", req.Mobile).Error
+	return app.Must().DB.Model(&model.User{}).Where("id = ?", userID).Update("phone", req.Mobile).Error
 }
 
 // GetUserPlatforms 获取用户绑定的平台
 func GetUserPlatforms(userID uint) ([]model.UserPlatform, error) {
 	var list []model.UserPlatform
-	return list, global.DB.Where("user_id = ?", userID).Find(&list).Error
+	return list, app.Must().DB.Where("user_id = ?", userID).Find(&list).Error
 }

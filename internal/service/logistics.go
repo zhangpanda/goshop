@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -24,13 +24,13 @@ type TrackResult struct {
 // GetLogisticsTrack 查询物流轨迹
 func GetLogisticsTrack(orderID uint) (*TrackResult, error) {
 	var shipment model.Shipment
-	if err := global.DB.Where("order_id = ?", orderID).First(&shipment).Error; err != nil {
+	if err := app.Must().DB.Where("order_id = ?", orderID).First(&shipment).Error; err != nil {
 		return nil, fmt.Errorf("未找到发货信息")
 	}
 
 	// 查快递编码
 	var express model.Express
-	global.DB.Where("name = ?", shipment.ExpressCompany).First(&express)
+	app.Must().DB.Where("name = ?", shipment.ExpressCompany).First(&express)
 	code := express.Code
 	if code == "" {
 		code = "auto"

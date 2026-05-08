@@ -1,9 +1,9 @@
--- 本机联调：源库 shopxo_mig_src（由 ShopXO `config/shopxo.sql` 导入），目标库 goshop_mig_dst。
--- 准备步骤（示例）：
---   mysql -e "CREATE DATABASE shopxo_mig_src; USE shopxo_mig_src; SOURCE /path/to/shopxo.sql;"
---   mysqldump --no-data --routines=false --triggers=false goshop | mysql goshop_mig_dst
---   mysql goshop_mig_dst -e "ALTER TABLE orders ADD COLUMN payment_id bigint unsigned NOT NULL DEFAULT 0 AFTER remark;"  -- 若结构里尚无该列
--- 勿在生产直接执行；将 shopxo_mig_src / goshop_mig_dst 替换为你的库名。
+-- 已弃用维护：权威脚本已嵌入仓库，请使用：
+--   go run ./cmd/shopxo-import -from <ShopXO库> -to <GoShop库> [可选 -wipe-target-tables]
+-- 源码与副本：internal/shopxomigrate/data.sql（与 docs/migration-from-shopxo.md 同步）
+--
+-- 以下为历史占位名示例（仅当仍需手工 sed 时）：
+--   源 shopxo_mig_src、目标 goshop_mig_dst
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;

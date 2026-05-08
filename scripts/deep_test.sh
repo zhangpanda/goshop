@@ -1,33 +1,16 @@
 #!/bin/bash
-# 本地深度校验：静态检查 + 全量单元测试（不依赖 MySQL/Redis）。
-# 集成/沙盒仍需服务：scripts/integration_test.sh、scripts/sandbox_pay_test.sh
+# 兼容入口（旧文档仍可能写 deep_test）：
+#   默认 —— 与 scripts/quick_test.sh 相同（vet + test，无 -race）。
+#   GOSHOP_TEST_RACE=1 —— 与 scripts/ci_test.sh 相同（再加 -race）。
 #
-# 用法: bash scripts/deep_test.sh
-# 可选: GOSHOP_TEST_RACE=1 — 追加 -race（较慢，约数分钟）
+# 新习惯：日常 bash scripts/quick_test.sh ；发版 bash scripts/ci_test.sh
+#
+# 集成/沙盒仍需服务：scripts/integration_test.sh、scripts/sandbox_pay_test.sh
 
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT"
-
-# 排除误扫入的 web/node_modules 下 Go 包（逐包传参，避免某些 shell 把换行包成单个参数）
-pkgs=()
-while IFS= read -r line; do
-  [[ -n "$line" ]] && pkgs+=("$line")
-done < <(go list ./... | grep -v '/node_modules/' || true)
-
-echo "========== go vet =========="
-go vet "${pkgs[@]}"
-
-echo ""
-echo "========== go test (全模块) =========="
-go test "${pkgs[@]}" -count=1
-
+HERE="$(cd "$(dirname "$0")" && pwd)"
 if [ "${GOSHOP_TEST_RACE:-}" = "1" ]; then
-  echo ""
-  echo "========== go test -race =========="
-  go test "${pkgs[@]}" -count=1 -race -timeout 5m
+  exec bash "$HERE/ci_test.sh"
+else
+  exec bash "$HERE/quick_test.sh"
 fi
-
-echo ""
-echo "========== 完成 =========="
-echo "若已启动 API，可另执行: BASE=http://localhost:8080 bash scripts/integration_test.sh"

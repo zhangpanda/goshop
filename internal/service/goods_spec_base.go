@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -20,7 +20,7 @@ type SpecBaseReq struct {
 }
 
 func SaveGoodsSpecBase(goodsID uint, specs []SpecBaseReq) error {
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Where("goods_id = ?", goodsID).Delete(&model.GoodsSpecBase{}).Error; err != nil {
 			return err
 		}
@@ -40,12 +40,12 @@ func SaveGoodsSpecBase(goodsID uint, specs []SpecBaseReq) error {
 
 func GetGoodsSpecBase(goodsID uint) ([]model.GoodsSpecBase, error) {
 	var list []model.GoodsSpecBase
-	return list, global.DB.Where("goods_id = ?", goodsID).Find(&list).Error
+	return list, app.Must().DB.Where("goods_id = ?", goodsID).Find(&list).Error
 }
 
 // SaveGoodsPhotos 保存商品相册
 func SaveGoodsPhotos(goodsID uint, images []string) error {
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Where("goods_id = ?", goodsID).Delete(&model.GoodsPhoto{}).Error; err != nil {
 			return err
 		}
@@ -60,5 +60,5 @@ func SaveGoodsPhotos(goodsID uint, images []string) error {
 
 func GetGoodsPhotos(goodsID uint) ([]model.GoodsPhoto, error) {
 	var list []model.GoodsPhoto
-	return list, global.DB.Where("goods_id = ? AND is_show = 1", goodsID).Order("sort").Find(&list).Error
+	return list, app.Must().DB.Where("goods_id = ? AND is_show = 1", goodsID).Order("sort").Find(&list).Error
 }

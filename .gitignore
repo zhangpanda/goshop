@@ -40,6 +40,10 @@ admin/blob-report/
 *.log
 nohup.out
 
+# Python
+__pycache__/
+*.pyc
+
 # Internal docs (not for public)
 AGENTS.md
 CLAUDE.md

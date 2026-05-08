@@ -8,7 +8,7 @@ echo "=== GoShop doc metrics ($(date -I 2>/dev/null || date '+%Y-%m-%d')) ==="
 echo
 
 echo -n "AutoMigrate 模型类型数（≈ 表数）: "
-grep -oE '&model\.[A-Za-z0-9_]+' cmd/server/main.go | sort -u | wc -l | tr -d ' '
+grep -oE '&model\.[A-Za-z0-9_]+' internal/initialize/automigrate.go | sort -u | wc -l | tr -d ' '
 
 echo -n "internal/router/router.go Gin 方法注册数: "
 grep -oE '\.(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|Any)\(' internal/router/router.go | wc -l | tr -d ' '
@@ -46,10 +46,10 @@ find internal/model -maxdepth 1 -name '*.go' | wc -l | tr -d ' '
 
 echo
 echo -n "^func Test 个数: "
-grep -r --include='*_test.go' -E '^func Test' internal pkg cmd config global 2>/dev/null | wc -l | tr -d ' '
+grep -r --include='*_test.go' -E '^func Test' internal pkg cmd config 2>/dev/null | wc -l | tr -d ' '
 
-echo -n "Go 代码行数（internal+pkg+cmd+config+global，不含 *_test.go）: "
-find internal pkg cmd config global -name '*.go' ! -name '*_test.go' 2>/dev/null | while read -r f; do wc -l <"$f"; done | awk '{s+=$1} END{print s}'
+echo -n "Go 代码行数（internal+pkg+cmd+config，不含 *_test.go）: "
+find internal pkg cmd config -name '*.go' ! -name '*_test.go' 2>/dev/null | while read -r f; do wc -l <"$f"; done | awk '{s+=$1} END{print s}'
 
 echo
 echo "集成测试脚本: scripts/integration_test.sh, scripts/sandbox_pay_test.sh, scripts/distribution_test.sh"

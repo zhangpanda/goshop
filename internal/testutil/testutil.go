@@ -1,7 +1,7 @@
 package testutil
 
 import (
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/internal/repository"
 	"github.com/zhangpanda/goshop/pkg/cache"
@@ -9,8 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// SetupTestDB initializes global.DB with an in-memory SQLite database
-// and global.Cache with an in-memory cache. Call in TestMain or individual tests.
+// SetupTestDB 将内存 SQLite 与内存缓存注册到 app.Deps（TestMain 或单测开头调用）。
 func SetupTestDB() {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
@@ -28,7 +27,9 @@ func SetupTestDB() {
 		&model.Promotion{}, &model.PromotionItem{},
 		&model.Config{},
 	)
-	global.DB = db
-	global.Cache = cache.NewMemoryCache()
+	app.Register(&app.Deps{
+		DB:    db,
+		Cache: cache.NewMemoryCache(),
+	})
 	repository.Init(db)
 }

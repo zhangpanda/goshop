@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/internal/service"
 	"github.com/zhangpanda/goshop/pkg/response"
@@ -33,7 +33,7 @@ func AdminUpdateGoods(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := global.DB.Transaction(func(tx *gorm.DB) error {
+	if err := app.Must().DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.Goods{}).Where("id = ?", id).Updates(map[string]interface{}{
 			"category_id": req.CategoryID, "title": req.Title, "subtitle": req.Subtitle,
 			"main_image": req.MainImage, "images": req.Images, "detail": req.Detail,
@@ -76,7 +76,7 @@ func AdminToggleGoodsStatus(c *gin.Context) {
 		Status int8 `json:"status"`
 	}
 	c.ShouldBindJSON(&req)
-	global.DB.Model(&model.Goods{}).Where("id = ?", id).Update("status", req.Status)
+	app.Must().DB.Model(&model.Goods{}).Where("id = ?", id).Update("status", req.Status)
 	response.OK(c, nil)
 }
 
@@ -85,7 +85,7 @@ func AdminToggleGoodsStatus(c *gin.Context) {
 func AdminGetOrders(c *gin.Context) {
 	var req service.OrderListReq
 	c.ShouldBindQuery(&req)
-	db := global.DB.Model(&model.Order{})
+	db := app.Must().DB.Model(&model.Order{})
 	if req.Status != nil {
 		db = db.Where("status = ?", *req.Status)
 	}
@@ -106,7 +106,7 @@ func AdminUpdateOrderRemark(c *gin.Context) {
 		Remark string `json:"remark"`
 	}
 	c.ShouldBindJSON(&req)
-	global.DB.Model(&model.Order{}).Where("id = ?", id).Update("remark", req.Remark)
+	app.Must().DB.Model(&model.Order{}).Where("id = ?", id).Update("remark", req.Remark)
 	response.OK(c, nil)
 }
 
@@ -118,7 +118,7 @@ func AdminGetUsers(c *gin.Context) {
 	keyword := c.Query("keyword")
 	idsStr := c.Query("ids")
 
-	db := global.DB.Model(&model.User{})
+	db := app.Must().DB.Model(&model.User{})
 	if idsStr != "" {
 		var ids []uint
 		for _, s := range strings.Split(idsStr, ",") {
@@ -147,7 +147,7 @@ func AdminUpdateUserStatus(c *gin.Context) {
 		Status int8 `json:"status"`
 	}
 	c.ShouldBindJSON(&req)
-	global.DB.Model(&model.User{}).Where("id = ?", id).Update("status", req.Status)
+	app.Must().DB.Model(&model.User{}).Where("id = ?", id).Update("status", req.Status)
 	response.OK(c, nil)
 }
 
@@ -170,7 +170,7 @@ func AdminUpdateCategory(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	global.DB.Model(&model.Category{}).Where("id = ?", id).Updates(map[string]interface{}{
+	app.Must().DB.Model(&model.Category{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"parent_id": req.ParentID, "name": req.Name, "icon": req.Icon, "sort": req.Sort,
 	})
 	service.InvalidateCategoryCache()
@@ -181,12 +181,12 @@ func AdminDeleteCategory(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	// 检查是否有子分类
 	var count int64
-	global.DB.Model(&model.Category{}).Where("parent_id = ?", id).Count(&count)
+	app.Must().DB.Model(&model.Category{}).Where("parent_id = ?", id).Count(&count)
 	if count > 0 {
 		response.Fail(c, http.StatusBadRequest, "请先删除子分类")
 		return
 	}
-	global.DB.Delete(&model.Category{}, id)
+	app.Must().DB.Delete(&model.Category{}, id)
 	service.InvalidateCategoryCache()
 	response.OK(c, nil)
 }
@@ -198,13 +198,13 @@ func AdminDashboard(c *gin.Context) {
 	var todayOrderCount int64
 	var todaySales int64
 
-	global.DB.Model(&model.User{}).Count(&userCount)
-	global.DB.Model(&model.Goods{}).Where("status = 1").Count(&goodsCount)
-	global.DB.Model(&model.Order{}).Count(&orderCount)
+	app.Must().DB.Model(&model.User{}).Count(&userCount)
+	app.Must().DB.Model(&model.Goods{}).Where("status = 1").Count(&goodsCount)
+	app.Must().DB.Model(&model.Order{}).Count(&orderCount)
 
 	today := time.Now().Format("2006-01-02")
-	global.DB.Model(&model.Order{}).Where("DATE(created_at) = ? AND status > 0", today).Count(&todayOrderCount)
-	global.DB.Model(&model.Order{}).Where("DATE(created_at) = ? AND status > 0", today).
+	app.Must().DB.Model(&model.Order{}).Where("DATE(created_at) = ? AND status > 0", today).Count(&todayOrderCount)
+	app.Must().DB.Model(&model.Order{}).Where("DATE(created_at) = ? AND status > 0", today).
 		Select("COALESCE(SUM(pay_amount),0)").Scan(&todaySales)
 
 	// 近7天销售趋势
@@ -218,7 +218,7 @@ func AdminDashboard(c *gin.Context) {
 		d := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
 		var ds DaySales
 		ds.Date = d
-		global.DB.Model(&model.Order{}).Where("DATE(created_at) = ? AND status > 0", d).
+		app.Must().DB.Model(&model.Order{}).Where("DATE(created_at) = ? AND status > 0", d).
 			Select("COALESCE(SUM(pay_amount),0) as sales, COUNT(*) as count").Scan(&ds)
 		ds.Date = d
 		trend = append(trend, ds)

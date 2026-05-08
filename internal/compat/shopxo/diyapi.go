@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/handler"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/auth"
@@ -36,7 +36,7 @@ func diyApiAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		claims, err := auth.ParseToken(token, global.Cfg.JWT.Secret)
+		claims, err := auth.ParseToken(token, app.Must().Cfg.JWT.Secret)
 		if err != nil || !claims.IsAdmin {
 			response.Fail(c, http.StatusUnauthorized, "token无效")
 			c.Abort()
@@ -131,15 +131,15 @@ func baseURL(c *gin.Context) string {
 
 func diyApiInit(c *gin.Context) {
 	var cats []model.Category
-	global.DB.Where("status = 1").Order("sort DESC, id").Find(&cats)
+	app.Must().DB.Where("status = 1").Order("sort DESC, id").Find(&cats)
 	var attachCats []model.AttachmentCategory
-	global.DB.Find(&attachCats)
+	app.Must().DB.Find(&attachCats)
 	var articleCats []model.ArticleCategory
-	global.DB.Find(&articleCats)
+	app.Must().DB.Find(&articleCats)
 	var brandCats []model.BrandCategory
-	global.DB.Find(&brandCats)
+	app.Must().DB.Find(&brandCats)
 	var brands []model.Brand
-	global.DB.Where("status = 1").Find(&brands)
+	app.Must().DB.Where("status = 1").Find(&brands)
 
 	base := baseURL(c)
 
@@ -209,7 +209,7 @@ func diyApiInit(c *gin.Context) {
 func diyApiDetail(c *gin.Context) {
 	id := getCompactID(c)
 	var diy model.Diy
-	if err := global.DB.First(&diy, id).Error; err != nil {
+	if err := app.Must().DB.First(&diy, id).Error; err != nil {
 		response.OK(c, gin.H{"data": nil})
 		return
 	}
@@ -250,10 +250,10 @@ func diyApiSave(c *gin.Context) {
 		if hasEnable {
 			updates["status"] = isEnable
 		}
-		global.DB.Model(&model.Diy{}).Where("id = ?", id).Updates(updates)
+		app.Must().DB.Model(&model.Diy{}).Where("id = ?", id).Updates(updates)
 	} else {
 		diy := model.Diy{Name: name, Data: string(configBytes)}
-		global.DB.Create(&diy)
+		app.Must().DB.Create(&diy)
 		id = diy.ID
 	}
 	// 兼容约定：成功时 data 为新建记录 ID（int），与 diy 前端期望一致
@@ -262,13 +262,13 @@ func diyApiSave(c *gin.Context) {
 
 func diyApiList(c *gin.Context) {
 	var list []model.Diy
-	global.DB.Order("id DESC").Find(&list)
+	app.Must().DB.Order("id DESC").Find(&list)
 	response.OK(c, list)
 }
 
 func diyApiGoodsInit(c *gin.Context) {
 	var cats []model.Category
-	global.DB.Where("status = 1").Order("sort DESC, id").Find(&cats)
+	app.Must().DB.Where("status = 1").Order("sort DESC, id").Find(&cats)
 	response.OK(c, gin.H{"goods_category": cats})
 }
 
@@ -278,7 +278,7 @@ func diyApiGoodsList(c *gin.Context) {
 		CategoryID uint   `json:"category_id"`
 	}
 	c.ShouldBindJSON(&req)
-	db := global.DB.Model(&model.Goods{}).Where("status = 1")
+	db := app.Must().DB.Model(&model.Goods{}).Where("status = 1")
 	if req.Keywords != "" {
 		db = db.Where("title LIKE ?", "%"+req.Keywords+"%")
 	}
@@ -292,13 +292,13 @@ func diyApiGoodsList(c *gin.Context) {
 
 func diyApiArticleList(c *gin.Context) {
 	var list []model.Article
-	global.DB.Where("status = 1").Order("id DESC").Limit(50).Find(&list)
+	app.Must().DB.Where("status = 1").Order("id DESC").Limit(50).Find(&list)
 	response.OK(c, list)
 }
 
 func diyApiBrandList(c *gin.Context) {
 	var list []model.Brand
-	global.DB.Where("status = 1").Order("sort DESC, id").Find(&list)
+	app.Must().DB.Where("status = 1").Order("sort DESC, id").Find(&list)
 	response.OK(c, list)
 }
 
@@ -315,13 +315,13 @@ func diyApiLinkInit(c *gin.Context) {
 
 func diyApiCustomViewList(c *gin.Context) {
 	var list []model.CustomView
-	global.DB.Where("status = 1").Find(&list)
+	app.Must().DB.Where("status = 1").Find(&list)
 	response.OK(c, list)
 }
 
 func diyApiDesignList(c *gin.Context) {
 	var list []model.Design
-	global.DB.Find(&list)
+	app.Must().DB.Find(&list)
 	response.OK(c, list)
 }
 
@@ -346,7 +346,7 @@ func attachmentApiList(c *gin.Context) {
 			catID = v
 		}
 	}
-	db := global.DB.Model(&model.Attachment{})
+	db := app.Must().DB.Model(&model.Attachment{})
 	if catID > 0 {
 		db = db.Where("category_id = ?", catID)
 	}
@@ -366,7 +366,7 @@ func attachmentApiDelete(c *gin.Context) {
 	}
 	c.ShouldBindJSON(&req)
 	if req.ID > 0 {
-		global.DB.Delete(&model.Attachment{}, req.ID)
+		app.Must().DB.Delete(&model.Attachment{}, req.ID)
 	} else if req.IDs != "" {
 		var idUints []uint
 		for _, p := range strings.Split(req.IDs, ",") {
@@ -379,7 +379,7 @@ func attachmentApiDelete(c *gin.Context) {
 			}
 		}
 		if len(idUints) > 0 {
-			global.DB.Where("id IN ?", idUints).Delete(&model.Attachment{})
+			app.Must().DB.Where("id IN ?", idUints).Delete(&model.Attachment{})
 		}
 	}
 	response.OK(c, nil)
@@ -387,7 +387,7 @@ func attachmentApiDelete(c *gin.Context) {
 
 func attachmentApiCategory(c *gin.Context) {
 	var list []model.AttachmentCategory
-	global.DB.Find(&list)
+	app.Must().DB.Find(&list)
 	response.OK(c, list)
 }
 
@@ -395,9 +395,9 @@ func attachmentApiCategorySave(c *gin.Context) {
 	var req model.AttachmentCategory
 	c.ShouldBindJSON(&req)
 	if req.ID > 0 {
-		global.DB.Model(&req).Updates(req)
+		app.Must().DB.Model(&req).Updates(req)
 	} else {
-		global.DB.Create(&req)
+		app.Must().DB.Create(&req)
 	}
 	response.OK(c, req)
 }
@@ -407,7 +407,7 @@ func attachmentApiCategoryDelete(c *gin.Context) {
 		ID uint `json:"id"`
 	}
 	c.ShouldBindJSON(&req)
-	global.DB.Delete(&model.AttachmentCategory{}, req.ID)
+	app.Must().DB.Delete(&model.AttachmentCategory{}, req.ID)
 	response.OK(c, nil)
 }
 
@@ -417,7 +417,7 @@ func attachmentApiSave(c *gin.Context) {
 		CategoryID uint `json:"category_id"`
 	}
 	c.ShouldBindJSON(&req)
-	global.DB.Model(&model.Attachment{}).Where("id = ?", req.ID).Update("category_id", req.CategoryID)
+	app.Must().DB.Model(&model.Attachment{}).Where("id = ?", req.ID).Update("category_id", req.CategoryID)
 	response.OK(c, nil)
 }
 
@@ -565,7 +565,7 @@ func catchRemoteImage(categoryID uint, rawURL string) (*model.Attachment, error)
 		Size:       int64(len(body)),
 		Ext:        strings.TrimPrefix(ext, "."),
 	}
-	if err := global.DB.Create(&att).Error; err != nil {
+	if err := app.Must().DB.Create(&att).Error; err != nil {
 		_ = os.Remove(dst)
 		return nil, err
 	}
@@ -600,7 +600,7 @@ func attachmentApiCatch(c *gin.Context) {
 func formInputApiInit(c *gin.Context) {
 	base := baseURL(c)
 	var attachCats []model.AttachmentCategory
-	global.DB.Find(&attachCats)
+	app.Must().DB.Find(&attachCats)
 
 	response.OK(c, gin.H{
 		"config": map[string]interface{}{
@@ -658,7 +658,7 @@ func formInputApiInit(c *gin.Context) {
 func formInputApiDetail(c *gin.Context) {
 	id := getCompactID(c)
 	var form model.FormInput
-	if err := global.DB.First(&form, id).Error; err != nil {
+	if err := app.Must().DB.First(&form, id).Error; err != nil {
 		response.OK(c, gin.H{"data": nil})
 		return
 	}
@@ -692,10 +692,10 @@ func formInputApiSave(c *gin.Context) {
 		if hasEnable {
 			updates["status"] = isEnable
 		}
-		global.DB.Model(&model.FormInput{}).Where("id = ?", id).Updates(updates)
+		app.Must().DB.Model(&model.FormInput{}).Where("id = ?", id).Updates(updates)
 	} else {
 		form := model.FormInput{Name: name, Config: string(configBytes)}
-		global.DB.Create(&form)
+		app.Must().DB.Create(&form)
 		id = form.ID
 	}
 	response.OK(c, id)
@@ -740,7 +740,7 @@ func getCompactID(c *gin.Context) uint {
 // regionAll 返回全部地区数据（三级嵌套，优化为3次查询）
 func regionAll(c *gin.Context) {
 	var all []model.Region
-	global.DB.Order("sort, id").Find(&all)
+	app.Must().DB.Order("sort, id").Find(&all)
 
 	type RegionNode struct {
 		ID       uint         `json:"id"`
@@ -779,7 +779,7 @@ func formInputDataSave(c *gin.Context) {
 	c.ShouldBindJSON(&req)
 	dataBytes, _ := json.Marshal(req.Data)
 	record := model.FormInputData{FormID: req.FormID, Data: string(dataBytes)}
-	global.DB.Create(&record)
+	app.Must().DB.Create(&record)
 	response.OK(c, gin.H{"id": record.ID})
 }
 

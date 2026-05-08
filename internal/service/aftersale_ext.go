@@ -1,14 +1,14 @@
 package service
 
 import (
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
 // OrderAftersaleCalculation 自动计算退款金额
 func OrderAftersaleCalculation(orderDetailID uint, number int) int64 {
 	var item model.OrderItem
-	global.DB.First(&item, orderDetailID)
+	app.Must().DB.First(&item, orderDetailID)
 	if item.ID == 0 {
 		return 0
 	}
@@ -21,7 +21,7 @@ func OrderAftersaleCalculation(orderDetailID uint, number int) int64 {
 // OrderAftersaleChoiceTypeList 可选售后类型
 func OrderAftersaleChoiceTypeList(orderID uint) []map[string]interface{} {
 	var order model.Order
-	global.DB.First(&order, orderID)
+	app.Must().DB.First(&order, orderID)
 	list := []map[string]interface{}{}
 	switch order.Status {
 	case model.OrderStatusPaid:
@@ -38,12 +38,12 @@ func OrderAftersaleReturnGoodsAddress(orderID uint) map[string]string {
 	useWarehouse := GetConfig("order_aftersale_use_warehouse_address") == "1"
 	if useWarehouse {
 		var item model.OrderItem
-		global.DB.Where("order_id = ?", orderID).First(&item)
+		app.Must().DB.Where("order_id = ?", orderID).First(&item)
 		var wg model.WarehouseGoods
-		global.DB.Where("goods_id = ?", item.GoodsID).First(&wg)
+		app.Must().DB.Where("goods_id = ?", item.GoodsID).First(&wg)
 		if wg.ID > 0 {
 			var w model.Warehouse
-			global.DB.First(&w, wg.WarehouseID)
+			app.Must().DB.First(&w, wg.WarehouseID)
 			if w.ID > 0 {
 				return map[string]string{"name": w.ContactsName, "tel": w.ContactsTel, "address": w.Province + w.City + w.County + w.Address}
 			}
@@ -58,7 +58,7 @@ func OrderAftersaleReturnGoodsAddress(orderID uint) map[string]string {
 // OrderAftersaleStepData 售后进度
 func OrderAftersaleStepData(asID uint) []model.AftersaleHistory {
 	var list []model.AftersaleHistory
-	global.DB.Where("aftersale_id = ?", asID).Order("id ASC").Find(&list)
+	app.Must().DB.Where("aftersale_id = ?", asID).Order("id ASC").Find(&list)
 	return list
 }
 
@@ -77,7 +77,7 @@ func OrderAftersaleTipsMsg(status int8) string {
 
 // OrderAftersaleTotal 售后总数
 func OrderAftersaleTotal(userID uint, status *int8) int64 {
-	db := global.DB.Model(&model.OrderAftersale{})
+	db := app.Must().DB.Model(&model.OrderAftersale{})
 	if userID > 0 {
 		db = db.Where("user_id = ?", userID)
 	}
@@ -92,7 +92,7 @@ func OrderAftersaleTotal(userID uint, status *int8) int64 {
 // OrderIsCanLaunchAftersale 判断订单是否可发起售后
 func OrderIsCanLaunchAftersale(orderID, userID uint) bool {
 	var order model.Order
-	global.DB.Where("id = ? AND user_id = ?", orderID, userID).First(&order)
+	app.Must().DB.Where("id = ? AND user_id = ?", orderID, userID).First(&order)
 	if order.ID == 0 {
 		return false
 	}

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/internal/service"
 	"github.com/zhangpanda/goshop/pkg/response"
@@ -21,19 +21,19 @@ func statusUpdate(c *gin.Context, m interface{}) {
 		Status int8 `json:"status"`
 	}
 	c.ShouldBindJSON(&req)
-	global.DB.Model(m).Where("id = ?", id).Update("status", req.Status)
+	app.Must().DB.Model(m).Where("id = ?", id).Update("status", req.Status)
 	response.OK(c, nil)
 }
 
 func genericDelete(c *gin.Context, m interface{}) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	global.DB.Delete(m, id)
+	app.Must().DB.Delete(m, id)
 	response.OK(c, nil)
 }
 
 func genericDetail(c *gin.Context, m interface{}) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := global.DB.First(m, id).Error; err != nil {
+	if err := app.Must().DB.First(m, id).Error; err != nil {
 		response.Fail(c, http.StatusNotFound, "不存在")
 		return
 	}
@@ -46,7 +46,7 @@ func genericUpdate(c *gin.Context, m interface{}) {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	global.DB.Model(m).Where("id = ?", id).Updates(m)
+	app.Must().DB.Model(m).Where("id = ?", id).Updates(m)
 	response.OK(c, nil)
 }
 
@@ -71,12 +71,12 @@ func ReviewStatusUpdateHandler(c *gin.Context) { statusUpdate(c, &model.Review{}
 // ========== 订单 ==========
 func AdminCancelOrder(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	global.DB.Model(&model.Order{}).Where("id = ? AND status IN (0,1)", id).Update("status", model.OrderStatusCancelled)
+	app.Must().DB.Model(&model.Order{}).Where("id = ? AND status IN (0,1)", id).Update("status", model.OrderStatusCancelled)
 	response.OK(c, nil)
 }
 func AdminConfirmReceive(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	global.DB.Model(&model.Order{}).Where("id = ? AND status = 2", id).Update("status", model.OrderStatusCompleted)
+	app.Must().DB.Model(&model.Order{}).Where("id = ? AND status = 2", id).Update("status", model.OrderStatusCompleted)
 	response.OK(c, nil)
 }
 func AdminDeleteOrder(c *gin.Context) { genericDelete(c, &model.Order{}) }
@@ -85,7 +85,7 @@ func AdminDeleteOrder(c *gin.Context) { genericDelete(c, &model.Order{}) }
 func AdminAftersaleDelete(c *gin.Context) { genericDelete(c, &model.OrderAftersale{}) }
 func AdminAftersaleCancel(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	global.DB.Model(&model.OrderAftersale{}).Where("id = ?", id).Update("status", model.AftersaleStatusCancelled)
+	app.Must().DB.Model(&model.OrderAftersale{}).Where("id = ?", id).Update("status", model.AftersaleStatusCancelled)
 	response.OK(c, nil)
 }
 
@@ -102,7 +102,7 @@ func ArticleStatusUpdateHandler(c *gin.Context) { statusUpdate(c, &model.Article
 func ArticleDetailHandler(c *gin.Context) {
 	var m model.Article
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	global.DB.Preload("Category").First(&m, id)
+	app.Must().DB.Preload("Category").First(&m, id)
 	response.OK(c, m)
 }
 
@@ -158,14 +158,14 @@ func AttachmentCategoryStatusUpdateHandler(c *gin.Context) {
 // ========== 搜索记录 ==========
 func SearchHistoryDeleteHandler(c *gin.Context) { genericDelete(c, &model.SearchHistory{}) }
 func SearchHistoryAllDeleteHandler(c *gin.Context) {
-	global.DB.Where("1=1").Delete(&model.SearchHistory{})
+	app.Must().DB.Where("1=1").Delete(&model.SearchHistory{})
 	response.OK(c, nil)
 }
 
 // ========== 错误日志 ==========
 func ErrorLogDeleteHandler(c *gin.Context) { genericDelete(c, &model.ErrorLog{}) }
 func ErrorLogAllDeleteHandler(c *gin.Context) {
-	global.DB.Where("1=1").Delete(&model.ErrorLog{})
+	app.Must().DB.Where("1=1").Delete(&model.ErrorLog{})
 	response.OK(c, nil)
 }
 
@@ -178,7 +178,7 @@ func AdminPayLogList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	keyword := c.Query("keyword")
-	db := global.DB.Model(&model.PayLog{})
+	db := app.Must().DB.Model(&model.PayLog{})
 	if keyword != "" {
 		db = db.Where("pay_no LIKE ?", "%"+keyword+"%")
 	}
@@ -190,7 +190,7 @@ func AdminPayLogList(c *gin.Context) {
 }
 func PayLogCloseHandler(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	global.DB.Model(&model.PayLog{}).Where("id = ? AND status = 0", id).Update("status", 2)
+	app.Must().DB.Model(&model.PayLog{}).Where("id = ? AND status = 0", id).Update("status", 2)
 	response.OK(c, nil)
 }
 
@@ -202,9 +202,9 @@ func RegionSaveHandler(c *gin.Context) {
 		return
 	}
 	if m.ID > 0 {
-		global.DB.Model(&m).Updates(m)
+		app.Must().DB.Model(&m).Updates(m)
 	} else {
-		global.DB.Create(&m)
+		app.Must().DB.Create(&m)
 	}
 	response.OK(c, m)
 }
@@ -218,7 +218,7 @@ func UserAddressListHandler(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	keyword := c.Query("keyword")
-	db := global.DB.Model(&model.Address{})
+	db := app.Must().DB.Model(&model.Address{})
 	if keyword != "" {
 		db = db.Where("name LIKE ? OR phone LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 	}
@@ -257,9 +257,9 @@ func AdminGoodsBrowseList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	var total int64
-	global.DB.Model(&model.BrowseHistory{}).Count(&total)
+	app.Must().DB.Model(&model.BrowseHistory{}).Count(&total)
 	var list []model.BrowseHistory
-	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
+	app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 func AdminGoodsBrowseDelete(c *gin.Context) { genericDelete(c, &model.BrowseHistory{}) }
@@ -268,9 +268,9 @@ func AdminGoodsFavorList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	var total int64
-	global.DB.Model(&model.Favorite{}).Count(&total)
+	app.Must().DB.Model(&model.Favorite{}).Count(&total)
 	var list []model.Favorite
-	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
+	app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 func AdminGoodsFavorDelete(c *gin.Context) { genericDelete(c, &model.Favorite{}) }
@@ -279,9 +279,9 @@ func AdminGoodsCartList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	var total int64
-	global.DB.Model(&model.Cart{}).Count(&total)
+	app.Must().DB.Model(&model.Cart{}).Count(&total)
 	var list []model.Cart
-	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
+	app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 func AdminGoodsCartDelete(c *gin.Context) { genericDelete(c, &model.Cart{}) }
@@ -291,9 +291,9 @@ func AdminMessageList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	var total int64
-	global.DB.Model(&model.Message{}).Count(&total)
+	app.Must().DB.Model(&model.Message{}).Count(&total)
 	var list []model.Message
-	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
+	app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 
@@ -301,9 +301,9 @@ func AdminIntegralLogList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	var total int64
-	global.DB.Model(&model.PointsLog{}).Count(&total)
+	app.Must().DB.Model(&model.PointsLog{}).Count(&total)
 	var list []model.PointsLog
-	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
+	app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 
@@ -311,9 +311,9 @@ func AdminSearchHistoryList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	var total int64
-	global.DB.Model(&model.SearchHistory{}).Count(&total)
+	app.Must().DB.Model(&model.SearchHistory{}).Count(&total)
 	var list []model.SearchHistory
-	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
+	app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 
@@ -321,9 +321,9 @@ func AdminPayRequestLogList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	var total int64
-	global.DB.Model(&model.PayRequestLog{}).Count(&total)
+	app.Must().DB.Model(&model.PayRequestLog{}).Count(&total)
 	var list []model.PayRequestLog
-	global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
+	app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 
@@ -361,6 +361,6 @@ func ThemeUploadHandler(c *gin.Context) {
 	}
 	// 创建主题记录
 	theme := model.ThemeData{Name: file.Filename, Data: dst}
-	global.DB.Create(&theme)
+	app.Must().DB.Create(&theme)
 	response.OK(c, gin.H{"id": theme.ID, "path": dst})
 }

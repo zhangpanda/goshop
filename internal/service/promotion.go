@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -34,7 +34,7 @@ func CreatePromotion(req *CreatePromotionReq) (*model.Promotion, error) {
 		Status:    1,
 	}
 
-	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Create(&promo).Error; err != nil {
 			return err
 		}
@@ -56,14 +56,14 @@ func CreatePromotion(req *CreatePromotionReq) (*model.Promotion, error) {
 		return nil, err
 	}
 
-	global.DB.Preload("Items").First(&promo, promo.ID)
+	app.Must().DB.Preload("Items").First(&promo, promo.ID)
 	return &promo, nil
 }
 
 func GetActivePromotions() ([]model.Promotion, error) {
 	var list []model.Promotion
 	now := time.Now()
-	err := global.DB.Where("type = ? AND status = 1 AND start_time <= ? AND end_time > ?", "promo", now, now).
+	err := app.Must().DB.Where("type = ? AND status = 1 AND start_time <= ? AND end_time > ?", "promo", now, now).
 		Preload("Items").Find(&list).Error
 	return list, err
 }
@@ -78,14 +78,14 @@ func GetPromotionAdminList(page, pageSize int, keyword string) (int64, []model.P
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	q := global.DB.Model(&model.Promotion{}).Where("type = ?", "promo")
+	q := app.Must().DB.Model(&model.Promotion{}).Where("type = ?", "promo")
 	if kw := strings.TrimSpace(keyword); kw != "" {
 		q = q.Where("name LIKE ?", "%"+kw+"%")
 	}
 	var total int64
 	q.Count(&total)
 	var list []model.Promotion
-	listQ := global.DB.Where("type = ?", "promo")
+	listQ := app.Must().DB.Where("type = ?", "promo")
 	if kw := strings.TrimSpace(keyword); kw != "" {
 		listQ = listQ.Where("name LIKE ?", "%"+kw+"%")
 	}
@@ -98,7 +98,7 @@ func GetPromotionAdminList(page, pageSize int, keyword string) (int64, []model.P
 func GetPromoPrice(skuID uint) (int64, error) {
 	var item model.PromotionItem
 	now := time.Now()
-	global.DB.Joins("JOIN promotions ON promotions.id = promotion_items.promotion_id").
+	app.Must().DB.Joins("JOIN promotions ON promotions.id = promotion_items.promotion_id").
 		Where("promotion_items.sku_id = ? AND promotions.status = 1 AND promotions.start_time <= ? AND promotions.end_time > ? AND promotion_items.sold < promotion_items.promo_stock",
 			skuID, now, now).
 		Find(&item)

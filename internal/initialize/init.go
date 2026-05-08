@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/cache"
 	"github.com/zhangpanda/goshop/pkg/wechat"
@@ -20,7 +20,7 @@ import (
 )
 
 func InitDB() error {
-	cfg := global.Cfg.DB
+	cfg := app.Must().Cfg.DB
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName)
 
@@ -43,16 +43,16 @@ func InitDB() error {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	global.DB = db
+	app.Must().DB = db
 	return nil
 }
 
 func InitRedis() error {
-	global.RDB = nil
-	cfg := global.Cfg.Redis
+	app.Must().RDB = nil
+	cfg := app.Must().Cfg.Redis
 	if cfg.Host == "" {
 		slog.Info("cache", "backend", "memory", "reason", "redis not configured")
-		global.Cache = cache.NewMemoryCache()
+		app.Must().Cache = cache.NewMemoryCache()
 		return nil
 	}
 	rdb := redis.NewClient(&redis.Options{
@@ -66,18 +66,18 @@ func InitRedis() error {
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		slog.Warn("cache", "backend", "memory", "reason", "redis connect failed", "error", err)
-		global.Cache = cache.NewMemoryCache()
+		app.Must().Cache = cache.NewMemoryCache()
 		return nil
 	}
 
-	global.RDB = rdb
-	global.Cache = cache.NewRedisCache(rdb)
+	app.Must().RDB = rdb
+	app.Must().Cache = cache.NewRedisCache(rdb)
 	slog.Info("cache", "backend", "redis")
 	return nil
 }
 
 func InitWechatPay() error {
-	cfg := global.Cfg.Wechat
+	cfg := app.Must().Cfg.Wechat
 	if cfg.AppID == "" || cfg.MchID == "" {
 		return nil // 未配置则跳过
 	}
@@ -85,7 +85,7 @@ func InitWechatPay() error {
 	if err != nil {
 		return fmt.Errorf("init wechat pay: %w", err)
 	}
-	global.WxPay = client
+	app.Must().WxPay = client
 	return nil
 }
 
@@ -94,24 +94,24 @@ func InitDefaultAdmin() {
 		return
 	}
 	var count int64
-	global.DB.Model(&model.Admin{}).Count(&count)
+	app.Must().DB.Model(&model.Admin{}).Count(&count)
 	if count > 0 {
 		return
 	}
 	role := model.Role{Name: "超级管理员", Desc: "拥有所有权限", Powers: `["*"]`, Status: 1}
-	global.DB.Create(&role)
+	app.Must().DB.Create(&role)
 	hash, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
 	if err != nil {
 		slog.Error("seed", "action", "default_admin_hash_failed", "err", err)
 		return
 	}
-	global.DB.Create(&model.Admin{Username: "admin", Password: string(hash), Nickname: "管理员", RoleID: role.ID, Status: 1})
+	app.Must().DB.Create(&model.Admin{Username: "admin", Password: string(hash), Nickname: "管理员", RoleID: role.ID, Status: 1})
 	slog.Warn("seed", "action", "default_admin_created", "username", "admin", "msg", "已创建默认管理员，请立即修改密码后再对公网开放；勿在日志中输出明文口令")
 }
 
 func InitDefaultConfig() {
 	var count int64
-	global.DB.Model(&model.Config{}).Count(&count)
+	app.Must().DB.Model(&model.Config{}).Count(&count)
 	if count > 0 {
 		return
 	}
@@ -181,13 +181,13 @@ func InitDefaultConfig() {
 		{Group: "distribution", Key: "distribution_rate_level1", Value: "10", Desc: "一级分销佣金比例(%)"},
 		{Group: "distribution", Key: "distribution_rate_level2", Value: "5", Desc: "二级分销佣金比例(%)"},
 	}
-	global.DB.Create(&configs)
+	app.Must().DB.Create(&configs)
 	slog.Info("seed", "action", "config", "count", len(configs))
 }
 
 func InitDefaultPowers() {
 	var count int64
-	global.DB.Model(&model.Power{}).Count(&count)
+	app.Must().DB.Model(&model.Power{}).Count(&count)
 	if count > 0 {
 		return
 	}
@@ -223,13 +223,13 @@ func InitDefaultPowers() {
 		{ID: 119, ParentID: 118, Name: "缓存管理", Control: "Cache.Index", Sort: 1, Status: 1},
 		{ID: 349, ParentID: 118, Name: "SQL控制台", Control: "Sqlconsole.Index", Sort: 10, Status: 1},
 	}
-	global.DB.Create(&powers)
+	app.Must().DB.Create(&powers)
 	slog.Info("seed", "action", "powers", "count", len(powers))
 }
 
 func InitDefaultNavigation() {
 	var count int64
-	global.DB.Model(&model.Navigation{}).Count(&count)
+	app.Must().DB.Model(&model.Navigation{}).Count(&count)
 	if count > 0 {
 		return
 	}
@@ -246,6 +246,6 @@ func InitDefaultNavigation() {
 		{Name: "订单查询", URL: "/account/orders", Sort: 20, Status: 1, Type: "footer"},
 		{Name: "售后服务", URL: "/account/aftersale", Sort: 10, Status: 1, Type: "footer"},
 	}
-	global.DB.Create(&navs)
+	app.Must().DB.Create(&navs)
 	slog.Info("seed", "action", "navigation", "count", len(navs))
 }

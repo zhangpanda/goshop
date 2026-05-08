@@ -4,10 +4,12 @@
 
 ## 开发环境
 
-- Go 1.25+（与 `go.mod` 一致）
+- Go **1.25.10**（`go.mod` 的 `go` + **`toolchain`**；CI **`setup-go`**；**`Dockerfile`** → `golang:1.25.10-alpine`；可选 **`mise.toml`** / **`.tool-versions`**）
 - Node.js 20+
 - MySQL 8.0+（5.7 亦通常可用）
 - Redis 6+（可选；不配置则使用内存缓存）
+
+升级 Go 补丁时请按 **`docs/development.md`** 或 **`python3 scripts/sync_go_toolchain.py --write`** **一次性回写**（CI 会跑 `scripts/sync_go_toolchain.py` **校验**），勿只改 `go.mod`。
 
 ## 本地开发
 
@@ -32,6 +34,8 @@ cd admin && npm install && npm run dev
 ```
 
 管理后台 E2E（Playwright）：另开终端在仓库根目录 `GOSHOP_E2E=1 go run ./cmd/server/main.go`，再 `cd admin && npx playwright install chromium && npm run test:e2e`。详见 [admin/README.md](admin/README.md)。
+
+Go 后端单测：**日常** `bash scripts/quick_test.sh`（`go vet` + `go test`，无 race，较快）；**对齐 CI 强度** `bash scripts/ci_test.sh`（再多跑全量 `-race`，较慢）。兼容旧命令：`bash scripts/deep_test.sh`；`GOSHOP_TEST_RACE=1 bash scripts/deep_test.sh` 等同 `ci_test`。
 
 ## 提交规范
 

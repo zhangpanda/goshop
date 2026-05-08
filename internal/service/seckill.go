@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -24,7 +24,7 @@ func CreateSeckill(req *SeckillReq) (*model.Promotion, error) {
 		Name: req.Name, Type: "seckill",
 		StartTime: req.StartTime, EndTime: req.EndTime, Status: 1,
 	}
-	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Create(&promo).Error; err != nil {
 			return err
 		}
@@ -42,15 +42,15 @@ func CreateSeckill(req *SeckillReq) (*model.Promotion, error) {
 	if err != nil {
 		return nil, err
 	}
-	global.DB.Preload("Items").First(&promo, promo.ID)
+	app.Must().DB.Preload("Items").First(&promo, promo.ID)
 	return &promo, nil
 }
 
 func GetSeckillList(page, pageSize int) (int64, []model.Promotion, error) {
 	var total int64
-	global.DB.Model(&model.Promotion{}).Where("type = ?", "seckill").Count(&total)
+	app.Must().DB.Model(&model.Promotion{}).Where("type = ?", "seckill").Count(&total)
 	var list []model.Promotion
-	err := global.DB.Where("type = ?", "seckill").
+	err := app.Must().DB.Where("type = ?", "seckill").
 		Preload("Items").Order("id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return total, list, err
@@ -59,7 +59,7 @@ func GetSeckillList(page, pageSize int) (int64, []model.Promotion, error) {
 func GetActiveSeckills() ([]model.Promotion, error) {
 	now := time.Now()
 	var list []model.Promotion
-	err := global.DB.Where("type = ? AND status = 1 AND start_time <= ? AND end_time > ?", "seckill", now, now).
+	err := app.Must().DB.Where("type = ? AND status = 1 AND start_time <= ? AND end_time > ?", "seckill", now, now).
 		Preload("Items").Find(&list).Error
 	return list, err
 }
@@ -67,11 +67,11 @@ func GetActiveSeckills() ([]model.Promotion, error) {
 // SeckillBuy 秒杀下单校验（库存+限购）
 func SeckillBuy(userID, itemID uint) error {
 	var item model.PromotionItem
-	if err := global.DB.First(&item, itemID).Error; err != nil {
+	if err := app.Must().DB.First(&item, itemID).Error; err != nil {
 		return errors.New("秒杀商品不存在")
 	}
 	var promo model.Promotion
-	if err := global.DB.First(&promo, item.PromotionID).Error; err != nil || !promo.IsActive() || promo.Type != "seckill" {
+	if err := app.Must().DB.First(&promo, item.PromotionID).Error; err != nil || !promo.IsActive() || promo.Type != "seckill" {
 		return errors.New("秒杀活动不在进行中")
 	}
 	if item.Sold >= item.PromoStock {
@@ -79,7 +79,7 @@ func SeckillBuy(userID, itemID uint) error {
 	}
 	if item.PerLimit > 0 {
 		var bought int64
-		global.DB.Model(&model.OrderItem{}).
+		app.Must().DB.Model(&model.OrderItem{}).
 			Joins("JOIN orders ON orders.id = order_items.order_id").
 			Where("orders.user_id = ? AND order_items.sku_id = ? AND orders.status != ?",
 				userID, item.SKUID, model.OrderStatusCancelled).
@@ -89,7 +89,7 @@ func SeckillBuy(userID, itemID uint) error {
 		}
 	}
 	// 扣减秒杀库存（乐观锁）
-	result := global.DB.Model(&model.PromotionItem{}).
+	result := app.Must().DB.Model(&model.PromotionItem{}).
 		Where("id = ? AND sold < promo_stock", item.ID).
 		Update("sold", gorm.Expr("sold + 1"))
 	if result.RowsAffected == 0 {

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/pkg/cache"
 )
 
@@ -24,7 +24,7 @@ func tryAcquireCronTick(ctx context.Context, job string, lease time.Duration) bo
 	if lease <= 0 {
 		lease = 30 * time.Second
 	}
-	switch c := global.Cache.(type) {
+	switch c := app.Must().Cache.(type) {
 	case *cache.RedisCache:
 		ok, err := c.SetNX(ctx, "goshop:cron:tick:"+job, cronLockToken(), lease)
 		if err != nil {

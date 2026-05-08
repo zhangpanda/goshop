@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -19,7 +19,7 @@ func AdminOperationLog() gin.HandlerFunc {
 			return
 		}
 		go func() {
-			global.DB.Create(&model.AdminOperationLog{
+			app.Must().DB.Create(&model.AdminOperationLog{
 				AdminID:   adminID,
 				Username:  c.GetString("admin_username"),
 				Action:    c.Request.Method + " " + c.Request.URL.Path,

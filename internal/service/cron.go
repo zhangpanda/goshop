@@ -6,24 +6,24 @@ import (
 	"os"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
 
 // CronOrderClose 自动关闭超时未支付订单（默认30分钟）
-func CronOrderClose(minutes int) (sucs, fail int) {
+func CronOrderClose(deps *app.Deps, minutes int) (sucs, fail int) {
 	if minutes <= 0 {
 		minutes = 30
 	}
 	deadline := time.Now().Add(-time.Duration(minutes) * time.Minute)
 	var orders []model.Order
-	global.DB.Where("status = ? AND created_at < ?", model.OrderStatusPending, deadline).Find(&orders)
+	deps.DB.Where("status = ? AND created_at < ?", model.OrderStatusPending, deadline).Find(&orders)
 
 	for _, o := range orders {
 		o := o
 		var changed bool
-		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		err := RunInDBTx(deps.DB, func(tx *gorm.DB) error {
 			res := tx.Model(&model.Order{}).Where("id = ? AND status = ?", o.ID, model.OrderStatusPending).
 				Update("status", model.OrderStatusCancelled)
 			if res.Error != nil {
@@ -60,18 +60,18 @@ func CronOrderClose(minutes int) (sucs, fail int) {
 }
 
 // CronOrderAutoReceive 自动确认收货（默认15天）
-func CronOrderAutoReceive(days int) (sucs, fail int) {
+func CronOrderAutoReceive(deps *app.Deps, days int) (sucs, fail int) {
 	if days <= 0 {
 		days = 15
 	}
 	deadline := time.Now().AddDate(0, 0, -days)
 	var orders []model.Order
-	global.DB.Where("status = ? AND shipped_at < ?", model.OrderStatusShipped, deadline).Find(&orders)
+	deps.DB.Where("status = ? AND shipped_at < ?", model.OrderStatusShipped, deadline).Find(&orders)
 
 	for i := range orders {
 		o := &orders[i]
 		var updated bool
-		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		err := RunInDBTx(deps.DB, func(tx *gorm.DB) error {
 			now := time.Now()
 			res := tx.Model(&model.Order{}).
 				Where("id = ? AND status = ? AND shipped_at IS NOT NULL AND shipped_at < ?", o.ID, model.OrderStatusShipped, deadline).
@@ -101,21 +101,18 @@ func CronOrderAutoReceive(days int) (sucs, fail int) {
 }
 
 // CronGoodsGiveIntegral 商品赠送积分（订单完成后延迟赠送）
-func CronGoodsGiveIntegral() (sucs, fail int) {
-	// 查找已完成但未赠送积分的订单（完成超过24小时）
+func CronGoodsGiveIntegral(deps *app.Deps) (sucs, fail int) {
 	deadline := time.Now().Add(-24 * time.Hour)
 	var orders []model.Order
-	global.DB.Where("status = ? AND completed_at < ? AND completed_at IS NOT NULL", model.OrderStatusCompleted, deadline).
+	deps.DB.Where("status = ? AND completed_at < ? AND completed_at IS NOT NULL", model.OrderStatusCompleted, deadline).
 		Limit(100).Find(&orders)
 
 	for _, o := range orders {
-		// 检查是否已赠送（通过积分日志判断）
 		var count int64
-		global.DB.Model(&model.PointsLog{}).Where("user_id = ? AND type = ? AND ref_id = ?", o.UserID, "goods_integral", o.ID).Count(&count)
+		deps.DB.Model(&model.PointsLog{}).Where("user_id = ? AND type = ? AND ref_id = ?", o.UserID, "goods_integral", o.ID).Count(&count)
 		if count > 0 {
 			continue
 		}
-		// 查商品赠送积分（简化：每消费1元赠1积分）
 		points := int(o.PayAmount / 100)
 		if points > 0 {
 			ChangePoints(o.UserID, points, "goods_integral", o.ID, "商品赠送积分")
@@ -125,116 +122,99 @@ func CronGoodsGiveIntegral() (sucs, fail int) {
 	return
 }
 
-// StartCronJobs 启动所有定时任务（多实例且使用 Redis 缓存时，每轮通过 SETNX 仅一台执行）。
-func StartCronJobs() {
+// StartCronJobs 启动所有定时任务；ctx 取消时各循环退出（与 HTTP Shutdown 协同）。
+func StartCronJobs(ctx context.Context, deps *app.Deps) {
+	if deps == nil {
+		deps = app.Must()
+	}
 	if os.Getenv("GOSHOP_CRON_ENABLED") == "false" {
 		slog.Info("cron", "skipped", true, "env", "GOSHOP_CRON_ENABLED=false")
 		return
 	}
 
-	// 订单自动关闭 - 每分钟检查
-	go func() {
-		for {
-			time.Sleep(1 * time.Minute)
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			ok := tryAcquireCronTick(ctx, "order_close", 50*time.Second)
-			cancel()
-			if !ok {
-				continue
-			}
-			s, f := CronOrderClose(30)
-			if s > 0 || f > 0 {
-				slog.Info("cron", "job", "order_close", "success", s, "fail", f)
-			}
+	go cronLoop(ctx, "order_close", time.Minute, 5*time.Second, func(lockCtx context.Context) bool {
+		return tryAcquireCronTick(lockCtx, "order_close", 50*time.Second)
+	}, func() {
+		s, f := CronOrderClose(deps, 30)
+		if s > 0 || f > 0 {
+			slog.Info("cron", "job", "order_close", "success", s, "fail", f)
 		}
-	}()
+	})
 
-	// 自动确认收货 - 每小时检查
-	go func() {
-		for {
-			time.Sleep(1 * time.Hour)
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			ok := tryAcquireCronTick(ctx, "order_receive", 50*time.Minute)
-			cancel()
-			if !ok {
-				continue
-			}
-			s, f := CronOrderAutoReceive(15)
-			if s > 0 || f > 0 {
-				slog.Info("cron", "job", "order_receive", "success", s, "fail", f)
-			}
+	go cronLoop(ctx, "order_receive", time.Hour, 10*time.Second, func(lockCtx context.Context) bool {
+		return tryAcquireCronTick(lockCtx, "order_receive", 50*time.Minute)
+	}, func() {
+		s, f := CronOrderAutoReceive(deps, 15)
+		if s > 0 || f > 0 {
+			slog.Info("cron", "job", "order_receive", "success", s, "fail", f)
 		}
-	}()
+	})
 
-	// 商品积分赠送 - 每小时检查
-	go func() {
-		for {
-			time.Sleep(1 * time.Hour)
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			ok := tryAcquireCronTick(ctx, "goods_integral", 50*time.Minute)
-			cancel()
-			if !ok {
-				continue
-			}
-			s, f := CronGoodsGiveIntegral()
-			if s > 0 || f > 0 {
-				slog.Info("cron", "job", "goods_integral", "success", s, "fail", f)
-			}
+	go cronLoop(ctx, "goods_integral", time.Hour, 10*time.Second, func(lockCtx context.Context) bool {
+		return tryAcquireCronTick(lockCtx, "goods_integral", 50*time.Minute)
+	}, func() {
+		s, f := CronGoodsGiveIntegral(deps)
+		if s > 0 || f > 0 {
+			slog.Info("cron", "job", "goods_integral", "success", s, "fail", f)
 		}
-	}()
+	})
 
-	// 长时间未完成的合并支付 PayLog：关单并解除待付子单的 payment_id（与预下单失败回滚互补）
-	go func() {
-		for {
-			time.Sleep(15 * time.Minute)
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			ok := tryAcquireCronTick(ctx, "stale_paylog_close", 12*time.Minute)
-			cancel()
-			if !ok {
-				continue
-			}
-			n := StalePendingPayLogsCleanup(120)
-			if n > 0 {
-				slog.Info("cron", "job", "stale_paylog_close", "closed", n)
-			}
+	go cronLoop(ctx, "stale_paylog_close", 15*time.Minute, 10*time.Second, func(lockCtx context.Context) bool {
+		return tryAcquireCronTick(lockCtx, "stale_paylog_close", 12*time.Minute)
+	}, func() {
+		n := StalePendingPayLogsCleanup(deps, 120)
+		if n > 0 {
+			slog.Info("cron", "job", "stale_paylog_close", "closed", n)
 		}
-	}()
+	})
 
-	// 微信订单主动查单补单（回调丢失补偿）；需配置 WxPay
-	go func() {
-		for {
-			time.Sleep(5 * time.Minute)
-			ctxLock, cancelLock := context.WithTimeout(context.Background(), 10*time.Second)
-			ok := tryAcquireCronTick(ctxLock, "wechat_reconcile", 4*time.Minute)
-			cancelLock()
-			if !ok {
-				continue
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			pl, od := ReconcileWechatPayments(ctx)
-			cancel()
-			if pl > 0 || od > 0 {
-				slog.Info("cron", "job", "wechat_reconcile", "paylogs", pl, "orders", od)
-			}
+	go cronLoop(ctx, "pay_reconcile", 5*time.Minute, 10*time.Second, func(lockCtx context.Context) bool {
+		return tryAcquireCronTick(lockCtx, "pay_reconcile", 4*time.Minute)
+	}, func() {
+		rctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		wPl, wOd := ReconcileWechatPayments(rctx, deps)
+		aPl, aOd := ReconcileAlipayPayments(rctx, deps)
+		if wPl > 0 || wOd > 0 || aPl > 0 || aOd > 0 {
+			slog.Info("cron", "job", "pay_reconcile", "wechat_paylogs", wPl, "wechat_orders", wOd, "alipay_paylogs", aPl, "alipay_orders", aOd)
 		}
-	}()
+	})
 
-	// 锁定积分释放 - 每小时检查
-	go func() {
-		for {
-			time.Sleep(1 * time.Hour)
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			ok := tryAcquireCronTick(ctx, "integral_release", 50*time.Minute)
-			cancel()
-			if !ok {
-				continue
-			}
-			s, _ := CronIntegralRelease(21600) // 15天
-			if s > 0 {
-				slog.Info("cron", "job", "integral_release", "success", s)
-			}
+	go cronLoop(ctx, "integral_release", time.Hour, 10*time.Second, func(lockCtx context.Context) bool {
+		return tryAcquireCronTick(lockCtx, "integral_release", 50*time.Minute)
+	}, func() {
+		s, _ := CronIntegralRelease(deps, 21600)
+		if s > 0 {
+			slog.Info("cron", "job", "integral_release", "success", s)
 		}
-	}()
+	})
 
 	slog.Info("cron jobs started")
+}
+
+func cronLoop(
+	ctx context.Context,
+	jobName string,
+	period time.Duration,
+	lockTimeout time.Duration,
+	tryLock func(lockCtx context.Context) bool,
+	work func(),
+) {
+	t := time.NewTicker(period)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("cron", "stopped", true, "job", jobName)
+			return
+		case <-t.C:
+			lockCtx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+			ok := tryLock(lockCtx)
+			cancel()
+			if !ok {
+				continue
+			}
+			work()
+		}
+	}
 }

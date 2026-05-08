@@ -1,5 +1,6 @@
 # ---- Go backend ----
-FROM golang:1.25-alpine AS backend
+# 与 go.mod（go + toolchain）、CI setup-go、mise.toml、.tool-versions 对齐；升补丁见 docs/development.md
+FROM golang:1.25.10-alpine AS backend
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download

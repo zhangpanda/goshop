@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/zhangpanda/goshop/config"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 )
 
 func TestGetPaymentDriver(t *testing.T) {
@@ -79,6 +79,35 @@ func TestAlipayVerifySign_EmptyKey(t *testing.T) {
 func TestAlipayVerifySign_NoSign(t *testing.T) {
 	if AlipayVerifySign(map[string]string{"foo": "bar"}, "some-key") {
 		t.Error("should fail with no sign param")
+	}
+}
+
+func TestAlipayVerifyGatewaySyncSign(t *testing.T) {
+	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubDER, err := x509.MarshalPKIXPublicKey(&privKey.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}))
+	content := `{"code":"10000","msg":"Success","trade_status":"TRADE_SUCCESS"}`
+	sum := sha256.Sum256([]byte(content))
+	sig, err := rsa.SignPKCS1v15(rand.Reader, privKey, crypto.SHA256, sum[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	signB64 := base64.StdEncoding.EncodeToString(sig)
+
+	if !AlipayVerifyGatewaySyncSign(content, signB64, pubPEM) {
+		t.Error("AlipayVerifyGatewaySyncSign should accept valid RSA2 sign over raw JSON")
+	}
+	if AlipayVerifyGatewaySyncSign(`{"code":"10001"}`, signB64, pubPEM) {
+		t.Error("expected verify false when body tampered")
+	}
+	if AlipayVerifyGatewaySyncSign(content, signB64, "") {
+		t.Error("expected false with empty public key")
 	}
 }
 
@@ -160,10 +189,10 @@ func TestPayPalDriverPay(t *testing.T) {
 }
 
 func TestAlipayMiniDriverPay(t *testing.T) {
-	old := global.Cfg
-	t.Cleanup(func() { global.Cfg = old })
-	global.Cfg = &config.Config{}
-	global.Cfg.Alipay.AppID = "test_app"
+	old := app.Must().Cfg
+	t.Cleanup(func() { app.Must().Cfg = old })
+	app.Must().Cfg = &config.Config{}
+	app.Must().Cfg.Alipay.AppID = "test_app"
 	d := &AlipayMiniDriver{}
 	resp, err := d.Pay(nil, &PayDriverReq{OrderNo: "MINI1", Amount: 200, Description: "t"})
 	if err != nil {
@@ -178,9 +207,9 @@ func TestAlipayMiniDriverPay(t *testing.T) {
 }
 
 func TestGetPaymentDriver_SandboxMode(t *testing.T) {
-	old := global.Cfg
-	t.Cleanup(func() { global.Cfg = old })
-	global.Cfg = &config.Config{Payment: config.PaymentConfig{Sandbox: true}}
+	old := app.Must().Cfg
+	t.Cleanup(func() { app.Must().Cfg = old })
+	app.Must().Cfg = &config.Config{Payment: config.PaymentConfig{Sandbox: true}}
 
 	d, err := GetPaymentDriver("alipay_pc")
 	if err != nil {

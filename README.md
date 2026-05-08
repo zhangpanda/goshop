@@ -4,17 +4,17 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/zhangpanda/goshop)](go.mod)
 
-用 Go 实现的开源电商系统；实现时**对照** ShopXO v6.8.0 做商家主路径与数据模型上的对齐（覆盖率约 **97%** 为团队**人工核对**结论，细则与分级见 `docs/shopxo-admin-parity.md`，非第三方审计）。**插件在线市场、PHP 式在线升级与任意 PHP 插件运行时**不在产品规划内（管理端应用商店 Tab 仅为兼容占位；是否未来跟进 ShopXO 生态另定），前后端分离架构。
+**目标：替换 ShopXO v6.8.0 PHP 部署**——用 Go 重写同版本基线下的商城能力（数据模型、商家主路径、与 shopxo-uniapp 等约定的 `/api.php` 入口），部署上可接管原 PHP 站点职责；实现细节与分级对照见 `docs/shopxo-admin-parity.md`。**插件在线市场、PHP 式在线升级与任意 PHP 插件运行时**不在本替换范围内（管理端应用商店 Tab 为占位；扩展走 Go 工程方式）。「覆盖率约 **97%**」为团队相对 ShopXO **商家主路径**的**人工核对**结论（不含上述边界能力），**非**第三方审计。
 
-> **ShopXO** 为独立开源项目及相应社区资产；本文提及仅用于说明兼容与差异，**不代表**官方合作或背书。Go 后端为独立编写。DIY / Form 可视化编辑器复用其官方 MIT 子项目（[shopxo-diy](https://github.com/gongfuxiang/shopxo-diy) / [shopxo-form](https://github.com/gongfuxiang/shopxo-form)）；uni-app 可参考对接 [shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)。
+> **ShopXO** 为独立开源项目及相应社区资产；本文提及仅用于说明替换目标与差异，**不代表**官方合作或背书。Go 后端为独立实现。DIY / Form 可视化编辑器复用其官方 MIT 子项目（[shopxo-diy](https://github.com/gongfuxiang/shopxo-diy) / [shopxo-form](https://github.com/gongfuxiang/shopxo-form)）；uni-app 对接见 [shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp) 与 `docs/uniapp-guide.md`。
 
 ## 特性
 
-- **Go 后端**：Gin + GORM + MySQL，**394** 条 Gin 路由注册（`router.go` 352 + DIY/Form 41 + `/api.php` 1；以 `scripts/doc-metrics.sh` 为准）；ShopXO uni-app **`s=` 动作 82**；12 种支付驱动，Redis 可选
+- **Go 后端**：Gin + GORM + MySQL，**395** 条 Gin 路由注册（`router.go` 353 + DIY/Form 41 + `/api.php` 1；以 `scripts/doc-metrics.sh` 为准）；ShopXO uni-app **`s=` 动作**当前 **94** 条（`internal/compat/shopxo/compat.go` 中 `routeMap`，以 `scripts/doc-metrics.sh` 计数为准）；12 种支付驱动，Redis 可选
 - **营销功能**：秒杀（乐观锁+限购）、拼团（自动成团）、优惠券、促销
 - **管理后台**：Next.js + Ant Design，72 个页面；与 ShopXO 后台为**分级对照**（已对齐 / 部分 / 占位等，见 `docs/shopxo-admin-parity.md`）
 - **PC前台**：Next.js + Tailwind CSS，Apple风格UI
-- **手机端**：可选用社区维护的 [shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)（需按 `docs/uniapp-guide.md` 配置）；后端提供 **`/api.php` 风格兼容入口**（当前 **82** 个 `s=` 动作，见 `internal/compat/shopxo/compat.go`），**不保证**与对方全部历史版本行为一致，以集成测试与真机为准。
+- **手机端**：可选用 [shopxo-uniapp](https://github.com/gongfuxiang/shopxo-uniapp)（按 `docs/uniapp-guide.md` 将 `request_url` 指到本后端站点根）；后端提供 **`/api.php` 单入口**（`s=` 动作见 `internal/compat/shopxo/compat.go` 中 `routeMap`）。**对照基线为 ShopXO v6.8.0**；其他 ShopXO 版本需自行联调验证。
 - **缓存抽象**：Redis/内存缓存自动切换，无Redis也能运行
 - **DIY装修**：集成shopxo-diy可视化拖拽编辑器
 - **Form设计**：集成shopxo-form可视化表单设计器
@@ -47,12 +47,12 @@ docker compose up -d
 # 管理后台和 PC 前台需另行启动（见下方本地开发步骤）
 ```
 
-> Docker 镜像仅包含 Go 后端。管理后台（Next.js :3010）和 PC 前台（Next.js :3000）需在宿主机或单独容器中运行。首次启动仍会创建默认管理员，**公网前须改密**（见 [部署指南](docs/deployment.md)）。
+> Docker 镜像仅包含 Go 后端（**`Dockerfile`** 构建阶段：`golang:1.25.10-alpine`，与 `go.mod` / CI 一致）。管理后台（Next.js :3010）和 PC 前台（Next.js :3000）需在宿主机或单独容器中运行。首次启动仍会创建默认管理员，**公网前须改密**（见 [部署指南](docs/deployment.md)）。
 
 ### 本地开发
 
 #### 环境要求
-- Go 1.25+（`go.mod` 声明 1.25；如使用 Go 1.24.x 需降级 `github.com/gin-gonic/gin` 到 v1.10.x）
+- Go **1.25.10**（`go.mod` 声明 **`go` + `toolchain`**；CI、**`Dockerfile`**（`golang:1.25.10-alpine`）、可选 **`mise.toml`** / **`.tool-versions`** 与之对齐；勿混用 1.24.x 旧链，否则需自行降级 `github.com/gin-gonic/gin` 等到 v1.10.x）
 - Node.js 20+（与 Next.js 15 实践一致）
 - MySQL 5.7+ / 8.0+（推荐 8.0）
 - Redis 6+（可选，不配置则使用内存缓存）
@@ -127,12 +127,12 @@ npx vite build
 goshop/
 ├── cmd/server/main.go          # 入口
 ├── internal/
-│   ├── handler/                # HTTP处理器 (约38个 Go 文件)
-│   ├── service/                # 业务逻辑 (约58个 Go 文件)
+│   ├── handler/                # HTTP处理器（以 scripts/doc-metrics.sh 计数为准）
+│   ├── service/                # 业务逻辑（以 scripts/doc-metrics.sh 计数为准）
 │   ├── model/                  # 数据模型 (34个 Go 文件, 95张表，以 AutoMigrate / doc-metrics 为准)
-│   ├── router/router.go        # 路由注册 (352 条 Gin；全站合计 394 见 doc-metrics/HANDOVER)
+│   ├── router/router.go        # 路由注册 (353 条 Gin；全站合计 395 见 doc-metrics/HANDOVER)
 │   └── middleware/             # 中间件 (JWT/CORS/操作日志)
-├── admin/                      # 管理后台 Next.js (70个页面)
+├── admin/                      # 管理后台 Next.js（page 数以 doc-metrics 为准）
 ├── web/                        # PC前台 Next.js (24页面)
 ├── static/                     # DIY/Form构建产物
 ├── pkg/                        # 公共包 (JWT/缓存/微信支付/响应)
@@ -180,6 +180,7 @@ goshop/
 | 管理后台 | PHP 模板 | React + Ant Design |
 | PC 前台 | PHP 模板 | Next.js + Tailwind |
 | 典型部署 | PHP + Web 服务器 + MySQL 等 | 单二进制 + MySQL（Redis 可选） |
+| **部署目标（相对 v6.8.0）** | 官方 PHP 商城 | **以 Go 替换同名职责**（数据与主路径见迁移/parity 文档；插件市场等除外） |
 | 与商家主路径对齐 | 以官方版本为准 | 约 97%（**人工对照**，不含插件市场/PHP 式升级等；见 `HANDOVER.md` 与 `shopxo-admin-parity.md`） |
 
 性能、并发表现取决于业务与压测场景，**未**与 ShopXO 做同等条件下的公开对标测试，不在此表下结论。

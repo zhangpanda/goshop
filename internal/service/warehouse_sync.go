@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -16,14 +16,14 @@ func GoodsSpecInventorySync(goodsID uint) error {
 		Inventory int
 	}
 	var sums []specSum
-	global.DB.Model(&model.WarehouseGoodsSpec{}).
+	app.Must().DB.Model(&model.WarehouseGoodsSpec{}).
 		Joins("JOIN warehouses ON warehouses.id = warehouse_goods_specs.warehouse_id AND warehouses.is_enable = 1").
 		Where("warehouse_goods_specs.goods_id = ?", goodsID).
 		Select("warehouse_goods_specs.sku_id, SUM(warehouse_goods_specs.inventory) as inventory").
 		Group("warehouse_goods_specs.sku_id").Find(&sums)
 	for _, s := range sums {
 		if s.SKUID > 0 {
-			global.DB.Model(&model.GoodsSKU{}).Where("id = ?", s.SKUID).Update("stock", s.Inventory)
+			app.Must().DB.Model(&model.GoodsSKU{}).Where("id = ?", s.SKUID).Update("stock", s.Inventory)
 		}
 	}
 	// 同步GoodsSpecBase
@@ -31,14 +31,14 @@ func GoodsSpecInventorySync(goodsID uint) error {
 		SpecValues string
 		Inventory  int
 	}
-	global.DB.Model(&model.WarehouseGoodsSpec{}).
+	app.Must().DB.Model(&model.WarehouseGoodsSpec{}).
 		Joins("JOIN warehouses ON warehouses.id = warehouse_goods_specs.warehouse_id AND warehouses.is_enable = 1").
 		Where("warehouse_goods_specs.goods_id = ?", goodsID).
 		Select("warehouse_goods_specs.spec_values, SUM(warehouse_goods_specs.inventory) as inventory").
 		Group("warehouse_goods_specs.spec_values").Find(&baseSums)
 	for _, s := range baseSums {
 		if s.SpecValues != "" {
-			global.DB.Model(&model.GoodsSpecBase{}).Where("goods_id = ? AND spec_values = ?", goodsID, s.SpecValues).Update("inventory", s.Inventory)
+			app.Must().DB.Model(&model.GoodsSpecBase{}).Where("goods_id = ? AND spec_values = ?", goodsID, s.SpecValues).Update("inventory", s.Inventory)
 		}
 	}
 	return nil
@@ -52,19 +52,19 @@ func GoodsSpecChangeInventorySync(goodsID uint) error {
 // WarehouseGoodsInventoryDeduct 仓库库存扣减（下单时）
 func WarehouseGoodsInventoryDeduct(orderID, goodsID uint, skuID uint, quantity int) error {
 	var ws model.WarehouseGoodsSpec
-	global.DB.Where("goods_id = ? AND sku_id = ? AND inventory >= ?", goodsID, skuID, quantity).
+	app.Must().DB.Where("goods_id = ? AND sku_id = ? AND inventory >= ?", goodsID, skuID, quantity).
 		Joins("JOIN warehouses ON warehouses.id = warehouse_goods_specs.warehouse_id AND warehouses.is_enable = 1").
 		Order("warehouses.level DESC").First(&ws)
 	if ws.ID == 0 {
 		return nil // 无仓库管理则跳过
 	}
-	result := global.DB.Model(&model.WarehouseGoodsSpec{}).Where("id = ? AND inventory >= ?", ws.ID, quantity).
+	result := app.Must().DB.Model(&model.WarehouseGoodsSpec{}).Where("id = ? AND inventory >= ?", ws.ID, quantity).
 		Update("inventory", gorm.Expr("inventory - ?", quantity))
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("仓库库存不足")
 	}
 	// 同步仓库商品总库存
-	global.DB.Model(&model.WarehouseGoods{}).Where("warehouse_id = ? AND goods_id = ?", ws.WarehouseID, goodsID).
+	app.Must().DB.Model(&model.WarehouseGoods{}).Where("warehouse_id = ? AND goods_id = ?", ws.WarehouseID, goodsID).
 		Update("inventory", gorm.Expr("inventory - ?", quantity))
 	// 记录库存日志
 	AddInventoryLog(orderID, goodsID, skuID, -quantity, "order", "订单扣库存")
@@ -75,14 +75,14 @@ func WarehouseGoodsInventoryDeduct(orderID, goodsID uint, skuID uint, quantity i
 func WarehouseGoodsInventoryRollback(orderID, goodsID uint, skuID uint, quantity int) error {
 	// 找到最近扣减的仓库
 	var log model.InventoryLog
-	global.DB.Where("order_id = ? AND goods_id = ? AND sku_id = ? AND type = 'order'", orderID, goodsID, skuID).
+	app.Must().DB.Where("order_id = ? AND goods_id = ? AND sku_id = ? AND type = 'order'", orderID, goodsID, skuID).
 		Order("id DESC").First(&log)
 	// 回滚到默认仓库
 	var ws model.WarehouseGoodsSpec
-	global.DB.Where("goods_id = ? AND sku_id = ?", goodsID, skuID).First(&ws)
+	app.Must().DB.Where("goods_id = ? AND sku_id = ?", goodsID, skuID).First(&ws)
 	if ws.ID > 0 {
-		global.DB.Model(&ws).Update("inventory", gorm.Expr("inventory + ?", quantity))
-		global.DB.Model(&model.WarehouseGoods{}).Where("warehouse_id = ? AND goods_id = ?", ws.WarehouseID, goodsID).
+		app.Must().DB.Model(&ws).Update("inventory", gorm.Expr("inventory + ?", quantity))
+		app.Must().DB.Model(&model.WarehouseGoods{}).Where("warehouse_id = ? AND goods_id = ?", ws.WarehouseID, goodsID).
 			Update("inventory", gorm.Expr("inventory + ?", quantity))
 	}
 	AddInventoryLog(orderID, goodsID, skuID, quantity, "rollback", "库存回滚")

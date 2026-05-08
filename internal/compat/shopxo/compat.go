@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/handler"
 	"github.com/zhangpanda/goshop/pkg/auth"
 	"github.com/zhangpanda/goshop/pkg/response"
@@ -13,6 +13,7 @@ import (
 
 // SetupShopXOCompat 注册 /api.php 兼容路由（对照 shopxo-uniapp 常见 s=controller/action 形态）。
 // 请求示例: /api.php?s=controller/action&token=xxx&ajax=ajax
+// ShopXO/PHP 支付方式字段（config.payment 类名）仅在同包 payment_key.go 解析，避免污染 internal/service。
 func SetupShopXOCompat(r *gin.Engine) {
 	r.Any("/api.php", shopxoDispatch)
 }
@@ -73,7 +74,9 @@ var authRequiredRoutes = map[string]bool{
 	"usergoodsbrowse/index": true, "usergoodsbrowse/delete": true,
 	"usergoodscomments/save": true, "usergoodscomments/delete": true,
 	"userintegral/index": true, "message/index": true,
-	"forminputdata/save": true, "forminputdata/delete": true,
+	"forminputdata/save": true, "forminputdata/delete": true, "forminputdata/detail": true,
+	"paylog/index": true, "paylog/detail": true,
+	"order/commentssave": true,
 }
 
 func parseTokenToUserID(token string) uint {
@@ -85,7 +88,7 @@ func parseTokenToUserID(token string) uint {
 }
 
 func parseJWTToken(token string) (*auth.Claims, error) {
-	return auth.ParseToken(token, global.Cfg.JWT.Secret)
+	return auth.ParseToken(token, app.Must().Cfg.JWT.Secret)
 }
 
 // routeMap 兼容层 controller/action -> 本仓库 handler（命名沿历史习惯，非主张与 ShopXO 逐字节一致）
@@ -114,6 +117,12 @@ var routeMap = map[string]gin.HandlerFunc{
 	"user/forgetpwdverifysend":     sxForgetPwdVerifySend,
 	"user/appmobilebindverifysend": sxMobileBindVerifySend,
 	"user/appemailbindverifysend":  sxEmailBindVerifySend,
+	"user/userverifyentry":         sxUserVerifyEntry,
+
+	// ===== article（对照 shopxo-uniapp 文章类页面）=====
+	"article/index":    sxArticleIndex,
+	"article/datalist": sxArticleDataList,
+	"article/detail":   sxArticleDetail,
 
 	// ===== goods =====
 	"goods/detail":     sxGoodsDetail,
@@ -141,14 +150,15 @@ var routeMap = map[string]gin.HandlerFunc{
 	"buy/add":   sxBuyAdd,
 
 	// ===== order =====
-	"order/index":    sxOrderIndex,
-	"order/detail":   sxOrderDetail,
-	"order/pay":      sxOrderPay,
-	"order/paycheck": sxOrderPayCheck,
-	"order/cancel":   sxOrderCancel,
-	"order/collect":  sxOrderCollect,
-	"order/delete":   sxOrderDelete,
-	"order/comments": sxOrderComments,
+	"order/index":        sxOrderIndex,
+	"order/detail":       sxOrderDetail,
+	"order/pay":          sxOrderPay,
+	"order/paycheck":     sxOrderPayCheck,
+	"order/cancel":       sxOrderCancel,
+	"order/collect":      sxOrderCollect,
+	"order/delete":       sxOrderDelete,
+	"order/comments":     sxOrderComments,
+	"order/commentssave": sxOrderCommentSave,
 
 	// ===== orderaftersale =====
 	"orderaftersale/index":    sxAftersaleIndex,
@@ -206,14 +216,27 @@ var routeMap = map[string]gin.HandlerFunc{
 	// ===== diy =====
 	"diy/index": sxDiyIndex,
 
+	// ===== design / customview（可视化装修、自定义页）=====
+	"design/index":     sxDesignIndex,
+	"customview/index": sxCustomviewIndex,
+
 	// ===== forminput =====
-	"forminput/index":      sxFormInputIndex,
-	"forminput/verifysend": sxFormInputVerifySend,
+	"forminput/index":       sxFormInputIndex,
+	"forminput/verifysend":  sxFormInputVerifySend,
+	"forminput/verifyentry": sxFormInputVerifyEntry,
 
 	// ===== forminputdata =====
 	"forminputdata/index":  sxFormInputDataIndex,
 	"forminputdata/save":   sxFormInputDataSave,
 	"forminputdata/delete": sxFormInputDataDelete,
+	"forminputdata/detail": sxFormInputDataDetail,
+
+	// ===== paylog（支付日志 / 订单明细式列表）=====
+	"paylog/index":  sxPaylogIndex,
+	"paylog/detail": sxPaylogDetail,
+
+	// ===== ueditor（富文本图片上传，shopxo-uniapp 常用 action=uploadimage）=====
+	"ueditor/index": sxUeditorIndex,
 
 	// ===== cashier（微信小程序收银台，对照 shopxo-uniapp cashier/paydata 约定）=====
 	"cashier/paydata": sxCashierPayData,

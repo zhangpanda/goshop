@@ -1,12 +1,14 @@
 # GoShop 项目交接文档
 
 ## 项目概述
-用 Go 实现的电商系统，开发时对照 ShopXO v6.8.0（PHP）的商家主路径与数据模型，前后端分离；已开源发布。
-功能覆盖率 **约 97%** 指相对 ShopXO **商家主路径**的人工核对结论（不含下文「产品边界」中刻意不对齐的能力；分级见 `docs/shopxo-admin-parity.md`，**非**第三方审计）。
 
-**ShopXO** 名称仅用于说明兼容与差异，不代表官方合作或商标授权。
+**目标：替换 ShopXO v6.8.0 PHP 部署**——以该版本为唯一基线，用 Go 实现等价商城能力（数据模型、商家主路径、`/api.php` 约定等），使生产环境可由本栈接管原 PHP 站点；前后端分离，已开源发布。
 
-## 产品边界（刻意不对齐 ShopXO）
+**替换范围不含**：插件在线市场、PHP 在线升级、运行任意 PHP 插件字节码（见下「产品边界」）。「覆盖率约 **97%**」指相对 ShopXO **商家主路径**的团队**人工核对**结论（不含上述边界；分级见 `docs/shopxo-admin-parity.md`），**非**第三方审计。
+
+**ShopXO** 名称仅用于说明替换目标与差异，不代表官方合作或商标授权。
+
+## 产品边界（不在「替换 PHP 部署」承诺内）
 - **插件在线市场 / ShopXO 式应用商店**：**不计划**作为内置系统能力实现；管理端相关 Tab 仅为布局兼容或占位。**是否在未来单独跟进 ShopXO 生态变化**，由后续版本与产品决策另定，**不承诺**与官方商店同步。
 - **PHP 包管理 / 在线升级 / 运行任意 PHP 插件字节码**：不在产品范围内；发版与扩展走 Go 工程自有方式（API、配置、自建模块等）。
 
@@ -16,10 +18,10 @@
 - 对照 ShopXO 源码时请自行准备官方发行版（如 v6.8.x），本仓库不随附 ShopXO 代码。
 
 ## 技术栈
-- 后端: Go 1.25 + Gin + GORM + MySQL + Redis(可选)（以 `go.mod` 为准）
+- 后端: Go 1.25.10（`go.mod`：`go` + `toolchain`；可选 **mise** / **asdf** 见 `mise.toml`、`.tool-versions`）+ Gin + GORM + MySQL + Redis(可选)；镜像构建 **`golang:1.25.10-alpine`**
 - 管理后台: Next.js 15 + Ant Design 5（端口3010）
 - PC前台: Next.js 15 + Tailwind 4 + framer-motion（端口3000）
-- 手机端: 可选 shopxo-uniapp 等 + 后端 `/api.php` 兼容层（见 `docs/uniapp-guide.md`）
+- 手机端: 可选 shopxo-uniapp 等 + 后端 `/api.php` 单入口（ShopXO v6.8.0 约定，见 `docs/uniapp-guide.md`）
 
 ## 启动
 ```bash
@@ -33,17 +35,17 @@ cd web && npm run dev           # PC前台 :3000
 ### 核心数据
 | 指标 | 数值 |
 |------|------|
-| Go 后端代码 | **18358** 行（`internal`+`pkg`+`cmd`+`config`+`global`，不含 `*_test.go`；以 `scripts/doc-metrics.sh` 为准） |
-| Gin HTTP 注册 | **394**（`internal/router/router.go` **352** + `diyapi_compat` **41** + `/api.php` **1**） |
-| ShopXO `api.php` | **82** 个 `s=` 动作（`routeMap`，单入口 `Any`） |
+| Go 后端代码 | **20109** 行（`internal`+`pkg`+`cmd`+`config`，不含 `*_test.go`；以 `scripts/doc-metrics.sh` 为准） |
+| Gin HTTP 注册 | **395**（`internal/router/router.go` **353** + `diyapi_compat` **41** + `/api.php` **1**） |
+| ShopXO `api.php` | **94** 个 `s=` 动作（`routeMap`，单入口 `Any`；以 `scripts/doc-metrics.sh` 计数为准） |
 | 数据库表 | **95**（`cmd/server/main.go` 中 `AutoMigrate` 的去重模型数） |
 | 管理后台页面 | **72**（`admin/src/app/**/page.tsx`） |
 | 管理后台组件 | **13**（`admin/src/components/*` 顶层文件） |
 | PC前台页面 | **24**（`web/src/app/**/page.tsx`） |
 | Go 单元测试 | **69**（`^func Test`，全仓 `*_test.go`；以 `scripts/doc-metrics.sh` 为准） |
 | Playwright E2E | **34**（`admin/e2e/*.spec.ts`：full-flow 19 + deep-flow 10 + marketing 4 + screenshots 1） |
-| 迁移测试 | **25 项验证**（`scripts/migration_test.sh`：21 项数据校验 + 4 项 API 验证） |
-| 自动化脚本 | **5**（`scripts/deep_test.sh`；`integration_test.sh`；`sandbox_pay_test.sh`；`distribution_test.sh`；`migration_test.sh`） |
+| 迁移测试 | **26 项验证**（`scripts/migration_test.sh`：21 项数据校验 + 5 项 API：登录 + 商品/订单/用户/分类） |
+| 自动化脚本 | **7**（`scripts/quick_test.sh`；`scripts/ci_test.sh`；`scripts/deep_test.sh` 兼容入口；`integration_test.sh`；`sandbox_pay_test.sh`；`distribution_test.sh`；`migration_test.sh`） |
 
 > 上表为对外文档的**权威口径**。更新实现后请跑 **`scripts/doc-metrics.sh`** 刷新数字，并同步 `README.md` / `docs/*`，避免漂移。
 
@@ -93,9 +95,9 @@ cd web && npm run dev           # PC前台 :3000
 - 错误处理：AutoMigrate / sqlDB 错误检查
 
 #### CI（概要）
-- GitHub Actions：MySQL 8.0 服务容器、后端 build/vet/**fmt（仅项目内 `.go`，排除 web/admin `node_modules`）**/test/**`-race`**、集成脚本；`admin-e2e` 为 **`GOSHOP_E2E=1`** + Playwright（见 `admin/e2e/`）。**细则与 2026-04 变更**见下文 **「工程与测试近况」**。
+- GitHub Actions：MySQL 8.0 服务容器、后端 build/vet/**fmt（仅项目内 `.go`，排除 web/admin `node_modules`）**/test/**`-race`**、集成脚本；**`shopxo-parity`** job：shallow clone 官方 **uni-app**（`extract_shopxo_uniapp_routes.py --fail-on-missing`）与 **ShopXO PHP `v6.8.0`**（`extract_shopxo_php_api_routes.py --fail-uniapp-contract`，冻结 87 条须在 PHP `app/api/controller` 与 Go `routeMap` 双存在）；`admin-e2e` 为 **`GOSHOP_E2E=1`** + Playwright（见 `admin/e2e/`）。**细则与 2026-04 变更**见下文 **「工程与测试近况」**。
 - Redis 不需要（内存缓存 fallback）
-- **集成 Job**：`payment.sandbox: true`，并以 **`GOSHOP_PAYMENT_SANDBOX=1`** 调用 `scripts/integration_test.sh`（**失败即失败**，不再吞掉退出码）
+- **集成 Job**：`payment.sandbox: true`，并以 **`GOSHOP_PAYMENT_SANDBOX=1`** 调用 `scripts/integration_test.sh`（**失败即失败**，不再吞掉退出码）；脚本末尾 **`smoke_shopxo_s_routes.py`** 对 **87** 条 `scripts/data/shopxo_uniapp_normal_routes.txt` 做 `/api.php` 全量冒烟。
 
 #### 文档
 - docs/shopxo-admin-parity.md — 管理端与 ShopXO 后台模块对齐清单（可核对）
@@ -134,7 +136,7 @@ cd web && npm run dev           # PC前台 :3000
 - **性能优化**：分类树查询加 60 秒缓存
 
 #### ShopXO 迁移自动化验证（v1.5.4）
-- **`scripts/migration_test.sh`**：自包含测试（不依赖 shopxo.sql），自动创建 ShopXO 源表+模拟数据 → GoShop 建表 → 执行迁移 SQL → 21 项数据校验（用户/分类/商品/SKU/订单/明细/地址/品牌/文章/管理员，含金额元→分转换、状态码映射、订单地址 JSON）→ 4 项 API 验证（登录/商品/订单/用户/分类）
+- **`scripts/migration_test.sh`**：自包含测试（不依赖 shopxo.sql），自动创建 ShopXO 源表+模拟数据 → GoShop 建表 → 执行迁移 SQL → 21 项数据校验（用户/分类/商品/SKU/订单/明细/地址/品牌/文章/管理员，含金额元→分转换、状态码映射、订单地址 JSON）→ 5 项 API 验证（管理员登录、商品/订单/用户/分类接口）；MySQL 口令默认对齐 `docker-compose.yml`，本地不同时用环境变量 **`GOSHOP_MIGRATION_MYSQL_PASSWORD`**
 - 验证覆盖：用户状态反转（ShopXO 0=正常→GoShop 1=正常）、金额 decimal→int64 分、Unix 时间戳→datetime、多对多分类→单值 category_id、SKU 价格转换、订单地址 JSON 拼装、无规格商品占位 SKU
 
 #### 管理后台纠偏（v1.5.3）
@@ -152,12 +154,14 @@ cd web && npm run dev           # PC前台 :3000
 
 ### 单测与本地脚本
 - **支付 / ShopXO**：`GetPaymentDriver` 沙盒包装、`ShopXOPluginNameFromDriverKey`、名称推断 `payment_key` 等表驱动用例（`internal/service/*_test.go`）。
-- **`scripts/deep_test.sh`**：`go vet` + `go test`（包列表排除 `/node_modules/`）；可选 **`GOSHOP_TEST_RACE=1`** 跑 `-race`（与 CI 一致思路）。
+- **`scripts/quick_test.sh`**：`go vet` + `go test`（包列表排除 `/node_modules/`），**无 `-race`**，日常最快。
+- **`scripts/ci_test.sh`**：`quick_test` 后再 **`go test -race -timeout 5m`**，对齐本仓库 CI 的 Go 测强度（仍不含 gofmt/govulncheck，见 Actions）。
+- **`scripts/deep_test.sh`**：兼容旧习惯；默认等同 `quick_test`；环境变量 **`GOSHOP_TEST_RACE=1`** 时等同 `ci_test`。
 - **`scripts/integration_test.sh`**：环境变量 **`BASE`** 覆盖 API 根地址；`curl` **连接/总超时**；启动前探测 **`GET …/api/site-config`**；校验 **12 个 `payment_key`**、**REST 线下 unified**、多单 ShopXO、可选 **`GOSHOP_PAYMENT_SANDBOX=1`** 沙盒回调。
 - **`scripts/sandbox_pay_test.sh`**：轮询渠道含 **当面付、PayPal** 等；钱包单独测余额边界。
 
 ### CI（`.github/workflows/ci.yml`）
-- 后端 **`setup-go` 1.25**（与 `go.mod` 一致）。
+- 后端 **`setup-go` 1.25.10**（与 `go.mod`、`Dockerfile`、`mise.toml`、`.tool-versions` 一致；升补丁见 `docs/development.md`）。
 - **`gofmt -s`**：仅扫描仓库内 `*.go`，排除 `web/node_modules`、`admin/node_modules`。
 - **`go vet` / `go test`**：包列表 `go list ./... | grep -v '/node_modules/'`（避免本地 `npm i` 后误入依赖里的 Go 包）。
 - **`go test -race -timeout 5m`** 独立一步。
@@ -197,6 +201,8 @@ cd web && npm run dev           # PC前台 :3000
 ### 后端
 ```
 cmd/server/main.go                      # 入口（含 EnsureDefaultPayments）
+cmd/shopxo-import/main.go               # ShopXO MySQL → GoShop 数据导入（嵌入 SQL）
+internal/shopxomigrate/data.sql         # 上述导入脚本（与 docs/migration-from-shopxo.md 一致）
 internal/initialize/seed.go             # 商品等 seed + EnsureDefaultPayments（老库增量补渠道）
 internal/initialize/seed_payments_*_test.go  # 支付种子与 SQLite 补全单测
 pkg/cache/cache.go                 # 缓存抽象层(Redis/Memory)
@@ -233,11 +239,13 @@ admin/e2e/deep-flow.spec.ts       # 深度交互 E2E（10 用例：CRUD/搜索/�
 admin/e2e/admin-marketing.spec.ts # 营销模块 E2E（4 用例）
 admin/e2e/helpers.ts              # 登录辅助（带重试）
 admin/run-e2e.sh                  # 一键启动后端+前端+跑 E2E
-scripts/deep_test.sh               # 本地深度：go vet + go test（排除 node_modules）；可选 GOSHOP_TEST_RACE=1
+scripts/quick_test.sh         # 日常：go vet + go test（排除 node_modules，无 race）
+scripts/ci_test.sh             # 发版前：quick + 全量 -race（较慢，对齐 CI Go 测）
+scripts/deep_test.sh           # 兼容：默认=quick；GOSHOP_TEST_RACE=1 时=ci
 scripts/integration_test.sh      # 核心 API + ShopXO 多单线下；BASE 可覆盖；可选 GOSHOP_PAYMENT_SANDBOX=1 跑多单沙盒回调
-scripts/migration_test.sh        # ShopXO→GoShop 迁移自动化验证（21 项数据 + 4 项 API）
+scripts/migration_test.sh        # ShopXO→GoShop 迁移自动化验证（21 项数据 + 5 项 API）
 scripts/MANUAL_VERIFY_PROXY.md   # 反代/HTTPS 下手工验收清单（非脚本）
 scripts/sandbox_pay_test.sh      # 全渠道沙盒轮询（含 PayPal/当面付）+ 钱包边界
 scripts/distribution_test.sh     # 分销完整链路测试
-.github/workflows/ci.yml       # gofmt（排除 node_modules）/ vet+test 同 deep_test / -race / 集成（payment.sandbox）/ admin-e2e
+.github/workflows/ci.yml       # gofmt（排除 node_modules）/ vet+test 同 quick_test / -race 同 ci_test 后半 / 集成（payment.sandbox）/ admin-e2e
 ```

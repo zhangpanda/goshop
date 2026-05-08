@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/pkg/auth"
 	"github.com/zhangpanda/goshop/pkg/response"
 )
@@ -18,7 +18,7 @@ func JWTAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		claims, err := auth.ParseToken(strings.TrimPrefix(token, "Bearer "), global.Cfg.JWT.Secret)
+		claims, err := auth.ParseToken(strings.TrimPrefix(token, "Bearer "), app.Must().Cfg.JWT.Secret)
 		if err != nil {
 			response.Fail(c, http.StatusUnauthorized, "token无效")
 			c.Abort()

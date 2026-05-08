@@ -17,6 +17,26 @@
 5. **商品分类**：`sxo_goods` **无** `category_id`，分类在 **`sxo_goods_category_join`**（多对多）；GoShop `goods.category_id` 为单值，文中取 **每个商品最小 `category_id`**，若需「主分类」请按业务改子查询。
 6. **相册**：`sxo_goods.images` 为**封面单图**；多图在 **`sxo_goods_photo`**。文中用 **`GROUP_CONCAT(JSON_QUOTE(...) ORDER BY …)` + `CAST(… AS JSON)`** 生成有序 JSON 数组（兼容 **MySQL 8/9**；`JSON_ARRAYAGG(expr ORDER BY …)` 在部分环境会报语法错误）。
 7. **已退款订单**：ShopXO 用 `pay_status` 等区分部分退款，GoShop 有状态「已退款」。若需精细映射，请在 `sxo_order` 上增加对 `pay_status` 的 `CASE`（文中给出口子）。
+8. **中文与 utf8mb4**：源、目标库表与库本身应使用 **utf8mb4**。手工执行下文 SQL、或用 `mysql` 客户端造数时，会话必须是 **utf8mb4**，否则中文会落库成乱码（API 里可见类似 `æ‰‹æœº` 的「双重误读」）。详见下节。
+
+## MySQL 客户端字符集（utf8mb4）
+
+- **`go run ./cmd/shopxo-import`**：连接串已带 **`charset=utf8mb4`**（`internal/shopxomigrate/data.sql` 前几行亦有 `SET NAMES utf8mb4`），一般无需额外设置。
+- **命令行 `mysql`**：建议使用配置文件，避免仅依赖终端编码：
+
+```ini
+# 例如 ~/.my.cnf 片段（仅示例，注意文件权限）
+[client]
+default-character-set=utf8mb4
+```
+
+或在**每次**执行迁移 SQL 前显式执行：
+
+```sql
+SET NAMES utf8mb4;
+```
+
+- **自助回归**：`scripts/migration_test.sh` 使用 **`--defaults-extra-file`**，并设置 **`default-character-set=utf8mb4`**、在造源表数据前 **`SET NAMES utf8mb4`**，与上述要求一致。
 
 ## 核心差异对照
 
@@ -36,7 +56,33 @@
 - GoShop 已首次启动并完成自动建表
 - 可访问 ShopXO 的 MySQL（**先在测试库验证**）
 - 下文默认：`shopxo` = 源库，`goshop` = 目标库；按需替换库名与前缀
-- **本机演练**：可在空库上导入 `config/shopxo.sql` 与 `mysqldump --no-data` 的 GoShop 结构后，对照修改并执行仓库内 **`scripts/run_shopxo_migration_local_test.sql`**（将库名替换为你的测试库）。若当前 `orders` 表尚无 `payment_id` 列，需先 `ALTER TABLE` 与模型一致。
+- **本机演练**：优先用 **`go run ./cmd/shopxo-import`**（见下节）；亦可空库导入 `config/shopxo.sql` 与 GoShop 结构后对照下文手工 SQL。若 `orders` 尚无 `payment_id` 等列，需先 `ALTER TABLE` 与当前模型一致。
+
+## 可执行导入（推荐）
+
+在同一 MySQL 实例上准备好**源库**（含 ShopXO `sxo_*` 表）与**目标库**（已通过 `bin/goshop` 或 `go run ./cmd/migrate` 建好 GoShop 表结构）后，一条命令完成与下文 SQL 等价的导入：
+
+```bash
+export GOSHOP_MYSQL_PASSWORD='你的密码'   # 或使用 -password
+go run ./cmd/shopxo-import \
+  -host 127.0.0.1 -user root \
+  -from shopxo -to goshop \
+  -wipe-target-tables \
+  -reset-admin-password '新的管理员明文密码' -admin-id 1
+```
+
+说明：
+
+- **环境变量**：本工具读取 **`GOSHOP_MYSQL_HOST` / `PORT` / `USER` / `PASSWORD`**（与 `cmd/shopxo-import` 一致）。**`scripts/migration_test.sh`** 为免与日常开发库混淆，使用单独前缀 **`GOSHOP_MIGRATION_MYSQL_*`**（默认口令 `goshop123` 对齐 `docker-compose.yml`）。
+- **`-wipe-target-tables`** 会清空目标库中本迁移涉及的表（`users`、`orders` 等），**生产慎用**；测试库可先备份再执行。
+- **`-table-prefix`**：若安装时不是默认 `sxo_`，传入实际前缀。
+- **`-reset-admin-password`**：导入后管理员 `password` 列为占位，需 bcrypt 后才能登录管理端；也可用 SQL 自行 `UPDATE`。
+- **管理员与 `roles`**：导入仅写入 `admins`，**不包含** ShopXO 侧与 GoShop `roles` 的一对一数据。若目标库尚无与 `admins.role_id` 匹配的角色行，管理端接口会 **403**。生产导入后请确保 **`roles` 表存在对应记录**（或先跑一次种子再按需覆盖业务表）。`migration_test.sh` 在导入后执行的 **`roles` 补全 SQL** 可作参考。
+- **自测**：`scripts/migration_test.sh` 调用本工具（需本地 MySQL；测试期会临时改写 `config.yaml` 中 **db / redis.host**，退出时恢复）。
+
+验算与调试用：**`-dry-run`**（只报 SQL 体积）、**`-print-sql`**（打印完整脚本到 stdout）。
+
+手工复制本文 SQL 到 `mysql` 客户端时，请先 **`SET NAMES utf8mb4`** 或配置 **`default-character-set=utf8mb4`**（见上文「MySQL 客户端字符集」）。
 
 ---
 

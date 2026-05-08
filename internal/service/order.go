@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/internal/repository"
 	"gorm.io/gorm"
 )
 
-// OrderService encapsulates order business logic with injected dependencies.
+// OrderService 订单领域服务；依赖通过构造函数注入，避免散落访问 DB。
 type OrderService struct {
 	db      *gorm.DB
 	orders  repository.OrderRepo
@@ -22,26 +22,25 @@ type OrderService struct {
 	sku     repository.SKURepo
 }
 
-// NewOrderService creates an OrderService with explicit dependencies.
+// NewOrderService 使用显式依赖构造 *OrderService。
 func NewOrderService(db *gorm.DB, orders repository.OrderRepo, carts repository.CartRepo, addr repository.AddressRepo, sku repository.SKURepo) *OrderService {
 	return &OrderService{db: db, orders: orders, carts: carts, address: addr, sku: sku}
 }
 
-// DefaultOrderService returns an OrderService using the global DB and repository registry.
-// orderSvc is the singleton instance, initialized via InitOrderService from main.
+// orderSvc 为进程级单例，由 main 在 repository.Init 之后调用 InitOrderService 注入。
 var orderSvc *OrderService
 
-// InitOrderService creates the singleton OrderService. Call once at startup.
+// InitOrderService 注册进程内单例；在 main 启动路径上仅应调用一次。
 func InitOrderService(svc *OrderService) {
 	orderSvc = svc
 }
 
-// DefaultOrderService returns the singleton. Falls back to creating one from globals if not initialized.
+// DefaultOrderService 返回单例；若尚未 InitOrderService，则基于 app.Must().DB 与 repository.Repos 临时构造（测试或漏调 Init 时使用，生产路径应在启动时 Init）。
 func DefaultOrderService() *OrderService {
 	if orderSvc != nil {
 		return orderSvc
 	}
-	return NewOrderService(global.DB, repository.Repos.Order, repository.Repos.Cart, repository.Repos.Address, repository.Repos.SKU)
+	return NewOrderService(app.Must().DB, repository.Repos.Order, repository.Repos.Cart, repository.Repos.Address, repository.Repos.SKU)
 }
 
 type CreateOrderReq struct {

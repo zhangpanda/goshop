@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/pkg/response"
 )
 
@@ -134,10 +134,10 @@ func randHex(n int) string {
 }
 
 func rateLimitBackendMode() string {
-	if global.Cfg == nil {
+	if app.Must().Cfg == nil {
 		return "auto"
 	}
-	b := global.Cfg.Server.RateLimitBackend
+	b := app.Must().Cfg.Server.RateLimitBackend
 	if b == "" {
 		return "auto"
 	}
@@ -148,11 +148,11 @@ func newLimiter(limit int, window time.Duration) interface {
 	allow(ctx context.Context, key string) (bool, error)
 } {
 	mode := rateLimitBackendMode()
-	useRedis := global.RDB != nil && (mode == "redis" || mode == "auto")
+	useRedis := app.Must().RDB != nil && (mode == "redis" || mode == "auto")
 	if useRedis {
-		return &redisLimiter{rdb: global.RDB, limit: limit, window: window}
+		return &redisLimiter{rdb: app.Must().RDB, limit: limit, window: window}
 	}
-	if mode == "redis" && global.RDB == nil {
+	if mode == "redis" && app.Must().RDB == nil {
 		slog.Warn("ratelimit", "backend", "memory", "reason", "rate_limit_backend=redis but Redis unavailable")
 	}
 	return &memLimiter{sw: newSlidingWindow(limit, window)}

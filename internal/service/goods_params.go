@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -17,7 +17,7 @@ type ParamsConfigItem struct {
 
 func CreateParamsTemplate(req *ParamsTemplateReq) (*model.GoodsParamsTemplate, error) {
 	t := model.GoodsParamsTemplate{Name: req.Name}
-	if err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	if err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Create(&t).Error; err != nil {
 			return err
 		}
@@ -30,17 +30,17 @@ func CreateParamsTemplate(req *ParamsTemplateReq) (*model.GoodsParamsTemplate, e
 	}); err != nil {
 		return nil, err
 	}
-	global.DB.Preload("Configs").First(&t, t.ID)
+	app.Must().DB.Preload("Configs").First(&t, t.ID)
 	return &t, nil
 }
 
 func GetParamsTemplateList() ([]model.GoodsParamsTemplate, error) {
 	var list []model.GoodsParamsTemplate
-	return list, global.DB.Preload("Configs").Find(&list).Error
+	return list, app.Must().DB.Preload("Configs").Find(&list).Error
 }
 
 func SaveGoodsParams(goodsID uint, params []ParamsConfigItem) error {
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Where("goods_id = ?", goodsID).Delete(&model.GoodsParams{}).Error; err != nil {
 			return err
 		}
@@ -55,5 +55,5 @@ func SaveGoodsParams(goodsID uint, params []ParamsConfigItem) error {
 
 func GetGoodsParams(goodsID uint) ([]model.GoodsParams, error) {
 	var list []model.GoodsParams
-	return list, global.DB.Where("goods_id = ?", goodsID).Order("sort").Find(&list).Error
+	return list, app.Must().DB.Where("goods_id = ?", goodsID).Order("sort").Find(&list).Error
 }

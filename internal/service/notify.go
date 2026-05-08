@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -28,7 +28,7 @@ func SendSms(phone, templateCode, templateParam string) error {
 	accessSecret := GetConfig("common_sms_secret")
 	signName := GetConfig("common_sms_sign")
 	if accessKey == "" || accessSecret == "" {
-		global.DB.Create(&model.SmsLog{Phone: phone, Content: templateParam, Type: templateCode, Status: 0})
+		app.Must().DB.Create(&model.SmsLog{Phone: phone, Content: templateParam, Type: templateCode, Status: 0})
 		return nil
 	}
 
@@ -63,7 +63,7 @@ func SendSms(phone, templateCode, templateParam string) error {
 	}
 	resp, err := (&http.Client{Timeout: 10 * time.Second}).Get("https://dysmsapi.aliyuncs.com/?" + v.Encode())
 	if err != nil {
-		global.DB.Create(&model.SmsLog{Phone: phone, Content: templateParam, Type: templateCode, Status: 0})
+		app.Must().DB.Create(&model.SmsLog{Phone: phone, Content: templateParam, Type: templateCode, Status: 0})
 		return err
 	}
 	defer resp.Body.Close()
@@ -75,7 +75,7 @@ func SendSms(phone, templateCode, templateParam string) error {
 	json.Unmarshal(body, &res)
 
 	ok := res.Code == "OK"
-	global.DB.Create(&model.SmsLog{Phone: phone, Content: templateParam, Type: templateCode, Status: boolToInt8(ok)})
+	app.Must().DB.Create(&model.SmsLog{Phone: phone, Content: templateParam, Type: templateCode, Status: boolToInt8(ok)})
 	if !ok {
 		return fmt.Errorf("短信发送失败: %s", res.Message)
 	}
@@ -106,7 +106,7 @@ func SendEmail(to, subject, body string) error {
 	password := GetConfig("common_email_smtp_pwd")
 	fromName := GetConfig("common_email_smtp_name")
 	if host == "" || account == "" {
-		global.DB.Create(&model.EmailLog{Email: to, Title: subject, Content: body, Status: 0})
+		app.Must().DB.Create(&model.EmailLog{Email: to, Title: subject, Content: body, Status: 0})
 		return nil
 	}
 	if port == "" {
@@ -128,7 +128,7 @@ func SendEmail(to, subject, body string) error {
 		err = smtp.SendMail(addr, auth, account, []string{to}, []byte(msg))
 	}
 
-	global.DB.Create(&model.EmailLog{Email: to, Title: subject, Content: body, Status: boolToInt8(err == nil)})
+	app.Must().DB.Create(&model.EmailLog{Email: to, Title: subject, Content: body, Status: boolToInt8(err == nil)})
 	return err
 }
 

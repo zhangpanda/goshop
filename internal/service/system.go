@@ -3,29 +3,29 @@ package service
 import (
 	"strings"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
 // ---- 系统配置 ----
 func GetConfig(key string) string {
 	var c model.Config
-	global.DB.Where("`key` = ?", key).Find(&c)
+	app.Must().DB.Where("`key` = ?", key).Find(&c)
 	return c.Value
 }
 
 func SetConfig(key, value, group, desc string) error {
 	var c model.Config
-	global.DB.Where("`key` = ?", key).Find(&c)
+	app.Must().DB.Where("`key` = ?", key).Find(&c)
 	if c.ID > 0 {
-		return global.DB.Model(&c).Updates(map[string]interface{}{"value": value, "desc": desc}).Error
+		return app.Must().DB.Model(&c).Updates(map[string]interface{}{"value": value, "desc": desc}).Error
 	}
-	return global.DB.Create(&model.Config{Group: group, Key: key, Value: value, Desc: desc}).Error
+	return app.Must().DB.Create(&model.Config{Group: group, Key: key, Value: value, Desc: desc}).Error
 }
 
 func GetConfigGroup(group string) ([]model.Config, error) {
 	var list []model.Config
-	return list, global.DB.Where("`group` = ?", group).Find(&list).Error
+	return list, app.Must().DB.Where("`group` = ?", group).Find(&list).Error
 }
 
 /**
@@ -53,43 +53,43 @@ func CustomerServiceCustom() string {
 // ---- 地区 ----
 func GetRegionList(parentID uint) ([]model.Region, error) {
 	var list []model.Region
-	return list, global.DB.Where("parent_id = ?", parentID).Order("sort, id").Find(&list).Error
+	return list, app.Must().DB.Where("parent_id = ?", parentID).Order("sort, id").Find(&list).Error
 }
 
 // ---- 幻灯片/导航/链接 通用CRUD ----
 func SlideList() ([]model.Slide, error) {
 	var l []model.Slide
-	return l, global.DB.Where("status=1").Order("sort DESC").Find(&l).Error
+	return l, app.Must().DB.Where("status=1").Order("sort DESC").Find(&l).Error
 }
-func CreateSlide(s *model.Slide) error { return global.DB.Create(s).Error }
+func CreateSlide(s *model.Slide) error { return app.Must().DB.Create(s).Error }
 
 func NavigationList(typ string) ([]model.Navigation, error) {
 	var l []model.Navigation
-	db := global.DB.Where("status=1")
+	db := app.Must().DB.Where("status=1")
 	if typ != "" {
 		db = db.Where("type=?", typ)
 	}
 	return l, db.Order("sort DESC").Find(&l).Error
 }
-func CreateNavigation(n *model.Navigation) error { return global.DB.Create(n).Error }
+func CreateNavigation(n *model.Navigation) error { return app.Must().DB.Create(n).Error }
 
 func LinkList() ([]model.Link, error) {
 	var l []model.Link
-	return l, global.DB.Where("status=1").Order("sort DESC").Find(&l).Error
+	return l, app.Must().DB.Where("status=1").Order("sort DESC").Find(&l).Error
 }
-func CreateLink(l *model.Link) error { return global.DB.Create(l).Error }
+func CreateLink(l *model.Link) error { return app.Must().DB.Create(l).Error }
 
 // ---- 支付方式 ----
 func PaymentList() ([]model.Payment, error) {
 	var l []model.Payment
-	return l, global.DB.Order("sort DESC").Find(&l).Error
+	return l, app.Must().DB.Order("sort DESC").Find(&l).Error
 }
-func CreatePayment(p *model.Payment) error { return global.DB.Create(p).Error }
+func CreatePayment(p *model.Payment) error { return app.Must().DB.Create(p).Error }
 
 // ---- 附件 ----
 func AttachmentList(categoryID uint, page, pageSize int) ([]model.Attachment, int64, error) {
 	var total int64
-	db := global.DB.Model(&model.Attachment{})
+	db := app.Must().DB.Model(&model.Attachment{})
 	if categoryID > 0 {
 		db = db.Where("category_id=?", categoryID)
 	}
@@ -98,32 +98,32 @@ func AttachmentList(categoryID uint, page, pageSize int) ([]model.Attachment, in
 	err := db.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
-func DeleteAttachment(id uint) error { return global.DB.Delete(&model.Attachment{}, id).Error }
+func DeleteAttachment(id uint) error { return app.Must().DB.Delete(&model.Attachment{}, id).Error }
 func AttachmentCategoryList() ([]model.AttachmentCategory, error) {
 	var l []model.AttachmentCategory
-	return l, global.DB.Find(&l).Error
+	return l, app.Must().DB.Find(&l).Error
 }
 func CreateAttachmentCategory(name string) error {
-	return global.DB.Create(&model.AttachmentCategory{Name: name}).Error
+	return app.Must().DB.Create(&model.AttachmentCategory{Name: name}).Error
 }
 
 // ---- 错误日志 ----
 func AddErrorLog(typ, content, url, ip string) {
-	global.DB.Create(&model.ErrorLog{Type: typ, Content: content, URL: url, IP: ip})
+	app.Must().DB.Create(&model.ErrorLog{Type: typ, Content: content, URL: url, IP: ip})
 }
 func GetErrorLogList(page, pageSize int) ([]model.ErrorLog, int64, error) {
 	var total int64
-	global.DB.Model(&model.ErrorLog{}).Count(&total)
+	app.Must().DB.Model(&model.ErrorLog{}).Count(&total)
 	var list []model.ErrorLog
-	err := global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
+	err := app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 
 // ---- 订单状态历史 ----
 func AddOrderStatusHistory(orderID uint, oldStatus, newStatus int8, msg, creator string) {
-	global.DB.Create(&model.OrderStatusHistory{OrderID: orderID, OriginalStatus: oldStatus, NewStatus: newStatus, Msg: msg, Creator: creator})
+	app.Must().DB.Create(&model.OrderStatusHistory{OrderID: orderID, OriginalStatus: oldStatus, NewStatus: newStatus, Msg: msg, Creator: creator})
 }
 func GetOrderStatusHistory(orderID uint) ([]model.OrderStatusHistory, error) {
 	var list []model.OrderStatusHistory
-	return list, global.DB.Where("order_id = ?", orderID).Order("id").Find(&list).Error
+	return list, app.Must().DB.Where("order_id = ?", orderID).Order("id").Find(&list).Error
 }

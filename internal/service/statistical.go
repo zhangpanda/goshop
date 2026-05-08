@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 )
 
@@ -18,7 +18,7 @@ import (
 
 func SplitOrderByWarehouse(userID uint, req *CreateOrderReq) ([]*model.Order, error) {
 	var carts []model.Cart
-	if err := global.DB.Where("id IN ? AND user_id = ?", req.CartIDs, userID).
+	if err := app.Must().DB.Where("id IN ? AND user_id = ?", req.CartIDs, userID).
 		Preload("Goods").Preload("SKU").Find(&carts).Error; err != nil || len(carts) == 0 {
 		return nil, errors.New("购物车为空")
 	}
@@ -27,7 +27,7 @@ func SplitOrderByWarehouse(userID uint, req *CreateOrderReq) ([]*model.Order, er
 	groups := map[groupKey][]model.Cart{}
 	for _, c := range carts {
 		var ws model.WarehouseGoodsSpec
-		global.DB.Where("goods_id = ? AND sku_id = ? AND inventory > 0", c.GoodsID, c.SKUID).
+		app.Must().DB.Where("goods_id = ? AND sku_id = ? AND inventory > 0", c.GoodsID, c.SKUID).
 			Joins("JOIN warehouse_goods ON warehouse_goods.warehouse_id = warehouse_goods_specs.warehouse_id AND warehouse_goods.goods_id = warehouse_goods_specs.goods_id AND warehouse_goods.is_enable = 1").
 			Joins("JOIN warehouses ON warehouses.id = warehouse_goods_specs.warehouse_id AND warehouses.is_enable = 1").
 			Order("warehouses.level DESC").First(&ws)
@@ -132,7 +132,7 @@ func GetStatistical(days int) *StatisticalData {
 
 	fillStat := func(date string, d int) StatItem {
 		var s StatItem
-		q := global.DB.Model(&model.Order{}).Where("status > 0")
+		q := app.Must().DB.Model(&model.Order{}).Where("status > 0")
 		if d == 1 {
 			q = q.Where("DATE(created_at) = ?", date)
 		} else {
@@ -141,11 +141,11 @@ func GetStatistical(days int) *StatisticalData {
 		q.Count(&s.OrderCount)
 		q.Select("COALESCE(SUM(pay_amount),0)").Scan(&s.Sales)
 		if d == 1 {
-			global.DB.Model(&model.User{}).Where("DATE(created_at) = ?", date).Count(&s.UserCount)
+			app.Must().DB.Model(&model.User{}).Where("DATE(created_at) = ?", date).Count(&s.UserCount)
 		} else {
-			global.DB.Model(&model.User{}).Where("created_at >= ?", now.AddDate(0, 0, -d)).Count(&s.UserCount)
+			app.Must().DB.Model(&model.User{}).Where("created_at >= ?", now.AddDate(0, 0, -d)).Count(&s.UserCount)
 		}
-		global.DB.Model(&model.Goods{}).Where("status = 1").Count(&s.GoodsCount)
+		app.Must().DB.Model(&model.Goods{}).Where("status = 1").Count(&s.GoodsCount)
 		return s
 	}
 	data.Today = fillStat(today, 1)
@@ -158,40 +158,40 @@ func GetStatistical(days int) *StatisticalData {
 		d := now.AddDate(0, 0, -i).Format("2006-01-02")
 		var ds DayStat
 		ds.Date = d
-		global.DB.Model(&model.Order{}).Where("DATE(created_at) = ? AND status > 0", d).
+		app.Must().DB.Model(&model.Order{}).Where("DATE(created_at) = ? AND status > 0", d).
 			Select("COALESCE(SUM(pay_amount),0) as sales, COUNT(*) as count").Scan(&ds)
 		ds.Date = d
 		data.Trend = append(data.Trend, ds)
 	}
 	// 商品销量Top10
-	global.DB.Model(&model.Goods{}).Select("id as goods_id, title, sales_count as sales").
+	app.Must().DB.Model(&model.Goods{}).Select("id as goods_id, title, sales_count as sales").
 		Order("sales_count DESC").Limit(10).Find(&data.GoodsTop)
 	// 用户消费Top10
-	global.DB.Model(&model.Order{}).Select("user_id, SUM(pay_amount) as amount").
+	app.Must().DB.Model(&model.Order{}).Select("user_id, SUM(pay_amount) as amount").
 		Where("status > 0").Group("user_id").Order("amount DESC").Limit(10).Find(&data.UserTop)
 	for i := range data.UserTop {
 		var u model.User
-		if err := global.DB.Select("nickname", "username", "phone").First(&u, data.UserTop[i].UserID).Error; err != nil {
+		if err := app.Must().DB.Select("nickname", "username", "phone").First(&u, data.UserTop[i].UserID).Error; err != nil {
 			data.UserTop[i].Nickname = fmt.Sprintf("用户%d", data.UserTop[i].UserID)
 			continue
 		}
 		data.UserTop[i].Nickname = userDisplayName(&u, data.UserTop[i].UserID)
 	}
 	// 订单状态分布
-	global.DB.Model(&model.Order{}).Select("status, COUNT(*) as count").Group("status").Find(&data.OrderDist)
+	app.Must().DB.Model(&model.Order{}).Select("status, COUNT(*) as count").Group("status").Find(&data.OrderDist)
 
 	// 待处理事项
-	global.DB.Model(&model.Order{}).Where("status = 0").Count(&data.OrderPendingCount)
-	global.DB.Model(&model.OrderAftersale{}).Where("status = 0").Count(&data.AftersalePendingCount)
-	global.DB.Model(&model.Goods{}).Where("status = 0").Count(&data.GoodsOfflineCount)
-	global.DB.Model(&model.Review{}).Where("reply = '' OR reply IS NULL").Count(&data.ReviewPendingCount)
+	app.Must().DB.Model(&model.Order{}).Where("status = 0").Count(&data.OrderPendingCount)
+	app.Must().DB.Model(&model.OrderAftersale{}).Where("status = 0").Count(&data.AftersalePendingCount)
+	app.Must().DB.Model(&model.Goods{}).Where("status = 0").Count(&data.GoodsOfflineCount)
+	app.Must().DB.Model(&model.Review{}).Where("reply = '' OR reply IS NULL").Count(&data.ReviewPendingCount)
 
 	// 支付方式统计
-	global.DB.Model(&model.PayLog{}).Select("client_type, COUNT(*) as count, COALESCE(SUM(total_price),0) as amount").
+	app.Must().DB.Model(&model.PayLog{}).Select("client_type, COUNT(*) as count, COALESCE(SUM(total_price),0) as amount").
 		Where("status = 1").Group("client_type").Find(&data.PayTypeStats)
 
 	// 地域分布Top10（从订单地址JSON提取省份）
-	global.DB.Raw(`SELECT JSON_UNQUOTE(JSON_EXTRACT(address, '$.province')) as province, COUNT(*) as count 
+	app.Must().DB.Raw(`SELECT JSON_UNQUOTE(JSON_EXTRACT(address, '$.province')) as province, COUNT(*) as count 
 		FROM orders WHERE status > 0 AND address != '' AND address IS NOT NULL 
 		GROUP BY province HAVING province IS NOT NULL AND province != '' 
 		ORDER BY count DESC LIMIT 10`).Find(&data.RegionStats)
@@ -201,7 +201,7 @@ func GetStatistical(days int) *StatisticalData {
 		d := now.AddDate(0, 0, -i).Format("2006-01-02")
 		var ds DayStat
 		ds.Date = d
-		global.DB.Model(&model.User{}).Where("DATE(created_at) = ?", d).Count(&ds.Count)
+		app.Must().DB.Model(&model.User{}).Where("DATE(created_at) = ?", d).Count(&ds.Count)
 		data.NewUserTrend = append(data.NewUserTrend, ds)
 	}
 
@@ -221,7 +221,7 @@ func DiyApiGoodsAutoData(p *DiyApiParams) ([]model.Goods, error) {
 	if p.Limit <= 0 {
 		p.Limit = 10
 	}
-	db := global.DB.Where("status = 1")
+	db := app.Must().DB.Where("status = 1")
 	if p.CategoryID > 0 {
 		db = db.Where("category_id = ?", p.CategoryID)
 	}
@@ -244,7 +244,7 @@ func DiyApiArticleAutoData(categoryID uint, limit int) ([]model.Article, error) 
 	if limit <= 0 {
 		limit = 10
 	}
-	db := global.DB.Where("status = 1")
+	db := app.Must().DB.Where("status = 1")
 	if categoryID > 0 {
 		db = db.Where("category_id = ?", categoryID)
 	}
@@ -257,7 +257,7 @@ func DiyApiBrandAutoData(limit int) ([]model.Brand, error) {
 		limit = 20
 	}
 	var list []model.Brand
-	return list, global.DB.Where("status = 1").Order("sort DESC").Limit(limit).Find(&list).Error
+	return list, app.Must().DB.Where("status = 1").Order("sort DESC").Limit(limit).Find(&list).Error
 }
 
 func DiyApiGoodsFavorAutoData(userID uint, limit int) ([]model.Favorite, error) {
@@ -265,7 +265,7 @@ func DiyApiGoodsFavorAutoData(userID uint, limit int) ([]model.Favorite, error) 
 		limit = 10
 	}
 	var list []model.Favorite
-	return list, global.DB.Where("user_id = ?", userID).Preload("Goods").Order("id DESC").Limit(limit).Find(&list).Error
+	return list, app.Must().DB.Where("user_id = ?", userID).Preload("Goods").Order("id DESC").Limit(limit).Find(&list).Error
 }
 
 func DiyApiGoodsBrowseAutoData(userID uint, limit int) ([]model.BrowseHistory, error) {
@@ -273,7 +273,7 @@ func DiyApiGoodsBrowseAutoData(userID uint, limit int) ([]model.BrowseHistory, e
 		limit = 10
 	}
 	var list []model.BrowseHistory
-	return list, global.DB.Where("user_id = ?", userID).Preload("Goods").Order("updated_at DESC").Limit(limit).Find(&list).Error
+	return list, app.Must().DB.Where("user_id = ?", userID).Preload("Goods").Order("updated_at DESC").Limit(limit).Find(&list).Error
 }
 
 // ==================== 4. 小程序管理 ====================
@@ -289,14 +289,14 @@ type AppMiniReq struct {
 
 func SaveAppMini(req *AppMiniReq) error {
 	var m model.AppMini
-	global.DB.Where("platform = ?", req.Platform).First(&m)
+	app.Must().DB.Where("platform = ?", req.Platform).First(&m)
 	if m.ID > 0 {
-		return global.DB.Model(&m).Updates(map[string]interface{}{
+		return app.Must().DB.Model(&m).Updates(map[string]interface{}{
 			"title": req.Title, "describe": req.Describe,
 			"app_id": req.AppID, "app_secret": req.AppSecret, "status": req.Status,
 		}).Error
 	}
-	return global.DB.Create(&model.AppMini{
+	return app.Must().DB.Create(&model.AppMini{
 		Platform: req.Platform, Title: req.Title, Describe: req.Describe,
 		AppID: req.AppID, AppSecret: req.AppSecret, Status: req.Status,
 	}).Error
@@ -304,16 +304,16 @@ func SaveAppMini(req *AppMiniReq) error {
 
 func GetAppMiniList() ([]model.AppMini, error) {
 	var list []model.AppMini
-	return list, global.DB.Order("id ASC").Find(&list).Error
+	return list, app.Must().DB.Order("id ASC").Find(&list).Error
 }
 
-func DeleteAppMini(id uint) error { return global.DB.Delete(&model.AppMini{}, id).Error }
+func DeleteAppMini(id uint) error { return app.Must().DB.Delete(&model.AppMini{}, id).Error }
 
 // ==================== 5. 站点配置 ====================
 
 func GetSiteConfig() map[string]string {
 	var configs []model.Config
-	global.DB.Where("`group` IN ('site','base','seo','app') OR `key` LIKE 'home_site%' OR `key` LIKE 'home_seo%' OR `key` LIKE 'home_footer%'").Find(&configs)
+	app.Must().DB.Where("`group` IN ('site','base','seo','app') OR `key` LIKE 'home_site%' OR `key` LIKE 'home_seo%' OR `key` LIKE 'home_footer%'").Find(&configs)
 	result := make(map[string]string, len(configs))
 	for _, c := range configs {
 		result[c.Key] = c.Value
@@ -382,7 +382,7 @@ func FormTableQuery(p *FormTableParams) (int64, []map[string]interface{}, error)
 	if p.PageSize <= 0 {
 		p.PageSize = 20
 	}
-	db := global.DB.Table(p.Table)
+	db := app.Must().DB.Table(p.Table)
 	if p.Keyword != "" && p.KeywordFields != "" {
 		fields := strings.Split(p.KeywordFields, ",")
 		var conds []string
@@ -473,7 +473,7 @@ func ExecuteSQL(sqlStr string) ([]map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var results []map[string]interface{}
-	err := global.DB.WithContext(ctx).Raw(trimmed).Limit(1000).Find(&results).Error
+	err := app.Must().DB.WithContext(ctx).Raw(trimmed).Limit(1000).Find(&results).Error
 	return results, err
 }
 
@@ -494,7 +494,7 @@ var appStartTime = time.Now()
 
 func GetSystemInfo() *SystemInfo {
 	var dbVer string
-	global.DB.Raw("SELECT VERSION()").Scan(&dbVer)
+	app.Must().DB.Raw("SELECT VERSION()").Scan(&dbVer)
 	return &SystemInfo{
 		GoVersion:    runtime.Version(),
 		AppVersion:   "1.0.0",

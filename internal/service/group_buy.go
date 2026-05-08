@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -40,7 +40,7 @@ func CreateGroupBuy(req *GroupBuyReq) (*model.Promotion, error) {
 		StartTime: req.StartTime, EndTime: req.EndTime,
 		GroupSize: req.GroupSize, GroupTime: req.GroupTime, Status: 1,
 	}
-	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Create(&promo).Error; err != nil {
 			return err
 		}
@@ -58,15 +58,15 @@ func CreateGroupBuy(req *GroupBuyReq) (*model.Promotion, error) {
 	if err != nil {
 		return nil, err
 	}
-	global.DB.Preload("Items").First(&promo, promo.ID)
+	app.Must().DB.Preload("Items").First(&promo, promo.ID)
 	return &promo, nil
 }
 
 func GetGroupBuyList(page, pageSize int) (int64, []model.Promotion, error) {
 	var total int64
-	global.DB.Model(&model.Promotion{}).Where("type = ?", "group").Count(&total)
+	app.Must().DB.Model(&model.Promotion{}).Where("type = ?", "group").Count(&total)
 	var list []model.Promotion
-	err := global.DB.Where("type = ?", "group").
+	err := app.Must().DB.Where("type = ?", "group").
 		Preload("Items").Order("id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return total, list, err
@@ -75,7 +75,7 @@ func GetGroupBuyList(page, pageSize int) (int64, []model.Promotion, error) {
 func GetActiveGroupBuys() ([]model.Promotion, error) {
 	now := time.Now()
 	var list []model.Promotion
-	err := global.DB.Where("type = ? AND status = 1 AND start_time <= ? AND end_time > ?", "group", now, now).
+	err := app.Must().DB.Where("type = ? AND status = 1 AND start_time <= ? AND end_time > ?", "group", now, now).
 		Preload("Items").Find(&list).Error
 	return list, err
 }
@@ -83,7 +83,7 @@ func GetActiveGroupBuys() ([]model.Promotion, error) {
 // OpenGroup 开团：扣活动库存、写入团单与团长成员在同一事务内完成。
 func OpenGroup(userID, itemID uint) (*model.GroupOrder, error) {
 	var out *model.GroupOrder
-	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		var item model.PromotionItem
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, itemID).Error; err != nil {
 			return errors.New("拼团商品不存在")
@@ -128,7 +128,7 @@ func OpenGroup(userID, itemID uint) (*model.GroupOrder, error) {
 
 // JoinGroup 参团：锁团单行、扣库存、插入成员、递增人数与成团判定在同一事务内完成。
 func JoinGroup(userID, groupOrderID uint) error {
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		var g model.GroupOrder
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&g, groupOrderID).Error; err != nil {
 			return errors.New("拼团不存在")
@@ -189,10 +189,10 @@ func JoinGroup(userID, groupOrderID uint) error {
 // GetGroupOrderDetail 获取拼团详情
 func GetGroupOrderDetail(id uint) (*model.GroupOrder, []model.GroupOrderMember, error) {
 	var g model.GroupOrder
-	if err := global.DB.First(&g, id).Error; err != nil {
+	if err := app.Must().DB.First(&g, id).Error; err != nil {
 		return nil, nil, errors.New("拼团不存在")
 	}
 	var members []model.GroupOrderMember
-	global.DB.Where("group_order_id = ?", id).Find(&members)
+	app.Must().DB.Where("group_order_id = ?", id).Find(&members)
 	return &g, members, nil
 }

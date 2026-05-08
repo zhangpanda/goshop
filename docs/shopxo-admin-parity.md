@@ -11,7 +11,7 @@
 | **占位** | 界面或文档明示未完成，不应假设与 ShopXO 一致。 |
 | **不适用** | Go 栈/产品形态下无 1:1 对应（非「偷懒未做」）。 |
 
-> 统计口径与路由数以 `HANDOVER.md`、`scripts/doc-metrics.sh` 为准。本表侧重 **后台菜单与页面**；**uni-app** 以 `internal/compat/shopxo/compat.go` 中 `routeMap` 的 82 个 `s=` 动作为准。
+> 统计口径与路由数以 `HANDOVER.md`、`scripts/doc-metrics.sh` 为准。本表侧重 **后台菜单与页面**；**uni-app** 以 `internal/compat/shopxo/compat.go` 中 `routeMap` 登记的 `s=` 动作为准（约 **94** 条，以脚本计数为准）。
 
 ---
 
@@ -146,7 +146,7 @@
 
 | 范围 | 状态 | 说明 |
 |------|------|------|
-| ShopXO uni-app | **已对齐** | `api.php` 单入口 + **82** 个 `s=` 动作（含 `cashier/paydata` 小程序收银台）；边界 case 以集成测试与真机为准。 |
+| ShopXO uni-app | **已对齐** | `api.php` 单入口 + **94** 个 `s=` 动作（含 `cashier/paydata` 小程序收银台；以 `scripts/doc-metrics.sh` 为准）；边界 case 以集成测试与真机为准。 |
 | ShopXO PC 模板商城 | **不适用** | GoShop PC 为 `web/`（Next.js），功能对齐度需单独对照，不等同 PHP 模板页。 |
 | PHP 插件包 / Composer / 在线升级 | **不适用（产品外）** | 不内置 PHP 运行时与官方升级通道；与「应用商店」同为**刻意不对齐**项，见 `HANDOVER.md` 产品边界。 |
 | PayPal 等 | **部分对齐** | 驱动与沙盒存在程度见 `payment_driver`；实盘与商户资质见 `HANDOVER` P3。 |

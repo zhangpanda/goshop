@@ -5,11 +5,11 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 )
 
 func Cors() gin.HandlerFunc {
-	allowedOrigins := global.Cfg.Server.CorsOrigins
+	allowedOrigins := app.Must().Cfg.Server.CorsOrigins
 
 	return cors.New(cors.Config{
 		AllowOriginFunc: func(origin string) bool {

@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -20,7 +20,7 @@ type GoodsSaveReq struct {
 
 func GoodsSave(id uint, req *GoodsSaveReq) (*model.Goods, error) {
 	var finalID uint
-	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if id > 0 {
 			if err := tx.Model(&model.Goods{}).Where("id = ?", id).Updates(map[string]interface{}{
 				"category_id": req.CategoryID, "title": req.Title, "subtitle": req.Subtitle,
@@ -67,19 +67,19 @@ func GoodsSave(id uint, req *GoodsSaveReq) (*model.Goods, error) {
 		SaveGoodsContentApp(id, req.ContentApp)
 	}
 	var goods model.Goods
-	global.DB.Preload("SKUs").Preload("Category").First(&goods, id)
+	app.Must().DB.Preload("SKUs").Preload("Category").First(&goods, id)
 	return &goods, nil
 }
 
 // GoodsSaveBaseUpdate 仅更新基础信息
 func GoodsSaveBaseUpdate(id uint, updates map[string]interface{}) error {
-	return global.DB.Model(&model.Goods{}).Where("id = ?", id).Updates(updates).Error
+	return app.Must().DB.Model(&model.Goods{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // GoodsData 获取单个商品数据
 func GoodsData(id uint) *model.Goods {
 	var g model.Goods
-	global.DB.Preload("SKUs").Preload("Category").First(&g, id)
+	app.Must().DB.Preload("SKUs").Preload("Category").First(&g, id)
 	if g.ID == 0 {
 		return nil
 	}
@@ -89,7 +89,7 @@ func GoodsData(id uint) *model.Goods {
 // GoodsDataEditStatusCheck 编辑状态检查
 func GoodsDataEditStatusCheck(id uint) error {
 	var g model.Goods
-	global.DB.Select("status").First(&g, id)
+	app.Must().DB.Select("status").First(&g, id)
 	if g.Status == 1 {
 		return fmt.Errorf("商品已上架，请先下架再编辑")
 	}
@@ -98,7 +98,7 @@ func GoodsDataEditStatusCheck(id uint) error {
 
 // GoodsSearchList 商品搜索列表（含关键字+分类+品牌）
 func GoodsSearchList(keyword string, categoryID, brandID uint, page, pageSize int) ([]model.Goods, int64) {
-	db := global.DB.Model(&model.Goods{}).Where("status = 1")
+	db := app.Must().DB.Model(&model.Goods{}).Where("status = 1")
 	if keyword != "" {
 		db = db.Where("title LIKE ?", "%"+keyword+"%")
 	}
@@ -122,7 +122,7 @@ func AppointGoodsList(ids []uint) []model.Goods {
 	if len(ids) == 0 {
 		return list
 	}
-	global.DB.Where("id IN ? AND status = 1", ids).Preload("SKUs").Find(&list)
+	app.Must().DB.Where("id IN ? AND status = 1", ids).Preload("SKUs").Find(&list)
 	return list
 }
 
@@ -131,7 +131,7 @@ func AutoGoodsList(categoryID uint, orderBy string, limit int) []model.Goods {
 	if limit <= 0 {
 		limit = 10
 	}
-	db := global.DB.Where("status = 1")
+	db := app.Must().DB.Where("status = 1")
 	if categoryID > 0 {
 		db = db.Where("category_id = ?", categoryID)
 	}
@@ -153,9 +153,9 @@ func AutoGoodsList(categoryID uint, orderBy string, limit int) []model.Goods {
 func CategoryGoodsList(categoryID uint, page, pageSize int) ([]model.Goods, int64) {
 	ids := GoodsCategoryItemsIds([]uint{categoryID}, 3)
 	var total int64
-	global.DB.Model(&model.Goods{}).Where("category_id IN ? AND status = 1", ids).Count(&total)
+	app.Must().DB.Model(&model.Goods{}).Where("category_id IN ? AND status = 1", ids).Count(&total)
 	var list []model.Goods
-	global.DB.Where("category_id IN ? AND status = 1", ids).Preload("SKUs").
+	app.Must().DB.Where("category_id IN ? AND status = 1", ids).Preload("SKUs").
 		Order("sort DESC, id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	return list, total
 }
@@ -164,7 +164,7 @@ func CategoryGoodsList(categoryID uint, page, pageSize int) ([]model.Goods, int6
 func CategoryGoodsTotal(categoryID uint) int64 {
 	ids := GoodsCategoryItemsIds([]uint{categoryID}, 3)
 	var c int64
-	global.DB.Model(&model.Goods{}).Where("category_id IN ? AND status = 1", ids).Count(&c)
+	app.Must().DB.Model(&model.Goods{}).Where("category_id IN ? AND status = 1", ids).Count(&c)
 	return c
 }
 
@@ -188,7 +188,7 @@ func GoodsImagesCoverHandle(goods *model.Goods) string {
 // GoodsSpecificationsData 获取商品规格数据
 func GoodsSpecificationsData(goodsID uint) ([]model.GoodsSKU, error) {
 	var list []model.GoodsSKU
-	return list, global.DB.Where("goods_id = ? AND status = 1", goodsID).Find(&list).Error
+	return list, app.Must().DB.Where("goods_id = ? AND status = 1", goodsID).Find(&list).Error
 }
 
 // GoodsSpecificationsActual 获取实际规格组合
@@ -212,8 +212,8 @@ func GoodsSpecBaseFields() []string {
 // GoodsSpecType 获取规格类型
 func GoodsSpecType(goodsID uint) []model.SpecType {
 	var list []model.SpecType
-	global.DB.Preload("Values").Where("template_id IN (?)",
-		global.DB.Model(&model.SpecTemplate{}).Select("id")).Find(&list)
+	app.Must().DB.Preload("Values").Where("template_id IN (?)",
+		app.Must().DB.Model(&model.SpecTemplate{}).Select("id")).Find(&list)
 	return list
 }
 
@@ -302,9 +302,9 @@ func GoodsDetailSeeingYouData(goodsID uint, limit int) []model.Goods {
 		limit = 6
 	}
 	var g model.Goods
-	global.DB.Select("category_id").First(&g, goodsID)
+	app.Must().DB.Select("category_id").First(&g, goodsID)
 	var list []model.Goods
-	global.DB.Where("category_id = ? AND id != ? AND status = 1", g.CategoryID, goodsID).
+	app.Must().DB.Where("category_id = ? AND id != ? AND status = 1", g.CategoryID, goodsID).
 		Preload("SKUs").Order("sales_count DESC").Limit(limit).Find(&list)
 	return list
 }
@@ -378,7 +378,7 @@ func GoodsBuyLeftNavList() []map[string]string { return nil }
 // GoodsSpecificationsConcise 规格简洁数据
 func GoodsSpecificationsConcise(goodsID uint) []string {
 	var names []string
-	global.DB.Model(&model.GoodsSKU{}).Where("goods_id = ? AND status = 1", goodsID).Pluck("name", &names)
+	app.Must().DB.Model(&model.GoodsSKU{}).Where("goods_id = ? AND status = 1", goodsID).Pluck("name", &names)
 	return names
 }
 

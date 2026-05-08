@@ -1,0 +1,32 @@
+[
+  {
+    "route": "index/index",
+    "method": "GET",
+    "query": ""
+  },
+  {
+    "route": "base/common",
+    "method": "GET",
+    "query": ""
+  },
+  {
+    "route": "goods/category",
+    "method": "GET",
+    "query": ""
+  },
+  {
+    "route": "goods/detail",
+    "method": "GET",
+    "query": "goods_id=1"
+  },
+  {
+    "route": "article/index",
+    "method": "GET",
+    "query": ""
+  },
+  {
+    "route": "search/index",
+    "method": "GET",
+    "query": "wd=test"
+  }
+]

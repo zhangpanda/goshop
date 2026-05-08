@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -17,7 +17,7 @@ type SpecTypeReq struct {
 
 func CreateSpecTemplate(req *SpecTemplateReq) (*model.SpecTemplate, error) {
 	t := model.SpecTemplate{Name: req.Name}
-	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := tx.Create(&t).Error; err != nil {
 			return err
 		}
@@ -37,17 +37,17 @@ func CreateSpecTemplate(req *SpecTemplateReq) (*model.SpecTemplate, error) {
 	if err != nil {
 		return nil, err
 	}
-	global.DB.Preload("Types.Values").First(&t, t.ID)
+	app.Must().DB.Preload("Types.Values").First(&t, t.ID)
 	return &t, nil
 }
 
 func GetSpecTemplateList() ([]model.SpecTemplate, error) {
 	var list []model.SpecTemplate
-	return list, global.DB.Preload("Types.Values").Find(&list).Error
+	return list, app.Must().DB.Preload("Types.Values").Find(&list).Error
 }
 
 func DeleteSpecTemplate(id uint) error {
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		var types []model.SpecType
 		if err := tx.Where("template_id = ?", id).Find(&types).Error; err != nil {
 			return err

@@ -24,12 +24,15 @@ jobs:
           --health-retries=5
     steps:
       - uses: actions/checkout@v6
+      - name: Go 工具链对齐检查（真值 go.mod）
+        run: python3 scripts/sync_go_toolchain.py
+      # 与 go.mod、Dockerfile、本步校验、mise、.tool-versions 对齐
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.9'
+          go-version: '1.25.10'
       - name: Build
         run: go build -o bin/goshop ./cmd/server/
-      # 与 scripts/deep_test.sh 一致：排除 web/node_modules 下误入的 Go 包
+      # 与 scripts/quick_test.sh 一致：排除 web/node_modules 下误入的 Go 包
       - name: Vet
         run: |
           go list ./... | grep -v '/node_modules/' | xargs -r go vet
@@ -48,6 +51,7 @@ jobs:
         run: |
           go list ./... | grep -v '/node_modules/' | xargs -r go test -count=1 -race -timeout 5m
       - name: Govulncheck
+        timeout-minutes: 12
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
@@ -78,9 +82,25 @@ jobs:
             sandbox: true
           EOF
           ./bin/goshop &
-          sleep 3
+          sleep 10
           GOSHOP_PAYMENT_SANDBOX=1 bash scripts/integration_test.sh
           kill %1 2>/dev/null || true
+
+  shopxo-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Clone shopxo-uniapp
+        run: git clone --depth 1 https://github.com/gongfuxiang/shopxo-uniapp.git /tmp/shopxo-uniapp
+      - name: Uni-app 静态路由 ⊆ Go routeMap
+        run: python3 scripts/extract_shopxo_uniapp_routes.py /tmp/shopxo-uniapp --fail-on-missing
+      - name: Clone ShopXO PHP v6.8.0（官方 app/api/controller 基线）
+        run: git clone --depth 1 --branch v6.8.0 https://github.com/gongfuxiang/shopxo.git /tmp/shopxo-php
+      - name: 冻结 uni-app 合约 ⊆ PHP API 且 ⊆ Go routeMap
+        run: python3 scripts/extract_shopxo_php_api_routes.py /tmp/shopxo-php --fail-uniapp-contract
 
   web:
     runs-on: ubuntu-latest
@@ -123,9 +143,12 @@ jobs:
           --health-retries=5
     steps:
       - uses: actions/checkout@v6
+      - name: Go 工具链对齐检查（真值 go.mod）
+        run: python3 scripts/sync_go_toolchain.py
+      # 与 go.mod、Dockerfile、本步校验、mise、.tool-versions 对齐
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.9'
+          go-version: '1.25.10'
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

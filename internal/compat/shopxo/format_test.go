@@ -28,6 +28,17 @@ func TestPaymentDriverKeyFromPayment_PHPClass(t *testing.T) {
 	}
 }
 
+func TestPaymentDriverKeyFromPayment_PHPClassOverridesNameWhenPresent(t *testing.T) {
+	p := &model.Payment{Name: "支付宝扫码", Config: `{"payment":"Weixin"}`}
+	k, err := PaymentDriverKeyFromPayment(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k != "wechat_jsapi" {
+		t.Fatalf("compat 层应认 PHP payment 类名优先于名称，got %q", k)
+	}
+}
+
 func TestShopXOPluginNameFromDriverKey(t *testing.T) {
 	tests := []struct {
 		key  string

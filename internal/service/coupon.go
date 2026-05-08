@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -32,7 +32,7 @@ func CreateCoupon(req *CreateCouponReq) (*model.Coupon, error) {
 		EndTime:   req.EndTime,
 		Status:    1,
 	}
-	if err := global.DB.Create(&coupon).Error; err != nil {
+	if err := app.Must().DB.Create(&coupon).Error; err != nil {
 		return nil, err
 	}
 	return &coupon, nil
@@ -40,14 +40,14 @@ func CreateCoupon(req *CreateCouponReq) (*model.Coupon, error) {
 
 func GetCouponList() ([]model.Coupon, error) {
 	var list []model.Coupon
-	err := global.DB.Where("status = 1 AND end_time > ?", time.Now()).
+	err := app.Must().DB.Where("status = 1 AND end_time > ?", time.Now()).
 		Order("id DESC").Find(&list).Error
 	return list, err
 }
 
 func ReceiveCoupon(userID, couponID uint) error {
 	var coupon model.Coupon
-	if err := global.DB.First(&coupon, couponID).Error; err != nil {
+	if err := app.Must().DB.First(&coupon, couponID).Error; err != nil {
 		return errors.New("优惠券不存在")
 	}
 	if coupon.Status != 1 {
@@ -62,12 +62,12 @@ func ReceiveCoupon(userID, couponID uint) error {
 
 	// 检查领取数量
 	var count int64
-	global.DB.Model(&model.UserCoupon{}).Where("user_id = ? AND coupon_id = ?", userID, couponID).Count(&count)
+	app.Must().DB.Model(&model.UserCoupon{}).Where("user_id = ? AND coupon_id = ?", userID, couponID).Count(&count)
 	if int(count) >= coupon.PerLimit {
 		return errors.New("已达领取上限")
 	}
 
-	return RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		result := tx.Model(&model.Coupon{}).Where("id = ? AND received < total", couponID).
 			Update("received", gorm.Expr("received + 1"))
 		if result.Error != nil {
@@ -83,7 +83,7 @@ func ReceiveCoupon(userID, couponID uint) error {
 
 func GetMyCoupons(userID uint, status *int8) ([]model.UserCoupon, error) {
 	var list []model.UserCoupon
-	db := global.DB.Where("user_id = ?", userID)
+	db := app.Must().DB.Where("user_id = ?", userID)
 	if status != nil {
 		db = db.Where("status = ?", *status)
 	}

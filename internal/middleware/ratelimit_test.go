@@ -9,14 +9,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/config"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 )
 
 func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
-	if global.Cfg == nil {
-		global.Cfg = &config.Config{}
-	}
+	app.Register(&app.Deps{Cfg: &config.Config{}})
 	os.Exit(m.Run())
 }
 

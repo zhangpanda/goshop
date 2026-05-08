@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/auth"
 	"golang.org/x/crypto/bcrypt"
@@ -33,7 +33,7 @@ func UserBaseInfo(userID uint) *model.User {
 // GetUserViewInfo 用户展示信息（脱敏）
 func GetUserViewInfo(userID uint) map[string]interface{} {
 	var u model.User
-	global.DB.Select("id, nickname, avatar").First(&u, userID)
+	app.Must().DB.Select("id, nickname, avatar").First(&u, userID)
 	return map[string]interface{}{"id": u.ID, "nickname": u.Nickname, "avatar": u.Avatar}
 }
 
@@ -44,7 +44,7 @@ func UserInsert(username, password, nickname string) (*model.User, error) {
 
 // UserUpdateHandle 更新用户
 func UserUpdateHandle(userID uint, updates map[string]interface{}) error {
-	return global.DB.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error
+	return app.Must().DB.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error
 }
 
 // PersonalSave 个人资料保存
@@ -61,7 +61,7 @@ func PersonalSave(userID uint, req *PersonalSaveReq) error {
 // UserStatusCheck 用户状态检查
 func UserStatusCheck(userID uint) error {
 	var u model.User
-	global.DB.Select("status").First(&u, userID)
+	app.Must().DB.Select("status").First(&u, userID)
 	if u.Status == 0 {
 		return errors.New("账号已禁用")
 	}
@@ -70,7 +70,7 @@ func UserStatusCheck(userID uint) error {
 
 // UserLoginHandle 登录处理
 func UserLoginHandle(user *model.User) (*LoginResp, error) {
-	token, err := auth.GenerateToken(user.ID, false, global.Cfg.JWT.Secret, global.Cfg.JWT.Expire)
+	token, err := auth.GenerateToken(user.ID, false, app.Must().Cfg.JWT.Secret, app.Must().Cfg.JWT.Expire)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func LoginUserInfo(userID uint) *model.User {
 
 // TokenUserinfo Token获取用户信息
 func TokenUserinfo(token string) (*model.User, error) {
-	claims, err := auth.ParseToken(token, global.Cfg.JWT.Secret)
+	claims, err := auth.ParseToken(token, app.Must().Cfg.JWT.Secret)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func TokenUserinfo(token string) (*model.User, error) {
 
 // UserTokenData 用户Token数据
 func UserTokenData(userID uint) (string, error) {
-	return auth.GenerateToken(userID, false, global.Cfg.JWT.Secret, global.Cfg.JWT.Expire)
+	return auth.GenerateToken(userID, false, app.Must().Cfg.JWT.Secret, app.Must().Cfg.JWT.Expire)
 }
 
 // UserTokenUpdate 更新Token
@@ -103,14 +103,14 @@ func UserTokenUpdate(userID uint) (string, error) { return UserTokenData(userID)
 // IsExistAccounts 检查账号是否存在
 func IsExistAccounts(account string) bool {
 	var c int64
-	global.DB.Model(&model.User{}).Where("username = ? OR phone = ?", account, account).Count(&c)
+	app.Must().DB.Model(&model.User{}).Where("username = ? OR phone = ?", account, account).Count(&c)
 	return c > 0
 }
 
 // UserLoginAccountsCheck 登录账号检查
 func UserLoginAccountsCheck(account string) (*model.User, error) {
 	var u model.User
-	global.DB.Where("username = ? OR phone = ?", account, account).First(&u)
+	app.Must().DB.Where("username = ? OR phone = ?", account, account).First(&u)
 	if u.ID == 0 {
 		return nil, errors.New("用户不存在")
 	}
@@ -161,28 +161,28 @@ func AppEmailBind(userID uint, email, code string) error {
 	if err := CheckVerifyCode(email, code, "email_bind"); err != nil {
 		return err
 	}
-	return global.DB.Model(&model.User{}).Where("id = ?", userID).Update("email", email).Error
+	return app.Must().DB.Model(&model.User{}).Where("id = ?", userID).Update("email", email).Error
 }
 
 // AppAccountsBindhHandle 账号绑定处理
 func AppAccountsBindhHandle(userID uint, platform, openID string) error {
 	var p model.UserPlatform
-	global.DB.Where("user_id = ? AND platform = ?", userID, platform).First(&p)
+	app.Must().DB.Where("user_id = ? AND platform = ?", userID, platform).First(&p)
 	if p.ID > 0 {
-		return global.DB.Model(&p).Update("openid", openID).Error
+		return app.Must().DB.Model(&p).Update("openid", openID).Error
 	}
-	return global.DB.Create(&model.UserPlatform{UserID: userID, Platform: platform, OpenID: openID}).Error
+	return app.Must().DB.Create(&model.UserPlatform{UserID: userID, Platform: platform, OpenID: openID}).Error
 }
 
 // UserOpenidBind OpenID绑定
 func UserOpenidBind(userID uint, platform, openID, unionID string) error {
-	return global.DB.Create(&model.UserPlatform{UserID: userID, Platform: platform, OpenID: openID, UnionID: unionID}).Error
+	return app.Must().DB.Create(&model.UserPlatform{UserID: userID, Platform: platform, OpenID: openID, UnionID: unionID}).Error
 }
 
 // UserOpenidHandle OpenID处理
 func UserOpenidHandle(platform, openID string) *model.UserPlatform {
 	var p model.UserPlatform
-	global.DB.Where("platform = ? AND openid = ?", platform, openID).First(&p)
+	app.Must().DB.Where("platform = ? AND openid = ?", platform, openID).First(&p)
 	if p.ID == 0 {
 		return nil
 	}
@@ -192,7 +192,7 @@ func UserOpenidHandle(platform, openID string) *model.UserPlatform {
 // UserUnionidHandle UnionID处理
 func UserUnionidHandle(platform, unionID string) *model.UserPlatform {
 	var p model.UserPlatform
-	global.DB.Where("platform = ? AND unionid = ?", platform, unionID).First(&p)
+	app.Must().DB.Where("platform = ? AND unionid = ?", platform, unionID).First(&p)
 	if p.ID == 0 {
 		return nil
 	}
@@ -202,14 +202,14 @@ func UserUnionidHandle(platform, unionID string) *model.UserPlatform {
 // MatchingUserPlatformData 匹配用户平台数据
 func MatchingUserPlatformData(userID uint) []model.UserPlatform {
 	var list []model.UserPlatform
-	global.DB.Where("user_id = ?", userID).Find(&list)
+	app.Must().DB.Where("user_id = ?", userID).Find(&list)
 	return list
 }
 
 // UserPlatformInfo 平台信息
 func UserPlatformInfo(userID uint, platform string) *model.UserPlatform {
 	var p model.UserPlatform
-	global.DB.Where("user_id = ? AND platform = ?", userID, platform).First(&p)
+	app.Must().DB.Where("user_id = ? AND platform = ?", userID, platform).First(&p)
 	if p.ID == 0 {
 		return nil
 	}
@@ -217,11 +217,11 @@ func UserPlatformInfo(userID uint, platform string) *model.UserPlatform {
 }
 
 // UserPlatformInsert 平台插入
-func UserPlatformInsert(p *model.UserPlatform) error { return global.DB.Create(p).Error }
+func UserPlatformInsert(p *model.UserPlatform) error { return app.Must().DB.Create(p).Error }
 
 // UserPlatformUpdate 平台更新
 func UserPlatformUpdate(id uint, updates map[string]interface{}) error {
-	return global.DB.Model(&model.UserPlatform{}).Where("id = ?", id).Updates(updates).Error
+	return app.Must().DB.Model(&model.UserPlatform{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // UserReferrerEncryption 推荐人加密

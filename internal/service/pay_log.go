@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"gorm.io/gorm"
 )
@@ -81,7 +81,7 @@ func revertMergePayThirdPartyPrep(pl *model.PayLog, userID uint, orderIDs []uint
 	if pl == nil || pl.ID == 0 {
 		return
 	}
-	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		now := time.Now()
 		res := tx.Model(&model.PayLog{}).Where("id = ? AND user_id = ? AND status = ?", pl.ID, userID, 0).
 			Updates(map[string]interface{}{"status": 2, "closed_at": &now})
@@ -105,13 +105,13 @@ func revertMergePayThirdPartyPrep(pl *model.PayLog, userID uint, orderIDs []uint
 }
 
 // StalePendingPayLogsCleanup 关闭长时间仍处于待支付的 PayLog，并解除待付款子单的 payment_id（合并支付半开态兜底）。
-func StalePendingPayLogsCleanup(maxAgeMinutes int) (closed int) {
+func StalePendingPayLogsCleanup(deps *app.Deps, maxAgeMinutes int) (closed int) {
 	if maxAgeMinutes <= 0 {
 		maxAgeMinutes = 120
 	}
 	deadline := time.Now().Add(-time.Duration(maxAgeMinutes) * time.Minute)
 	var logs []model.PayLog
-	if err := global.DB.Where("status = ? AND created_at < ?", 0, deadline).Find(&logs).Error; err != nil {
+	if err := deps.DB.Where("status = ? AND created_at < ?", 0, deadline).Find(&logs).Error; err != nil {
 		slog.Warn("pay", "action", "stale_paylog_query", "err", err.Error())
 		return 0
 	}
@@ -119,7 +119,7 @@ func StalePendingPayLogsCleanup(maxAgeMinutes int) (closed int) {
 		pl := &logs[i]
 		ids := parsePayLogOrderIDList(pl.OrderIDs)
 		var rowsAff int64
-		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		err := RunInDBTx(deps.DB, func(tx *gorm.DB) error {
 			now := time.Now()
 			res := tx.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
 				Updates(map[string]interface{}{"status": 2, "closed_at": &now})
@@ -158,7 +158,7 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 		return nil, fmt.Errorf("请选择订单")
 	}
 	var orders []model.Order
-	if err := global.DB.Where("id IN ? AND user_id = ?", ids, userID).Order("id ASC").Find(&orders).Error; err != nil {
+	if err := app.Must().DB.Where("id IN ? AND user_id = ?", ids, userID).Order("id ASC").Find(&orders).Error; err != nil {
 		return nil, err
 	}
 	if len(orders) != len(ids) {
@@ -177,7 +177,7 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 
 	if paymentKey == "offline" {
 		var paidIDs []uint
-		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 			if err := applyMultiOrderPaymentID(tx, userID, ids, paymentRecordID); err != nil {
 				return err
 			}
@@ -212,7 +212,7 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 			total += o.PayAmount
 		}
 		var paidIDs []uint
-		err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+		err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 			if err := applyMultiOrderPaymentID(tx, userID, ids, paymentRecordID); err != nil {
 				return err
 			}
@@ -261,7 +261,7 @@ func MultiOrderUnifiedPay(userID uint, orderIDs []uint, paymentKey string, payme
 
 	// clientType 写入 PayLog；兼容层用 "shopxo" 仅作来源标记，非第三方商标用法
 	var pl *model.PayLog
-	err = RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	err = RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		if err := applyMultiOrderPaymentID(tx, userID, ids, paymentRecordID); err != nil {
 			return err
 		}
@@ -295,7 +295,7 @@ func generatePayNo() string {
 
 // CreatePayLog 创建支付日志（支持合并支付多个订单）。clientType 为渠道/来源标识（如 api、shopxo）。
 func CreatePayLog(userID uint, orderIDs []uint, paymentID uint, clientType string) (*model.PayLog, error) {
-	return createPayLogWithDB(global.DB, userID, orderIDs, paymentID, clientType)
+	return createPayLogWithDB(app.Must().DB, userID, orderIDs, paymentID, clientType)
 }
 
 // createPayLogWithDB 使用指定 DB/事务句柄创建 PayLog，读单与写入在同一连接上便于与合并支付事务组合。
@@ -331,7 +331,7 @@ func createPayLogWithDB(db *gorm.DB, userID uint, orderIDs []uint, paymentID uin
 // PayLogSuccess 支付成功回调处理
 func PayLogSuccess(payNo, tradeNo string) error {
 	var pl model.PayLog
-	if err := global.DB.Where("pay_no = ?", payNo).First(&pl).Error; err != nil {
+	if err := app.Must().DB.Where("pay_no = ?", payNo).First(&pl).Error; err != nil {
 		return fmt.Errorf("支付日志不存在")
 	}
 	if pl.Status != 0 {
@@ -341,7 +341,7 @@ func PayLogSuccess(payNo, tradeNo string) error {
 	now := time.Now()
 
 	var paidIDs []uint
-	err := RunInDBTx(global.DB, func(tx *gorm.DB) error {
+	err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		res := tx.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
 			Updates(map[string]interface{}{"status": 1, "trade_no": tradeNo, "paid_at": &now})
 		if res.Error != nil {
@@ -399,13 +399,13 @@ func PayLogSuccess(payNo, tradeNo string) error {
 			allPaid := true
 			for _, oid := range oids {
 				var o model.Order
-				if err := global.DB.First(&o, oid).Error; err != nil || o.Status != model.OrderStatusPaid {
+				if err := app.Must().DB.First(&o, oid).Error; err != nil || o.Status != model.OrderStatusPaid {
 					allPaid = false
 					break
 				}
 			}
 			if allPaid {
-				res2 := global.DB.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
+				res2 := app.Must().DB.Model(&model.PayLog{}).Where("id = ? AND status = ?", pl.ID, 0).
 					Updates(map[string]interface{}{"status": 1, "trade_no": tradeNo, "paid_at": &now})
 				return res2.Error
 			}
@@ -422,7 +422,7 @@ func PayLogSuccess(payNo, tradeNo string) error {
 	for _, oid := range paidIDs {
 		AddOrderStatusHistory(oid, model.OrderStatusPending, model.OrderStatusPaid, "支付成功", "系统")
 		var order model.Order
-		if err := global.DB.First(&order, oid).Error; err != nil {
+		if err := app.Must().DB.First(&order, oid).Error; err != nil {
 			slog.Warn("pay callback", "reason", "notify_skip_order_load", "order_id", oid, "err", err)
 			continue
 		}
@@ -441,32 +441,83 @@ func CreateRefundLog(orderID, payLogID, userID uint, refundPrice int64, reason s
 		RefundPrice: refundPrice,
 		Reason:      reason,
 	}
-	global.DB.Create(&rl)
+	app.Must().DB.Create(&rl)
 	return &rl
 }
 
 func UpdateRefundLog(refundNo string, status int8, tradeNo string) {
-	global.DB.Model(&model.RefundLog{}).Where("refund_no = ?", refundNo).
+	app.Must().DB.Model(&model.RefundLog{}).Where("refund_no = ?", refundNo).
 		Updates(map[string]interface{}{"status": status, "trade_no": tradeNo})
 }
 
 func GetPayLogList(userID uint, page, pageSize int) ([]model.PayLog, int64, error) {
 	var total int64
-	global.DB.Model(&model.PayLog{}).Where("user_id = ?", userID).Count(&total)
+	app.Must().DB.Model(&model.PayLog{}).Where("user_id = ?", userID).Count(&total)
 	var list []model.PayLog
-	err := global.DB.Where("user_id = ?", userID).Order("id DESC").
+	err := app.Must().DB.Where("user_id = ?", userID).Order("id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 
+// PayLogMenuRowsShopXO shopxo-uniapp paylog/index：name + url 列表。
+func PayLogMenuRowsShopXO(userID uint) []map[string]string {
+	list, _, _ := GetPayLogList(userID, 1, 40)
+	if len(list) == 0 {
+		return []map[string]string{
+			{"name": "我的订单", "url": "/pages/user-order/user-order"},
+		}
+	}
+	out := make([]map[string]string, 0, len(list))
+	for i := range list {
+		pl := &list[i]
+		st := "待支付"
+		if pl.Status == 1 {
+			st = "已支付"
+		} else if pl.Status == 2 {
+			st = "已关闭"
+		}
+		out = append(out, map[string]string{
+			"name": fmt.Sprintf("%s · %s", pl.PayNo, st),
+			"url":  fmt.Sprintf("/pages/paylog-detail/paylog-detail?id=%d", pl.ID),
+		})
+	}
+	return out
+}
+
+// PayLogOrderRowsShopXO shopxo-uniapp paylog/detail：订单号与详情链接。
+func PayLogOrderRowsShopXO(userID, payLogID uint) ([]map[string]string, error) {
+	var pl model.PayLog
+	if err := app.Must().DB.Where("id = ? AND user_id = ?", payLogID, userID).First(&pl).Error; err != nil {
+		return nil, errors.New("支付记录不存在")
+	}
+	ids := parsePayLogOrderIDList(pl.OrderIDs)
+	if len(ids) == 0 {
+		return []map[string]string{{"order_no": pl.PayNo, "url": "/pages/user-order/user-order"}}, nil
+	}
+	var orders []model.Order
+	app.Must().DB.Where("id IN ? AND user_id = ?", ids, userID).Find(&orders)
+	out := make([]map[string]string, 0, len(orders))
+	for i := range orders {
+		o := orders[i]
+		out = append(out, map[string]string{
+			"order_no": o.OrderNo,
+			"url":      fmt.Sprintf("/pages/user-order-detail/user-order-detail?id=%d", o.ID),
+		})
+	}
+	if len(out) == 0 {
+		return []map[string]string{{"order_no": pl.PayNo, "url": "/pages/user-order/user-order"}}, nil
+	}
+	return out, nil
+}
+
 func GetRefundLogList(page, pageSize int) ([]model.RefundLog, int64, error) {
 	var total int64
-	global.DB.Model(&model.RefundLog{}).Count(&total)
+	app.Must().DB.Model(&model.RefundLog{}).Count(&total)
 	var list []model.RefundLog
-	err := global.DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
+	err := app.Must().DB.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 
 func AddPayRequestLog(payLogID uint, request, response, business string) {
-	global.DB.Create(&model.PayRequestLog{PayLogID: payLogID, Request: request, Response: response, Business: business})
+	app.Must().DB.Create(&model.PayRequestLog{PayLogID: payLogID, Request: request, Response: response, Business: business})
 }

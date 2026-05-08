@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/service"
 	"github.com/zhangpanda/goshop/pkg/response"
 )
@@ -25,12 +25,12 @@ func AdminLoginHandler(c *gin.Context) {
 			response.Fail(c, http.StatusBadRequest, "请输入验证码")
 			return
 		}
-		stored, err := global.Cache.Get(c, req.CaptchaKey)
+		stored, err := app.Must().Cache.Get(c, req.CaptchaKey)
 		if err != nil || stored != req.CaptchaCode {
 			response.Fail(c, http.StatusBadRequest, "验证码错误")
 			return
 		}
-		global.Cache.Del(c, req.CaptchaKey) // 用后即删
+		app.Must().Cache.Del(c, req.CaptchaKey) // 用后即删
 	}
 
 	resp, err := service.AdminLogin(&req)

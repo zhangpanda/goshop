@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/zhangpanda/goshop/global"
+	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/auth"
 	"github.com/zhangpanda/goshop/pkg/wechat"
@@ -23,7 +23,7 @@ type WxLoginResp struct {
 }
 
 func WxLogin(req *WxLoginReq) (*WxLoginResp, error) {
-	cfg := global.Cfg.Wechat
+	cfg := app.Must().Cfg.Wechat
 	if cfg.AppID == "" || cfg.AppSecret == "" {
 		return nil, errors.New("微信小程序未配置")
 	}
@@ -35,7 +35,7 @@ func WxLogin(req *WxLoginReq) (*WxLoginResp, error) {
 
 	var user model.User
 	isNew := false
-	global.DB.Where("open_id = ?", session.OpenID).Find(&user)
+	app.Must().DB.Where("open_id = ?", session.OpenID).Find(&user)
 	if user.ID == 0 {
 		// 新用户自动注册
 		user = model.User{
@@ -45,7 +45,7 @@ func WxLogin(req *WxLoginReq) (*WxLoginResp, error) {
 			Avatar:   req.Avatar,
 			Status:   1,
 		}
-		if err := global.DB.Create(&user).Error; err != nil {
+		if err := app.Must().DB.Create(&user).Error; err != nil {
 			return nil, err
 		}
 		isNew = true
@@ -59,11 +59,11 @@ func WxLogin(req *WxLoginReq) (*WxLoginResp, error) {
 			if req.Avatar != "" {
 				updates["avatar"] = req.Avatar
 			}
-			global.DB.Model(&user).Updates(updates)
+			app.Must().DB.Model(&user).Updates(updates)
 		}
 	}
 
-	token, err := auth.GenerateToken(user.ID, false, global.Cfg.JWT.Secret, global.Cfg.JWT.Expire)
+	token, err := auth.GenerateToken(user.ID, false, app.Must().Cfg.JWT.Secret, app.Must().Cfg.JWT.Expire)
 	if err != nil {
 		return nil, err
 	}
