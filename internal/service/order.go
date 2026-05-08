@@ -250,6 +250,14 @@ func (s *OrderService) CancelOrder(userID, orderID uint) error {
 				return err
 			}
 		}
+		// 回滚已占用的优惠券：未支付订单取消时应当归还券，避免用户"白扣"券。
+		// 用 Select 显式声明三列以写 NULL（GORM 在 Updates(map) 中默认会跳过零值）。
+		if err := tx.Model(&model.UserCoupon{}).
+			Where("order_id = ? AND status = 1", orderID).
+			Select("status", "used_at", "order_id").
+			Updates(map[string]interface{}{"status": 0, "used_at": nil, "order_id": nil}).Error; err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {

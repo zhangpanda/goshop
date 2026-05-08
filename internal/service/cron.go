@@ -43,6 +43,13 @@ func CronOrderClose(deps *app.Deps, minutes int) (sucs, fail int) {
 					return err
 				}
 			}
+			// 回滚已占用优惠券，与用户主动取消保持一致
+			if err := tx.Model(&model.UserCoupon{}).
+				Where("order_id = ? AND status = 1", o.ID).
+				Select("status", "used_at", "order_id").
+				Updates(map[string]interface{}{"status": 0, "used_at": nil, "order_id": nil}).Error; err != nil {
+				return err
+			}
 			return nil
 		})
 		if err != nil {

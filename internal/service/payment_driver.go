@@ -443,7 +443,7 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 		}); err != nil {
 			return nil, err
 		}
-		AddOrderStatusHistory(order.ID, model.OrderStatusPending, model.OrderStatusPaid, "线下支付", "系统")
+		postPaidHook(order.ID, "线下支付", "系统")
 		return &PayDriverResp{TradeNo: "OFFLINE_" + order.OrderNo}, nil
 	}
 
