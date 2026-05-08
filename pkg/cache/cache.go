@@ -19,6 +19,11 @@ type Cache interface {
 	DBSize(ctx context.Context) (int64, error)
 	Info(ctx context.Context) (string, error)
 	Keys(ctx context.Context, pattern string) ([]string, error)
+	// Incr 原子自增，常用于计数器/限速窗口。Key 不存在时从 0 开始并返回 1。
+	// Incr 本身不设置 TTL；首次调用后请配合 Expire 建立过期窗口。
+	Incr(ctx context.Context, key string) (int64, error)
+	// Expire 为已存在的 key 设置 TTL；key 不存在时返回 nil（不是错误）。
+	Expire(ctx context.Context, key string, ttl time.Duration) error
 }
 
 // ErrNil 表示 key 不存在
@@ -45,6 +50,16 @@ func (r *RedisCache) Set(ctx context.Context, key string, value interface{}, exp
 // SetNX 仅在 key 不存在时设置值并指定 TTL，用于短时分布式互斥（如多实例定时任务）。
 func (r *RedisCache) SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) (bool, error) {
 	return r.client.SetNX(ctx, key, value, expiration).Result()
+}
+
+// Incr 原子自增；key 不存在时返回 1。Incr 不会重置 TTL。
+func (r *RedisCache) Incr(ctx context.Context, key string) (int64, error) {
+	return r.client.Incr(ctx, key).Result()
+}
+
+// Expire 设置 key 的 TTL；key 不存在时 Redis 返回 false，此处仅在网络错误时上报。
+func (r *RedisCache) Expire(ctx context.Context, key string, ttl time.Duration) error {
+	return r.client.Expire(ctx, key, ttl).Err()
 }
 
 func (r *RedisCache) Del(ctx context.Context, keys ...string) error {
@@ -185,4 +200,32 @@ func (m *MemoryCache) Keys(_ context.Context, pattern string) ([]string, error) 
 		}
 	}
 	return keys, nil
+}
+
+// Incr 原子自增；过期后再 Incr 视为从 0 开始。
+// 注意：当前实现不保留 TTL（与 Redis INCR 的语义一致：INCR 不改过期时间）；
+// 首次调用后请显式 Expire 建立窗口。
+func (m *MemoryCache) Incr(_ context.Context, key string) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	item, ok := m.items[key]
+	var n int64
+	if ok && (item.expiry.IsZero() || time.Now().Before(item.expiry)) {
+		_, _ = fmt.Sscanf(item.value, "%d", &n)
+	}
+	n++
+	item.value = fmt.Sprintf("%d", n)
+	m.items[key] = item // 保留原有 expiry；若 item 为零值则 expiry 为 zero（无限期）
+	return n, nil
+}
+
+// Expire 为已存在的 key 设置 TTL；key 不存在返回 nil（与 Redis Expire 命令对齐，仅以 error 为异常）。
+func (m *MemoryCache) Expire(_ context.Context, key string, ttl time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if it, ok := m.items[key]; ok {
+		it.expiry = time.Now().Add(ttl)
+		m.items[key] = it
+	}
+	return nil
 }
