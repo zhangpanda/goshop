@@ -158,6 +158,7 @@ jobs:
         env:
           GOSHOP_E2E: "1"
         run: |
+          export GOSHOP_E2E=1
           cat > config.yaml <<'EOF'
           server:
             port: 8080
@@ -177,7 +178,14 @@ jobs:
             sandbox: true
           EOF
           ./bin/goshop &
-          sleep 12
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:8080/health >/dev/null 2>&1; then
+              echo "API ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/health
       - name: Install admin + Playwright
         run: |
           cd admin
