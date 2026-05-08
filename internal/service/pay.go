@@ -183,24 +183,14 @@ func resolveOrderPaymentKey(order *model.Order) string {
 	return "wechat_jsapi"
 }
 
-// markRefundFailed 标记退款失败；出于幂等考虑允许多次调用。
+// markRefundFailed 标记退款失败；错误详情写入 ErrorMsg，避免污染用户填写的 Reason。
+// 出于幂等考虑允许多次调用。
 func markRefundFailed(rl *model.RefundLog, reason string) {
+	if len(reason) > 500 {
+		reason = reason[:500]
+	}
 	app.Must().DB.Model(rl).Updates(map[string]interface{}{
-		"status": 2,
-		"reason": truncateRefundReason(rl.Reason, reason),
+		"status":    2,
+		"error_msg": reason,
 	})
-}
-
-func truncateRefundReason(original, appendErr string) string {
-	combined := original
-	if appendErr != "" {
-		if combined != "" {
-			combined += " | "
-		}
-		combined += "ERR: " + appendErr
-	}
-	if len(combined) > 240 {
-		return combined[:240]
-	}
-	return combined
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/zhangpanda/goshop/internal/app"
@@ -47,9 +48,12 @@ func GetSubDistributors(userID uint) ([]model.Distributor, error) {
 
 // SettleCommission 订单完成后结算佣金（一级/二级，比例来自配置）。
 // 幂等：同 orderID 已存在 type=order 的 CommissionLog 则直接返回，不重复发放。
+// 并发兜底：CommissionLog.IdemKey 有物理 UNIQUE 索引，即使 SELECT COUNT 与 INSERT
+// 之间发生并发，数据库唯一键也会拒绝，事务回滚；此处识别并吞掉该错误（视为幂等命中），
+// 其他错误则 slog 记录便于排障。
 // 全流程在单个事务内：加余额 + 写流水。失败会整体回滚（只会有 0 或 2 条 log 被创建）。
 func SettleCommission(orderID uint) {
-	_ = RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
+	err := RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		var order model.Order
 		if err := tx.First(&order, orderID).Error; err != nil {
 			return err
@@ -97,9 +101,18 @@ func SettleCommission(orderID uint) {
 		}
 		return nil
 	})
+	if err != nil && !isDuplicateKeyError(err) {
+		slog.Warn("settle commission", "order_id", orderID, "err", err)
+	}
 }
 
 // addCommissionTx 在给定事务中为某分销商增加佣金并写流水。上级非分销商时忽略（不视为错误）。
+//
+// 幂等通过两层保障：
+//  1. SettleCommission 调用前已做 SELECT COUNT 预检；
+//  2. CommissionLog.IdemKey 是 type=order 场景下的物理 UNIQUE 索引（见 model）；
+//     即使 #1 的检查与此处插入之间发生并发，数据库唯一键也会拒绝重复写入。
+//     事务因此回滚，上层 SettleCommission 不返回错误（二次调用本来就是幂等空操作）。
 func addCommissionTx(tx *gorm.DB, userID, orderID uint, amount int64, remark string) error {
 	var d model.Distributor
 	if err := tx.Where("user_id = ? AND status = 1", userID).First(&d).Error; err != nil {
@@ -112,8 +125,10 @@ func addCommissionTx(tx *gorm.DB, userID, orderID uint, amount int64, remark str
 	}).Error; err != nil {
 		return err
 	}
+	key := fmt.Sprintf("order:%d:%d", orderID, d.ID)
 	return tx.Create(&model.CommissionLog{
 		DistributorID: d.ID, OrderID: orderID, Amount: amount, Type: "order", Remark: remark,
+		IdemKey: &key,
 	}).Error
 }
 

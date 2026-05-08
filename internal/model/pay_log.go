@@ -37,7 +37,8 @@ type RefundLog struct {
 	RefundNo    string    `json:"refund_no" gorm:"uniqueIndex;size:64;comment:退款单号"`
 	TradeNo     string    `json:"trade_no" gorm:"size:128;comment:第三方交易号"`
 	RefundPrice int64     `json:"refund_price" gorm:"not null;comment:退款金额(分)"`
-	Reason      string    `json:"reason" gorm:"size:255;comment:退款原因"`
+	Reason      string    `json:"reason" gorm:"size:255;comment:用户填写的退款原因"`
+	ErrorMsg    string    `json:"error_msg" gorm:"size:500;comment:失败时记录的内部错误信息（人工/告警用）"`
 	Status      int8      `json:"status" gorm:"default:0;comment:状态:0处理中1成功2失败"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`

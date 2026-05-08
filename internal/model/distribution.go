@@ -18,13 +18,17 @@ type Distributor struct {
 
 // CommissionLog 佣金记录
 type CommissionLog struct {
-	ID            uint      `json:"id" gorm:"primaryKey"`
-	DistributorID uint      `json:"distributor_id" gorm:"index;not null"`
-	OrderID       uint      `json:"order_id" gorm:"index;comment:来源订单ID"`
-	Amount        int64     `json:"amount" gorm:"not null;comment:佣金金额(分)"`
-	Type          string    `json:"type" gorm:"size:16;comment:类型:order/withdraw/adjust"`
-	Remark        string    `json:"remark" gorm:"size:255"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID            uint   `json:"id" gorm:"primaryKey"`
+	DistributorID uint   `json:"distributor_id" gorm:"index;not null"`
+	OrderID       uint   `json:"order_id" gorm:"index;comment:来源订单ID"`
+	Amount        int64  `json:"amount" gorm:"not null;comment:佣金金额(分)"`
+	Type          string `json:"type" gorm:"size:16;comment:类型:order/withdraw/adjust"`
+	Remark        string `json:"remark" gorm:"size:255"`
+	// IdemKey 幂等键。仅当 Type=="order" 时填充为 "order:<order_id>:<distributor_id>"，
+	// 其他类型保持 NULL。利用 MySQL/SQLite UNIQUE 对 NULL 不比较的语义，
+	// 达到「同一订单 + 同一分销商」仅能结算一次的物理约束，同时不影响其他业务类型多条写入。
+	IdemKey   *string   `json:"idem_key,omitempty" gorm:"uniqueIndex:uk_commission_idem;size:96;comment:订单佣金幂等键(仅type=order时有值)"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // WithdrawRequest 提现申请

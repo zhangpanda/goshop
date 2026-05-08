@@ -196,6 +196,15 @@ func StartCronJobs(ctx context.Context, deps *app.Deps) {
 		}
 	})
 
+	go cronLoop(ctx, "refund_reconcile", 5*time.Minute, 10*time.Second, func(lockCtx context.Context) bool {
+		return tryAcquireCronTick(lockCtx, "refund_reconcile", 4*time.Minute)
+	}, func() {
+		s, f := CronRefundReconcile(deps)
+		if s > 0 || f > 0 {
+			slog.Info("cron", "job", "refund_reconcile", "recovered", s, "stuck", f)
+		}
+	})
+
 	slog.Info("cron jobs started")
 }
 
@@ -224,4 +233,94 @@ func cronLoop(
 			work()
 		}
 	}
+}
+
+// CronRefundReconcile 扫描长时间处于 "处理中"（status=0）的退款单，尝试恢复其本地落账。
+//
+// 场景：RefundOrder 第三步（事务化更新订单+回库存+标记 RefundLog=1）可能因进程崩溃或 DB 抖动
+// 失败，此时第三方往往已退款成功，但本地订单仍是 Paid/Shipped。本 cron 的职责是：
+//  1. 订单已为 Refunded → RefundLog 只需刷新状态（历史原因的清理）；
+//  2. 订单仍在 Paid/Shipped → 在事务内完成状态+库存更新并置 RefundLog=1；
+//  3. 状态异常（Cancelled/Completed 等）→ 保留 status=0，落 slog 告警；
+//  4. 超过 retentionHours 未恢复 → 落 WARN 告警，留待人工介入（不自动改为 2，避免误判）。
+//
+// 返回 sucs/fail：成功恢复数、告警计数（含 stuck 超时）。
+func CronRefundReconcile(deps *app.Deps) (sucs, fail int) {
+	const retentionHours = 24
+	recoverDeadline := time.Now().Add(-5 * time.Minute)
+	staleDeadline := time.Now().Add(-retentionHours * time.Hour)
+
+	var logs []model.RefundLog
+	deps.DB.Where("status = 0 AND created_at < ?", recoverDeadline).
+		Limit(200).Find(&logs)
+
+	for i := range logs {
+		rl := &logs[i]
+		if rl.CreatedAt.Before(staleDeadline) {
+			fail++
+			slog.Warn("refund stuck",
+				"refund_no", rl.RefundNo, "order_id", rl.OrderID,
+				"age_hours", time.Since(rl.CreatedAt).Hours())
+			continue
+		}
+
+		var order model.Order
+		if err := deps.DB.First(&order, rl.OrderID).Error; err != nil {
+			fail++
+			slog.Warn("refund reconcile: load order",
+				"refund_no", rl.RefundNo, "order_id", rl.OrderID, "err", err)
+			continue
+		}
+
+		if order.Status == model.OrderStatusRefunded {
+			// 订单已退款，只是 RefundLog 状态没刷新：补写即可
+			if err := deps.DB.Model(rl).Updates(map[string]interface{}{"status": 1, "trade_no": order.TransactionID}).Error; err != nil {
+				fail++
+				continue
+			}
+			sucs++
+			continue
+		}
+
+		if order.Status != model.OrderStatusPaid && order.Status != model.OrderStatusShipped {
+			// 业务状态异常：不自动推进，留待人工
+			slog.Warn("refund reconcile: unexpected order status",
+				"refund_no", rl.RefundNo, "order_id", rl.OrderID, "order_status", order.Status)
+			fail++
+			continue
+		}
+
+		// 尝试在事务中完成本地落账
+		err := RunInDBTx(deps.DB, func(tx *gorm.DB) error {
+			r := tx.Model(&model.Order{}).
+				Where("id = ? AND status IN ?", rl.OrderID, []int8{model.OrderStatusPaid, model.OrderStatusShipped}).
+				Update("status", model.OrderStatusRefunded)
+			if r.Error != nil {
+				return r.Error
+			}
+			if r.RowsAffected == 0 {
+				// 并发中另一条路径已处理
+				return tx.Model(rl).Updates(map[string]interface{}{"status": 1, "trade_no": order.TransactionID}).Error
+			}
+			var items []model.OrderItem
+			if err := tx.Where("order_id = ?", rl.OrderID).Find(&items).Error; err != nil {
+				return err
+			}
+			for _, item := range items {
+				if err := tx.Model(&model.GoodsSKU{}).Where("id = ?", item.SKUID).
+					Update("stock", gorm.Expr("stock + ?", item.Quantity)).Error; err != nil {
+					return err
+				}
+			}
+			return tx.Model(rl).Updates(map[string]interface{}{"status": 1, "trade_no": order.TransactionID}).Error
+		})
+		if err != nil {
+			fail++
+			slog.Warn("refund reconcile tx failed",
+				"refund_no", rl.RefundNo, "order_id", rl.OrderID, "err", err)
+			continue
+		}
+		sucs++
+	}
+	return
 }
