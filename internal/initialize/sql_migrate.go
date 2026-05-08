@@ -9,6 +9,7 @@ import (
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/mysql" // 注册 migrate database 驱动（NewWithSourceInstance 依赖）
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/migratefs"
