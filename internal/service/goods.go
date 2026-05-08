@@ -182,7 +182,8 @@ func GetGoodsList(req *GoodsListReq) (*GoodsListResp, error) {
 			db = db.Where("title LIKE ? OR subtitle LIKE ?", "%"+req.Keyword+"%", "%"+req.Keyword+"%")
 		}
 		// 记录搜索热词
-		go func() { app.Must().DB.Create(&model.SearchHistory{Keyword: req.Keyword}) }()
+		keyword := req.Keyword
+		app.SafeGo("search_history", func() { app.Must().DB.Create(&model.SearchHistory{Keyword: keyword}) })
 	}
 	if req.Status != nil {
 		db = db.Where("status = ?", *req.Status)

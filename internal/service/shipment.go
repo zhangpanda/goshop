@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
+	"github.com/zhangpanda/goshop/pkg/httpx"
 	"gorm.io/gorm"
 )
 
@@ -54,8 +55,8 @@ func ConfirmReceive(userID, orderID uint) error {
 	}).Error; err != nil {
 		return err
 	}
-	// 分销佣金结算
-	go SettleCommission(orderID)
+	// 分销佣金结算：用 SafeGo 防止 panic，SettleCommission 内部已事务化+幂等
+	app.SafeGo("settle_commission", func() { SettleCommission(orderID) })
 	return nil
 }
 
@@ -74,10 +75,13 @@ type TrackInfo struct {
 	Context string `json:"context"`
 }
 
-// QueryExpress 查询物流轨迹（快递100 API）
+// QueryExpress 查询物流轨迹（快递100 API）。
+// 使用 httpx.Client 的 10s 超时，避免裸 http.Get 在第三方挂掉时无限等。
+// company/no 都经过 QueryEscape，防止上游输入注入额外查询参数。
 func QueryExpress(company, no string) ([]TrackInfo, error) {
-	url := fmt.Sprintf("https://www.kuaidi100.com/query?type=%s&postid=%s", company, no)
-	resp, err := http.Get(url)
+	reqURL := fmt.Sprintf("https://www.kuaidi100.com/query?type=%s&postid=%s",
+		url.QueryEscape(company), url.QueryEscape(no))
+	resp, err := httpx.Client.Get(reqURL)
 	if err != nil {
 		return nil, err
 	}

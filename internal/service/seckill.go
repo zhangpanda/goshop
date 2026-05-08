@@ -79,10 +79,12 @@ func SeckillBuy(userID, itemID uint) error {
 	}
 	if item.PerLimit > 0 {
 		var bought int64
+		// 只计入已支付/已发货/已完成订单；未支付(可能被取消)不占名额，避免恶意占位导致其他用户买不到。
 		app.Must().DB.Model(&model.OrderItem{}).
 			Joins("JOIN orders ON orders.id = order_items.order_id").
-			Where("orders.user_id = ? AND order_items.sku_id = ? AND orders.status != ?",
-				userID, item.SKUID, model.OrderStatusCancelled).
+			Where("orders.user_id = ? AND order_items.sku_id = ? AND orders.status IN ?",
+				userID, item.SKUID,
+				[]int8{model.OrderStatusPaid, model.OrderStatusShipped, model.OrderStatusCompleted}).
 			Count(&bought)
 		if int(bought) >= item.PerLimit {
 			return errors.New("已达限购数量")

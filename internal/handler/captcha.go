@@ -1,11 +1,13 @@
 package handler
 
 import (
+	crand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
-	"math/rand"
+	mrand "math/rand"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,23 +16,45 @@ import (
 	"github.com/zhangpanda/goshop/pkg/response"
 )
 
+// secureDigits 返回一个 crypto/rand 生成的 n 位数字字符串（防预测）。
+func secureDigits(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	// 6 位数字最大 999999，用 uint32 足够；为安全余量分配 8 字节
+	var buf [8]byte
+	_, _ = crand.Read(buf[:])
+	v := binary.BigEndian.Uint64(buf[:])
+	// 取模到 10^n（最多 19 位内安全）
+	mod := uint64(1)
+	for i := 0; i < n; i++ {
+		mod *= 10
+	}
+	return fmt.Sprintf("%0*d", n, v%mod)
+}
+
+// checkCaptchaRate 使用 Cache.Incr + Expire 做原子限速：
+// 同一 IP 60s 内超过 5 次生成请求则拒绝，避免原 Get→Set 方式下的 TOCTOU 竞态。
+func checkCaptchaRate(c *gin.Context, ip string) bool {
+	key := fmt.Sprintf("captcha_rate:%s", ip)
+	n, err := app.Must().Cache.Incr(c, key)
+	if err != nil {
+		// 限速系统异常时放行，不让它变成拒绝服务向量
+		return true
+	}
+	if n == 1 {
+		_ = app.Must().Cache.Expire(c, key, 60*time.Second)
+	}
+	return n <= 5
+}
+
 // AdminCaptcha 生成图片验证码
 func AdminCaptcha(c *gin.Context) {
-	// 限速：同IP 60秒内最多5次
-	ipKey := fmt.Sprintf("captcha_rate:%s", c.ClientIP())
-	if count, _ := app.Must().Cache.Get(c, ipKey); count != "" {
-		n := 0
-		fmt.Sscanf(count, "%d", &n)
-		if n >= 5 {
-			response.Fail(c, 429, "请求过于频繁，请稍后再试")
-			return
-		}
-		app.Must().Cache.Set(c, ipKey, fmt.Sprintf("%d", n+1), 60*time.Second)
-	} else {
-		app.Must().Cache.Set(c, ipKey, "1", 60*time.Second)
+	if !checkCaptchaRate(c, c.ClientIP()) {
+		response.Fail(c, 429, "请求过于频繁，请稍后再试")
+		return
 	}
-
-	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	code := secureDigits(6)
 	key := fmt.Sprintf("captcha:%s", c.Query("key"))
 	if key == "captcha:" {
 		key = fmt.Sprintf("captcha:%d", time.Now().UnixNano())
@@ -47,7 +71,7 @@ func ShopXOCompatCaptchaPNG(c *gin.Context) {
 		suffix = "form:" + c.DefaultQuery("t", "0")
 	}
 	key := fmt.Sprintf("captcha:shopxo:%s:%s", suffix, c.ClientIP())
-	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	code := secureDigits(6)
 	app.Must().Cache.Set(c, key, code, 5*time.Minute)
 	writeCaptchaPNG(c, code, key)
 }
@@ -59,8 +83,9 @@ func writeCaptchaPNG(c *gin.Context, code, cacheKey string) {
 			img.Set(x, y, color.RGBA{240, 240, 240, 255})
 		}
 	}
+	// 图像装饰噪点/颜色抖动只影响可读性，不是安全面，沿用 math/rand 即可。
 	for i := 0; i < 150; i++ {
-		img.Set(rand.Intn(160), rand.Intn(40), color.RGBA{uint8(rand.Intn(200)), uint8(rand.Intn(200)), uint8(rand.Intn(200)), 255})
+		img.Set(mrand.Intn(160), mrand.Intn(40), color.RGBA{uint8(mrand.Intn(200)), uint8(mrand.Intn(200)), uint8(mrand.Intn(200)), 255})
 	}
 	digits := []byte(code)
 	for i, d := range digits {
@@ -85,7 +110,7 @@ func drawDigit(img *image.RGBA, digit, x, y int) {
 		{0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E}, // 8
 		{0x0E, 0x11, 0x11, 0x0F, 0x01, 0x02, 0x0C}, // 9
 	}
-	c := color.RGBA{uint8(rand.Intn(100)), uint8(rand.Intn(100)), uint8(rand.Intn(150)), 255}
+	c := color.RGBA{uint8(mrand.Intn(100)), uint8(mrand.Intn(100)), uint8(mrand.Intn(150)), 255}
 	for row := 0; row < 7; row++ {
 		for col := 0; col < 5; col++ {
 			if fonts[digit][row]&(1<<(4-col)) != 0 {
