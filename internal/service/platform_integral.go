@@ -10,6 +10,7 @@ import (
 	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
 	auth_pkg "github.com/zhangpanda/goshop/pkg/auth"
+	"github.com/zhangpanda/goshop/pkg/httpx"
 	"gorm.io/gorm"
 )
 
@@ -287,7 +288,11 @@ func OrderDeliverySyncWeixin(orderNo, tradeNo, openID, goodsTitle, expressName, 
 	}
 	bodyJSON, _ := json.Marshal(body)
 	url := fmt.Sprintf("https://api.weixin.qq.com/wxa/sec/order/upload_shipping_info?access_token=%s", tokenResult.AccessToken)
-	http.Post(url, "application/json", bytes.NewReader(bodyJSON))
+	resp, err := httpx.Client.Post(url, "application/json", bytes.NewReader(bodyJSON))
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
 	return nil
 }
 

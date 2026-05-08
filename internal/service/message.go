@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
+	"github.com/zhangpanda/goshop/pkg/httpx"
 )
 
 // SendMessage 发送站内信
@@ -56,7 +56,7 @@ func SendWxTemplateMsg(openID, templateID string, data map[string]interface{}, p
 	// 获取 access_token
 	tokenURL := fmt.Sprintf("https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s",
 		cfg.AppID, cfg.AppSecret)
-	tokenResp, err := http.Get(tokenURL)
+	tokenResp, err := httpx.Client.Get(tokenURL)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func SendWxTemplateMsg(openID, templateID string, data map[string]interface{}, p
 	}
 	bodyJSON, _ := json.Marshal(body)
 	url := fmt.Sprintf("https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=%s", tokenResult.AccessToken)
-	_, err = http.Post(url, "application/json", bytes.NewReader(bodyJSON))
+	_, err = httpx.Client.Post(url, "application/json", bytes.NewReader(bodyJSON))
 	return err
 }
 

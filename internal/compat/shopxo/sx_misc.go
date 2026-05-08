@@ -65,7 +65,6 @@ func sxPersonalSave(c *gin.Context) {
 	service.PersonalSave(c.GetUint("user_id"), &req)
 	response.OK(c, nil)
 }
-func sxUserAvatarUpload(c *gin.Context) { handler.Upload(c) }
 
 func sxLoginPwdUpdate(c *gin.Context) { handler.UpdatePassword(c) }
 func sxLogout(c *gin.Context)         { response.OK(c, nil) }

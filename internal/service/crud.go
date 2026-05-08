@@ -17,9 +17,6 @@ import (
 func statusUpdate(table string, id uint, field string, val interface{}) error {
 	return app.Must().DB.Table(table).Where("id = ?", id).Update(field, val).Error
 }
-func softDelete(table string, id uint) error {
-	return app.Must().DB.Table(table).Where("id = ?", id).Delete(nil).Error
-}
 func totalCount(m interface{}, where ...interface{}) int64 {
 	var c int64
 	db := app.Must().DB.Model(m)

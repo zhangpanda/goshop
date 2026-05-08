@@ -160,7 +160,7 @@ func sendMailSSL(addr, host, user, pass, to, msg string) error {
 	return c.Quit()
 }
 
-func errStr(err error) string {
+func errStr(err error) string { //nolint:unused // kept for future wiring of sms/email log status text
 	if err == nil {
 		return ""
 	}

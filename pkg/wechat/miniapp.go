@@ -3,7 +3,8 @@ package wechat
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
+
+	"github.com/zhangpanda/goshop/pkg/httpx"
 )
 
 type Code2SessionResp struct {
@@ -14,11 +15,13 @@ type Code2SessionResp struct {
 	ErrMsg     string `json:"errmsg"`
 }
 
+// Code2Session 小程序登录换 openid/session_key。使用 httpx.Client 的 10s 整体超时，
+// 避免裸 http.Get 在微信接口异常时让调用方的 goroutine 长期阻塞。
 func Code2Session(appID, secret, code string) (*Code2SessionResp, error) {
 	url := fmt.Sprintf("https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
 		appID, secret, code)
 
-	resp, err := http.Get(url)
+	resp, err := httpx.Client.Get(url)
 	if err != nil {
 		return nil, err
 	}

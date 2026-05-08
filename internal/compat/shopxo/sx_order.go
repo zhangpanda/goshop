@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhangpanda/goshop/internal/handler"
 	"github.com/zhangpanda/goshop/internal/service"
 	"github.com/zhangpanda/goshop/pkg/response"
 )
@@ -239,7 +238,6 @@ func sxAftersaleDetail(c *gin.Context) {
 	}
 	response.OK(c, service.OrderAftersaleDetailData(as.ID))
 }
-func sxAftersaleCreate(c *gin.Context) { handler.AftersaleCreate(c) }
 func sxAftersaleDelivery(c *gin.Context) {
 	id := getID(c)
 	var req service.AftersaleDeliveryReq
