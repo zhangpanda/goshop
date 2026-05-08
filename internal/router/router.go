@@ -1,6 +1,7 @@
 package router
 
 import (
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,12 @@ func Setup(r *gin.Engine) {
 
 	if app.Must().Cfg != nil && app.Must().Cfg.Server.MetricsPath != "" {
 		r.GET(app.Must().Cfg.Server.MetricsPath, gin.WrapH(promhttp.Handler()))
+	}
+
+	// pprof：默认关闭；GOSHOP_PPROF=1 时挂在 /internal/pprof/*。
+	// 线上请务必在反代/安全组上把 /internal/* 只放给内网。
+	if os.Getenv("GOSHOP_PPROF") == "1" {
+		mountPprof(r)
 	}
 
 	// 静态文件

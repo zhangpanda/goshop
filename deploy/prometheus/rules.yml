@@ -1,0 +1,260 @@
+# GoShop Prometheus 告警与 recording 规则
+#
+# 使用：
+#   在 prometheus.yml 的 rule_files 中加入本文件路径：
+#     rule_files:
+#       - /etc/prometheus/rules/goshop.yml
+#   重启 / reload 即可。
+#
+# 依赖指标：
+#   - goshop_http_in_flight                  (gauge)
+#   - goshop_http_requests_total             (counter; labels: method, route, status)
+#   - goshop_http_request_duration_seconds   (histogram; labels: method, route, status)
+#   - go_goroutines / process_resident_memory_bytes / up (stdlib)
+#
+# 告警分级（severity）：
+#   - page    : 立即分页；影响用户或可用性
+#   - ticket  : 工作时间内处理；长时间趋势异常
+#   - info    : 仅观察；用于 dashboard 与溯源
+#
+# 约定：
+#   service = "goshop"，实际告警字段请在 alertmanager 路由里按 severity/service 路由。
+groups:
+
+  # ============================================================
+  # 1) Recording rules：SLI 聚合（所有告警与 dashboard 都基于此）
+  # ============================================================
+  - name: goshop_slo_recordings
+    interval: 30s
+    rules:
+      # 5xx 请求速率
+      - record: goshop:http_errors_5xx:rate5m
+        expr: |
+          sum by (route) (
+            rate(goshop_http_requests_total{status=~"5.."}[5m])
+          )
+
+      # 全部请求速率
+      - record: goshop:http_requests:rate5m
+        expr: |
+          sum by (route) (
+            rate(goshop_http_requests_total[5m])
+          )
+
+      # 错误率（5xx / 总）
+      - record: goshop:http_error_ratio:rate5m
+        expr: |
+          (
+            sum(rate(goshop_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(goshop_http_requests_total[5m]))
+          )
+
+      # P50 / P95 / P99 延迟（所有路由聚合）
+      - record: goshop:http_latency:p50_5m
+        expr: |
+          histogram_quantile(0.50,
+            sum by (le) (rate(goshop_http_request_duration_seconds_bucket[5m]))
+          )
+
+      - record: goshop:http_latency:p95_5m
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(goshop_http_request_duration_seconds_bucket[5m]))
+          )
+
+      - record: goshop:http_latency:p99_5m
+        expr: |
+          histogram_quantile(0.99,
+            sum by (le) (rate(goshop_http_request_duration_seconds_bucket[5m]))
+          )
+
+      # 按路由 P99（用于排查单接口退化）
+      - record: goshop:http_latency_by_route:p99_5m
+        expr: |
+          histogram_quantile(0.99,
+            sum by (route, le) (rate(goshop_http_request_duration_seconds_bucket[5m]))
+          )
+
+  # ============================================================
+  # 2) 可用性 SLO：30d 错误预算（99.9% 可用 = 0.1% 错误预算 = 43.2 min/月）
+  # ============================================================
+  - name: goshop_slo_availability
+    interval: 1m
+    rules:
+      # 慢烧（长时间低于 SLO） — 24h 平均错误率 > 0.1% 触发 ticket
+      - alert: GoshopSLOAvailabilityBurn24h
+        expr: |
+          (
+            sum(rate(goshop_http_requests_total{status=~"5.."}[24h]))
+            /
+            sum(rate(goshop_http_requests_total[24h]))
+          ) > 0.001
+        for: 30m
+        labels:
+          severity: ticket
+          service: goshop
+          slo: availability
+        annotations:
+          summary: "可用性 SLO 24h 烧尽（>0.1% 5xx）"
+          description: |
+            最近 24h 错误率 {{ $value | humanizePercentage }} > 0.1% 目标。
+            月度 43.2 分钟错误预算可能在此速率下耗尽。
+            先看 route 维度的 5xx 分布：
+            topk(5, goshop:http_errors_5xx:rate5m)
+
+      # 快烧：1h 错误率 > 2% 立即 page
+      - alert: GoshopSLOAvailabilityBurnFast
+        expr: |
+          (
+            sum(rate(goshop_http_requests_total{status=~"5.."}[1h]))
+            /
+            sum(rate(goshop_http_requests_total[1h]))
+          ) > 0.02
+        for: 5m
+        labels:
+          severity: page
+          service: goshop
+          slo: availability
+        annotations:
+          summary: "可用性快速烧尽（1h 5xx > 2%）"
+          description: |
+            近 1h 错误率 {{ $value | humanizePercentage }}，按此速率 1 天内耗尽整月预算。
+            Runbook: docs/observability.md#availability-burn
+
+  # ============================================================
+  # 3) 延迟 SLO：非 admin 接口 P99 < 1s（95% 时间内）
+  # ============================================================
+  - name: goshop_slo_latency
+    interval: 1m
+    rules:
+      - alert: GoshopLatencyP99High
+        expr: |
+          histogram_quantile(0.99,
+            sum by (le) (
+              rate(goshop_http_request_duration_seconds_bucket{route!~"/api/admin/.*|unknown"}[5m])
+            )
+          ) > 1
+        for: 10m
+        labels:
+          severity: ticket
+          service: goshop
+          slo: latency
+        annotations:
+          summary: "非 admin 接口 P99 > 1s 持续 10m"
+          description: |
+            当前 P99 = {{ $value }}s。定位慢路由：
+            topk(5, goshop:http_latency_by_route:p99_5m)
+
+      - alert: GoshopLatencyP99Critical
+        expr: |
+          histogram_quantile(0.99,
+            sum by (le) (
+              rate(goshop_http_request_duration_seconds_bucket{route!~"/api/admin/.*|unknown"}[5m])
+            )
+          ) > 3
+        for: 5m
+        labels:
+          severity: page
+          service: goshop
+          slo: latency
+        annotations:
+          summary: "P99 延迟爆炸 > 3s（可能 DB/三方阻塞）"
+          description: |
+            P99 = {{ $value }}s。先看 DB、支付/微信/快递 100 是否挂。
+
+  # ============================================================
+  # 4) 饱和度 / 资源告警
+  # ============================================================
+  - name: goshop_saturation
+    interval: 30s
+    rules:
+      - alert: GoshopHTTPSaturation
+        expr: goshop_http_in_flight > 500
+        for: 5m
+        labels:
+          severity: ticket
+          service: goshop
+        annotations:
+          summary: "HTTP in-flight 请求 > 500 持续 5m"
+          description: |
+            同时处理的请求 {{ $value }}。若持续增长且未回落，说明下游（DB/缓存/三方）阻塞把链路堆积。
+            检查顺序：DB 慢查询 → Redis → 外部 API（pkg/httpx）。
+
+      - alert: GoshopGoroutineLeak
+        expr: go_goroutines > 10000
+        for: 10m
+        labels:
+          severity: ticket
+          service: goshop
+        annotations:
+          summary: "goroutine 数 > 10000 持续 10m，疑似泄漏"
+          description: |
+            当前 {{ $value }} 个 goroutine。
+            取一次 goroutine dump：GET {{ $labels.instance }}/internal/pprof/goroutine?debug=2
+            （需以 `GOSHOP_PPROF=1` 启动进程；该路径仅放给内网）。
+            重点排查 app.SafeGo 调用者、cron leader 轮询、httpx 请求是否都有超时。
+
+      - alert: GoshopMemoryGrowth
+        # 1h 内常驻内存增长超过 50%
+        expr: |
+          (
+            process_resident_memory_bytes
+            /
+            (process_resident_memory_bytes offset 1h)
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: ticket
+          service: goshop
+        annotations:
+          summary: "RSS 1h 增长 > 50% (实例 {{ $labels.instance }})"
+          description: |
+            process_resident_memory_bytes 倍率 = {{ $value | printf "%.2f" }}（当前 / 1h 前）。
+            可能的内存泄漏或缓存未限容。先看 go_memstats_heap_inuse_bytes 是否同步增长；
+            若堆稳定但 RSS 涨，则关注 off-heap（cgo、mmap、连接池缓冲区）。
+
+      - alert: GoshopGCPauseHigh
+        expr: rate(go_gc_duration_seconds_sum[5m]) > 0.5
+        for: 10m
+        labels:
+          severity: info
+          service: goshop
+        annotations:
+          summary: "Go GC 每秒 pause > 0.5s"
+          description: "GC 频繁或堆增长过快；关注 go_memstats_heap_inuse_bytes 趋势。"
+
+  # ============================================================
+  # 5) 存活
+  # ============================================================
+  - name: goshop_liveness
+    interval: 30s
+    rules:
+      - alert: GoshopInstanceDown
+        expr: up{job=~"goshop.*"} == 0
+        for: 1m
+        labels:
+          severity: page
+          service: goshop
+        annotations:
+          summary: "实例 {{ $labels.instance }} 掉线 > 1m"
+          description: |
+            Prometheus scrape 失败。检查容器/进程是否崩溃，查看日志 `kubectl logs` 或 journal。
+
+      - alert: GoshopHighErrorRoute
+        # 单一路由错误率 > 5% 且 QPS > 1：精确到接口粒度
+        expr: |
+          (
+            sum by (route) (rate(goshop_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum by (route) (rate(goshop_http_requests_total[5m]))
+          ) > 0.05
+          and
+          sum by (route) (rate(goshop_http_requests_total[5m])) > 1
+        for: 10m
+        labels:
+          severity: ticket
+          service: goshop
+        annotations:
+          summary: "路由 {{ $labels.route }} 5xx > 5%"
+          description: "单接口失败率 {{ $value | humanizePercentage }}，其他接口可能健康；先看 handler/service 该路径日志。"

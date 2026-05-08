@@ -154,6 +154,7 @@ server:
 | `GOSHOP_AUTO_MIGRATE` | 为 `false` 时跳过启动时的 **RunAllSchemaMigrations** | `true` |
 | `GOSHOP_DISABLE_AUTOMIGRATE` | 为 `true` 时 `RunAllSchemaMigrations` **仅执行 SQL 迁移**，不跑 GORM AutoMigrate | （未设置） |
 | `GOSHOP_METRICS_PATH` | 覆盖 `server.metrics_path`，暴露 Prometheus | （未设置） |
+| `GOSHOP_PPROF` | 为 `1` 时在 `/internal/pprof/*` 暴露 `net/http/pprof`；仅内网访问 | （未设置） |
 | `GOSHOP_RATE_LIMIT_BACKEND` | 覆盖 `server.rate_limit_backend`：`auto` / `redis` / `memory` | （未设置） |
 | `GOSHOP_CRON_ENABLED` | 为 `false` 时不启动任何内置定时任务 | （未设置，等同启用） |
 | `GOSHOP_SKIP_DEFAULT_ADMIN` | 为 `true` 时跳过创建默认管理员（适合自建账号流程） | （未设置） |

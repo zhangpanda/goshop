@@ -1,0 +1,45 @@
+# Prometheus scrape 示例：把 GoShop 的 /internal/metrics 接入监控。
+#
+# 前提：config.yaml 中 server.metrics_path 已配置为非空（推荐 /internal/metrics），
+# 并在反向代理/安全组上将该路径仅对内网或 Prometheus 可见（对外 404 即可）。
+#
+# 告警规则见同目录 rules.yml。
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: goshop-prod
+
+rule_files:
+  - /etc/prometheus/rules/goshop.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  # 直接指 IP / 域名
+  - job_name: goshop
+    metrics_path: /internal/metrics
+    static_configs:
+      - targets:
+          - goshop-api-1.internal:8080
+          - goshop-api-2.internal:8080
+        labels:
+          env: prod
+
+  # 或 Kubernetes service discovery（示例）：
+  # - job_name: goshop-k8s
+  #   metrics_path: /internal/metrics
+  #   kubernetes_sd_configs:
+  #     - role: pod
+  #   relabel_configs:
+  #     - source_labels: [__meta_kubernetes_pod_label_app]
+  #       regex: goshop
+  #       action: keep
+  #     - source_labels: [__meta_kubernetes_pod_container_port_name]
+  #       regex: http
+  #       action: keep
