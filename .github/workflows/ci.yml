@@ -45,9 +45,13 @@ jobs:
             -print0 | xargs -0 gofmt -s -l)
           test -z "$OUT"
       - name: Unit tests
+        env:
+          GOSHOP_TEST_MYSQL_DSN: "root:testpass@tcp(127.0.0.1:3306)/goshop_test?parseTime=true&loc=Local&charset=utf8mb4&multiStatements=true"
         run: |
           go list ./... | grep -v '/node_modules/' | xargs -r go test -v -count=1
       - name: Unit tests (race)
+        env:
+          GOSHOP_TEST_MYSQL_DSN: "root:testpass@tcp(127.0.0.1:3306)/goshop_test?parseTime=true&loc=Local&charset=utf8mb4&multiStatements=true"
         run: |
           go list ./... | grep -v '/node_modules/' | xargs -r go test -count=1 -race -timeout 5m
       - name: Govulncheck

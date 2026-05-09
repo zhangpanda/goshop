@@ -26,6 +26,10 @@ func SetupTestDB() {
 		&model.OrderStatusHistory{}, &model.OrderCurrency{},
 		&model.Promotion{}, &model.PromotionItem{},
 		&model.Config{},
+		// handler/service 测试常用到的只读元数据
+		&model.Article{}, &model.ArticleCategory{},
+		&model.Slide{}, &model.Navigation{}, &model.Payment{},
+		&model.Review{}, &model.Brand{},
 	)
 	app.Register(&app.Deps{
 		DB:    db,

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zhangpanda/goshop/internal/app"
+	"github.com/zhangpanda/goshop/internal/testutil"
 	"github.com/zhangpanda/goshop/pkg/cache"
 )
 
@@ -42,10 +43,11 @@ func TestBuyDataRead_Miss(t *testing.T) {
 }
 
 func TestBuyGoodsCheck_NoGoods(t *testing.T) {
-	// Without DB, this should return an error
-	// Skip if app.Must().DB is nil
-	if app.Must().DB == nil {
-		t.Skip("requires database")
+	// 使用 in-memory SQLite；无 DB 时用 testutil 搭起来（仍免费 <10ms）
+	testutil.SetupTestDB()
+	// 不存在的 goods_id，应该返回错误
+	if err := BuyGoodsCheck(99999, 0, 1); err == nil {
+		t.Fatal("expected error for non-existent goods")
 	}
 }
 

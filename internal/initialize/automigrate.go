@@ -19,42 +19,8 @@ func RunSchemaAutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(autoMigrateModelList()...)
 }
 
+// autoMigrateModelList 复用 model.AllModels（单一真值）。保留本包内封装函数以便今后
+// 在 initialize 阶段追加子包特有的模型而不影响 testutil 等其他调用方。
 func autoMigrateModelList() []any {
-	return []any{
-		&model.User{}, &model.Category{}, &model.Goods{}, &model.GoodsSKU{},
-		&model.Cart{}, &model.Address{}, &model.Order{}, &model.OrderItem{}, &model.OrderStatusHistory{},
-		&model.Coupon{}, &model.UserCoupon{}, &model.Promotion{}, &model.PromotionItem{},
-		&model.Favorite{}, &model.BrowseHistory{}, &model.Review{},
-		&model.Shipment{}, &model.PointsLog{}, &model.Message{},
-		&model.Admin{}, &model.Role{},
-		&model.OrderAftersale{}, &model.AftersaleHistory{},
-		&model.Brand{}, &model.Article{}, &model.ArticleCategory{},
-		&model.SpecTemplate{}, &model.SpecType{}, &model.SpecValue{},
-		&model.GoodsParamsTemplate{}, &model.GoodsParamsConfig{}, &model.GoodsParams{},
-		&model.SearchHistory{}, &model.ScreeningPrice{},
-		&model.Config{}, &model.Region{}, &model.Slide{}, &model.Navigation{}, &model.Link{},
-		&model.Payment{}, &model.SmsLog{}, &model.EmailLog{},
-		&model.Attachment{}, &model.AttachmentCategory{}, &model.ErrorLog{},
-		&model.UserPlatform{}, &model.VerifyCode{},
-		&model.PayLog{}, &model.PayRequestLog{}, &model.RefundLog{},
-		&model.GoodsSpecBase{}, &model.GoodsPhoto{},
-		&model.Warehouse{}, &model.WarehouseGoods{}, &model.WarehouseGoodsSpec{},
-		&model.Express{}, &model.InventoryLog{}, &model.GoodsGiveIntegralLog{},
-		&model.BrandCategory{}, &model.BrandCategoryJoin{}, &model.GoodsCategoryJoin{},
-		&model.Power{}, &model.RolePower{},
-		&model.Plugin{}, &model.PluginCategory{},
-		&model.Diy{}, &model.CustomView{}, &model.ThemeData{},
-		&model.FormInput{}, &model.FormInputData{},
-		&model.AppHomeNav{}, &model.AppCenterNav{}, &model.AppTabbar{},
-		&model.ShortcutMenu{}, &model.Agreement{},
-		&model.OrderTraceSource{}, &model.OrderCurrency{},
-		&model.Design{}, &model.FormTableUserFields{}, &model.GoodsContentApp{},
-		&model.Layout{}, &model.OrderService{}, &model.PayLogValue{},
-		&model.PluginsDataConfig{}, &model.QuickNav{}, &model.RolePlugins{},
-		&model.Answer{},
-		&model.AppMini{}, &model.WalletLog{},
-		&model.AdminOperationLog{},
-		&model.GroupOrder{}, &model.GroupOrderMember{},
-		&model.Distributor{}, &model.CommissionLog{}, &model.WithdrawRequest{},
-	}
+	return model.AllModels()
 }

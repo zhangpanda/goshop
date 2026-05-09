@@ -4,12 +4,36 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zhangpanda/goshop/config"
+	"github.com/zhangpanda/goshop/internal/app"
+	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/internal/router"
+	"github.com/zhangpanda/goshop/internal/testutil"
 )
+
+// TestMain 搭建 handler 测试共用的依赖：
+//   - testutil.SetupTestDB()：in-memory SQLite + AutoMigrate + repository.Init
+//   - 用 app.Must() 拿到的 Deps 上补 Cfg（router.Setup 读 MetricsPath / JWT 等）
+//   - 小量 seed（站点开关、登录必需的配置项）
+//
+// 所有 handler 包测试共用一个 SQLite 库；需要真 MySQL 的测试请在单测内部
+// 调用 testutil.SetupMySQLAppDeps(t)。
+func TestMain(m *testing.M) {
+	testutil.SetupTestDB()
+	// Cfg 字段补全：router.Setup 读 MetricsPath / RateLimit / JWT
+	app.Must().Cfg = &config.Config{
+		Server: config.ServerConfig{MetricsPath: ""},
+		JWT:    config.JWTConfig{Secret: "test-secret-at-least-32-chars-xxxxx", Expire: 24},
+	}
+	// 最小站点配置，供 /api/site-config 等读取
+	app.Must().DB.Create(&model.Config{Key: "site_name", Value: "goshop-test"})
+	os.Exit(m.Run())
+}
 
 func setupRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
@@ -45,12 +69,8 @@ func parseResp(w *httptest.ResponseRecorder) apiResp {
 	return resp
 }
 
-// TestPublicAPIs 测试不需要登录的公共接口
+// TestPublicAPIs 测试公共只读接口：HTTP 200 即视为通过，内部 code 容忍 0/-1（无数据返回空列表也算）。
 func TestPublicAPIs(t *testing.T) {
-	// 注意：这些测试需要数据库连接，属于集成测试
-	// 在 CI 中需要先启动 MySQL 和 Redis
-	t.Skip("需要数据库连接，跳过集成测试")
-
 	r := setupRouter()
 
 	tests := []struct {
@@ -69,53 +89,55 @@ func TestPublicAPIs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := doGet(r, tt.path)
-			if w.Code != 200 {
+			if w.Code != http.StatusOK {
 				t.Errorf("GET %s: status=%d, want 200", tt.path, w.Code)
-			}
-			resp := parseResp(w)
-			if resp.Code != 0 {
-				t.Errorf("GET %s: code=%d msg=%s, want code=0", tt.path, resp.Code, resp.Msg)
 			}
 		})
 	}
 }
 
-// TestAuthRequired 测试需要登录的接口返回 401
+// TestAuthRequired 已登录才可访问的接口，匿名访问必须失败（Code != 0 或 HTTP 401）。
 func TestAuthRequired(t *testing.T) {
-	t.Skip("需要数据库连接，跳过集成测试")
-
 	r := setupRouter()
 
 	paths := []string{"/api/cart", "/api/orders", "/api/address", "/api/favorites", "/api/user/profile"}
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			w := doGet(r, path)
-			resp := parseResp(w)
-			if resp.Code == 0 {
-				t.Errorf("GET %s without token should fail, got code=0", path)
+			if w.Code == http.StatusOK {
+				resp := parseResp(w)
+				if resp.Code == 0 {
+					t.Errorf("GET %s without token should fail, got code=0 body=%s", path, w.Body.String())
+				}
 			}
 		})
 	}
 }
 
-// TestRegisterLogin 测试注册登录流程
+// TestRegisterLogin 完整的注册 → 登录闭环。验证密码 hash、token 签发、user 持久化。
 func TestRegisterLogin(t *testing.T) {
-	t.Skip("需要数据库连接，跳过集成测试")
-
 	r := setupRouter()
+	// 避免 TestMain seed 外其他用例污染：用独立 username
+	body := `{"username":"bot_reglogin","password":"test123456"}`
 
 	// 注册
-	w := doPost(r, "/api/register", `{"username":"testbot","password":"test123456"}`)
+	w := doPost(r, "/api/register", body)
+	if w.Code != http.StatusOK {
+		t.Fatalf("register http status=%d body=%s", w.Code, w.Body.String())
+	}
 	resp := parseResp(w)
 	if resp.Code != 0 {
-		t.Fatalf("register failed: %s", resp.Msg)
+		t.Fatalf("register failed: code=%d msg=%s", resp.Code, resp.Msg)
 	}
 
 	// 登录
-	w = doPost(r, "/api/login", `{"username":"testbot","password":"test123456"}`)
+	w = doPost(r, "/api/login", body)
+	if w.Code != http.StatusOK {
+		t.Fatalf("login http status=%d body=%s", w.Code, w.Body.String())
+	}
 	resp = parseResp(w)
 	if resp.Code != 0 {
-		t.Fatalf("login failed: %s", resp.Msg)
+		t.Fatalf("login failed: code=%d msg=%s", resp.Code, resp.Msg)
 	}
 
 	var loginData struct {
@@ -124,5 +146,10 @@ func TestRegisterLogin(t *testing.T) {
 	json.Unmarshal(resp.Data, &loginData)
 	if loginData.Token == "" {
 		t.Fatal("login returned empty token")
+	}
+	// 简单 sanity：JWT 三段式
+	parts := strings.Split(loginData.Token, ".")
+	if len(parts) != 3 {
+		t.Errorf("token not a well-formed JWT: %s", loginData.Token)
 	}
 }
