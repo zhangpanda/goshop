@@ -10,10 +10,11 @@ import (
 // 仅当 GOSHOP_PPROF=1 时启用；部署侧须保证该路径不对公网暴露。
 //
 // 常用端点：
-//   /internal/pprof/           索引
-//   /internal/pprof/heap       堆快照
-//   /internal/pprof/goroutine  goroutine 栈
-//   /internal/pprof/profile    CPU profile（?seconds=30）
+//
+//	/internal/pprof/           索引
+//	/internal/pprof/heap       堆快照
+//	/internal/pprof/goroutine  goroutine 栈
+//	/internal/pprof/profile    CPU profile（?seconds=30）
 func mountPprof(r *gin.Engine) {
 	g := r.Group("/internal/pprof")
 	g.GET("/", gin.WrapF(pprof.Index))
