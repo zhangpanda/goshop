@@ -43,7 +43,7 @@ current_branch() {
 latest_run_id() {
 	local branch="${BRANCH:-$(current_branch)}"
 	local id
-	id="$(gh run list "${repo_flags[@]}" --workflow "$WORKFLOW" --branch "$branch" --limit 1 --json databaseId --jq '.[0].databaseId')"
+	id="$(gh run list ${repo_flags[@]+"${repo_flags[@]}"} --workflow "$WORKFLOW" --branch "$branch" --limit 1 --json databaseId --jq '.[0].databaseId')"
 	if [[ -z "$id" || "$id" == "null" ]]; then
 		echo "error: 未找到分支 «${branch}» 上 workflow «${WORKFLOW}» 的运行记录（可先 push 或检查 WORKFLOW/BRANCH/GH_REPO）。" >&2
 		return 1
