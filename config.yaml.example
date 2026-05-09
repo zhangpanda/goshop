@@ -49,6 +49,18 @@ alipay:
   notify_url: "https://yourdomain.com/api/pay/alipay-notify"  # 支付回调地址（必须 HTTPS）
   # gateway_url: ""   # 可选。默认 https://openapi.alipay.com/gateway.do；沙箱填 https://openapi.alipaydev.com 或完整 .../gateway.do
 
+# PayPal (Orders v2 REST API)；不需要可留空
+# 凭据获取：developer.paypal.com → Apps & Credentials → Default Application
+# 完整流程见 docs/deployment.md#paypal
+paypal:
+  mode: sandbox       # sandbox 或 live
+  client_id: ""       # Client ID (80 字符左右，A... 开头)
+  secret: ""          # Secret (生产请走环境变量/KMS 不入 git)
+  webhook_id: ""      # Webhook 订阅 ID；空则 /api/pay/paypal/notify 跳过验签（仅 dev）
+  currency: "USD"     # ISO-4217；注意国内账号可能不支持 CNY
+  return_url: "https://yourdomain.com/api/pay/paypal/capture"  # 用户确认后回跳（后端捕获入口）
+  cancel_url: "https://yourdomain.com/order/cancel"            # 用户取消后跳转的前端页面
+
 # 支付沙盒模式（开发/测试用）
 # 开启后所有支付方式直接返回成功，不走真实第三方
 payment:

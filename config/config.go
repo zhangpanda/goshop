@@ -13,7 +13,25 @@ type Config struct {
 	JWT     JWTConfig     `yaml:"jwt"`
 	Wechat  WechatConfig  `yaml:"wechat"`
 	Alipay  AlipayConfig  `yaml:"alipay"`
+	PayPal  PayPalConfig  `yaml:"paypal"`
 	Payment PaymentConfig `yaml:"payment"`
+}
+
+// PayPalConfig PayPal REST API v2 对接配置。
+//
+//	mode       "sandbox"（默认）或 "live"
+//	client_id  / secret：PayPal Developer Dashboard 下 Default Application 的凭据
+//	webhook_id 从 Dashboard 的 Webhooks 配置得到；留空则 /api/pay/paypal/notify 跳过验签（仅限 dev）
+//	currency   ISO-4217，默认 USD；注意国内账号可能不支持 CNY
+//	return_url / cancel_url 付款/取消后跳转回的前端页面
+type PayPalConfig struct {
+	Mode      string `yaml:"mode"`
+	ClientID  string `yaml:"client_id"`
+	Secret    string `yaml:"secret"`
+	WebhookID string `yaml:"webhook_id"`
+	Currency  string `yaml:"currency"`
+	ReturnURL string `yaml:"return_url"`
+	CancelURL string `yaml:"cancel_url"`
 }
 
 type PaymentConfig struct {

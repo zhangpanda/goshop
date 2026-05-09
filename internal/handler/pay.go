@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -8,6 +11,7 @@ import (
 	"github.com/wechatpay-apiv3/wechatpay-go/services/payments"
 	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/service"
+	"github.com/zhangpanda/goshop/pkg/paypal"
 	"github.com/zhangpanda/goshop/pkg/response"
 )
 
@@ -131,4 +135,139 @@ func RefundOrder(c *gin.Context) {
 		return
 	}
 	response.OK(c, nil)
+}
+
+// PayPalNotify PayPal webhook 入口（/api/pay/paypal/notify）。
+//
+// 行为：
+//  1. 读原始请求体 + transmission 相关 header
+//  2. 若 paypal.webhook_id 已配置 → 调 PayPal VerifyWebhook 同步验签；失败返回 400。
+//     若未配置 → 跳过验签（仅限 dev/联调，生产务必配置 webhook_id）。
+//  3. 只处理 PAYMENT.CAPTURE.COMPLETED：从 resource 提取 invoice_id（= 本地 OrderNo）
+//     与 capture id（第三方交易号），调 service.HandlePayNotify 幂等更新订单 + 触发副作用。
+//  4. 其他事件（APPROVED / DENIED / REFUNDED 等）当前仅 200 应答，不处理；后续按需扩展。
+func PayPalNotify(c *gin.Context) {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.String(http.StatusBadRequest, "read body: %v", err)
+		return
+	}
+
+	cfg := app.Must().Cfg.PayPal
+	if cfg.ClientID == "" || cfg.Secret == "" {
+		c.String(http.StatusServiceUnavailable, "paypal not configured")
+		return
+	}
+
+	// 如果配置了 webhook_id 就严格验签；否则放行并打 warn（dev 模式）
+	if cfg.WebhookID != "" {
+		client := paypal.NewClient(cfg.Mode, cfg.ClientID, cfg.Secret)
+		ok, verr := client.VerifyWebhook(c.Request.Context(), paypal.VerifyWebhookReq{
+			AuthAlgo:         c.GetHeader("PAYPAL-AUTH-ALGO"),
+			CertURL:          c.GetHeader("PAYPAL-CERT-URL"),
+			TransmissionID:   c.GetHeader("PAYPAL-TRANSMISSION-ID"),
+			TransmissionSig:  c.GetHeader("PAYPAL-TRANSMISSION-SIG"),
+			TransmissionTime: c.GetHeader("PAYPAL-TRANSMISSION-TIME"),
+			WebhookID:        cfg.WebhookID,
+			WebhookEvent:     body,
+		})
+		if verr != nil || !ok {
+			slog.Warn("paypal webhook verify failed", "err", verr, "ok", ok)
+			c.String(http.StatusBadRequest, "verify failed")
+			return
+		}
+	} else {
+		slog.Warn("paypal webhook received without webhook_id configured; verification skipped (dev only)")
+	}
+
+	// 事件解析
+	var ev struct {
+		ID           string          `json:"id"`
+		EventType    string          `json:"event_type"`
+		ResourceType string          `json:"resource_type"`
+		Resource     json.RawMessage `json:"resource"`
+	}
+	if err := json.Unmarshal(body, &ev); err != nil {
+		c.String(http.StatusBadRequest, "decode: %v", err)
+		return
+	}
+
+	switch ev.EventType {
+	case "PAYMENT.CAPTURE.COMPLETED":
+		var r struct {
+			ID        string `json:"id"`         // capture id
+			InvoiceID string `json:"invoice_id"` // = 本地 OrderNo
+			Status    string `json:"status"`     // COMPLETED
+		}
+		if err := json.Unmarshal(ev.Resource, &r); err != nil {
+			c.String(http.StatusBadRequest, "resource decode: %v", err)
+			return
+		}
+		if r.InvoiceID == "" || r.ID == "" {
+			slog.Warn("paypal capture completed missing fields", "event_id", ev.ID, "resource", string(ev.Resource))
+			c.String(http.StatusOK, "ignored")
+			return
+		}
+		if err := service.HandlePayNotify(r.InvoiceID, r.ID); err != nil {
+			slog.Warn("paypal HandlePayNotify", "invoice", r.InvoiceID, "err", err)
+			c.String(http.StatusInternalServerError, "handle: %v", err)
+			return
+		}
+		c.String(http.StatusOK, "ok")
+	default:
+		// 未处理的事件类型直接 200 应答，避免 PayPal 重试
+		c.String(http.StatusOK, "ignored event: %s", ev.EventType)
+	}
+}
+
+// PayPalCapture 同步捕获 PayPal order（用户 approval 后前端 return_url 携带 ?token=ORDER_ID 回跳时调用）。
+//
+// 与 Webhook 路径双保险：两者都最终调 HandlePayNotify，后者带 status=Pending 的幂等保护，
+// 重复触发不会二次扣款/重复发通知。
+//
+// 失败路径（用户取消、金额不符等）不改订单本地状态，仍是 Pending，等超时 cron 关单或用户重新发起。
+func PayPalCapture(c *gin.Context) {
+	paypalOrderID := c.Query("token")
+	if paypalOrderID == "" {
+		paypalOrderID = c.Query("order_id")
+	}
+	if paypalOrderID == "" {
+		response.Fail(c, http.StatusBadRequest, "missing token/order_id")
+		return
+	}
+	cfg := app.Must().Cfg.PayPal
+	if cfg.ClientID == "" || cfg.Secret == "" {
+		response.Fail(c, http.StatusServiceUnavailable, "paypal not configured")
+		return
+	}
+	client := paypal.NewClient(cfg.Mode, cfg.ClientID, cfg.Secret)
+	out, err := client.CaptureOrder(c.Request.Context(), paypalOrderID)
+	if err != nil {
+		slog.Warn("paypal capture", "order_id", paypalOrderID, "err", err)
+		response.Fail(c, http.StatusBadGateway, err.Error())
+		return
+	}
+	if out.Status != "COMPLETED" {
+		response.Fail(c, http.StatusBadRequest, "capture status="+out.Status)
+		return
+	}
+	var invoice, captureID string
+	if len(out.PurchaseUnits) > 0 {
+		invoice = out.PurchaseUnits[0].InvoiceID
+		if caps := out.PurchaseUnits[0].Payments.Captures; len(caps) > 0 {
+			captureID = caps[0].ID
+		}
+	}
+	if invoice == "" || captureID == "" {
+		response.Fail(c, http.StatusBadRequest, "capture 响应缺 invoice_id 或 capture_id")
+		return
+	}
+	if err := service.HandlePayNotify(invoice, captureID); err != nil {
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.OK(c, gin.H{
+		"order_no":   invoice,
+		"capture_id": captureID,
+	})
 }

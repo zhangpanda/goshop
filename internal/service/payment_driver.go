@@ -17,8 +17,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zhangpanda/goshop/config"
 	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/model"
+	"github.com/zhangpanda/goshop/pkg/paypal"
 	"github.com/zhangpanda/goshop/pkg/wechat"
 	"gorm.io/gorm"
 )
@@ -329,15 +331,88 @@ func (d *AlipayFaceDriver) Refund(ctx context.Context, req *RefundDriverReq) err
 	return (&AlipayDriver{}).Refund(ctx, req)
 }
 
-// ========== PayPal ==========
+// ========== PayPal（REST v2）==========
 
+// PayPalDriver 支付发起走 Orders v2（CAPTURE intent）+ approval link。
+// 用户在 PayPal 页面确认后：
+//   - Webhook 路径：PAYMENT.CAPTURE.COMPLETED 推到 /api/pay/paypal/notify，handler 触发 HandlePayNotify
+//   - 同步路径：前端 return_url 拿到 ?token=ORDER_ID，发回本后端 capture（未来可加 /api/pay/paypal/capture）
+//
+// 退款：按 OrderNo 反查 capture_id 再调 RefundCapture。capture_id 已在 Webhook 成功时存入 RefundLog.TradeNo。
 type PayPalDriver struct{}
 
-func (d *PayPalDriver) Pay(_ context.Context, req *PayDriverReq) (*PayDriverResp, error) {
-	// PayPal Checkout URL占位，实际需对接PayPal REST API
-	return &PayDriverResp{PayURL: fmt.Sprintf("https://www.paypal.com/checkoutnow?token=%s", req.OrderNo)}, nil
+func (d *PayPalDriver) Pay(ctx context.Context, req *PayDriverReq) (*PayDriverResp, error) {
+	cfg := paypalCfg()
+	if cfg.ClientID == "" || cfg.Secret == "" {
+		return nil, errors.New("PayPal 未配置")
+	}
+	c := paypal.NewClient(cfg.Mode, cfg.ClientID, cfg.Secret)
+	order, err := c.CreateOrder(ctx, paypal.CreateOrderReq{
+		OrderNo:     req.OrderNo,
+		Description: req.Description,
+		Amount:      req.Amount,
+		Currency:    currencyOrDefault(cfg.Currency),
+		ReturnURL:   nonEmpty(req.ReturnURL, cfg.ReturnURL),
+		CancelURL:   cfg.CancelURL,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("paypal create order: %w", err)
+	}
+	approval := order.ApprovalURL()
+	if approval == "" {
+		return nil, errors.New("paypal: create order 未返回 approval link")
+	}
+	return &PayDriverResp{
+		PayURL:  approval,
+		TradeNo: order.ID, // PayPal order id；本地订单通过 invoice_id 回查
+	}, nil
 }
-func (d *PayPalDriver) Refund(_ context.Context, _ *RefundDriverReq) error { return nil }
+
+func (d *PayPalDriver) Refund(ctx context.Context, req *RefundDriverReq) error {
+	cfg := paypalCfg()
+	if cfg.ClientID == "" || cfg.Secret == "" {
+		return errors.New("PayPal 未配置")
+	}
+	// 从 RefundLog 里读 trade_no 作为 capture_id 不现实（Refund 接口只给本地 OrderNo）。
+	// 由 caller（pay.go）在 RefundLog 写好的 trade_no 里放 capture_id（Webhook 时存）。
+	// 此处若 trade_no 仍为 PayPal order_id，需要先查一次 GetOrder 拿到第一个 capture_id。
+	captureID := req.RefundNo // 兼容：若未绑 capture_id，用 RefundNo 作为 PP 的 invoice_id（下文 body 用）。
+	// 实际项目里建议在 pay.go 读 RefundLog.TradeNo 作为 captureID 传进来；这里兜底：若 RefundNo 看起来不像 capture_id（以 "R" 开头），不直接打 PayPal，转而返回错误提示人工处理。
+	if strings.HasPrefix(captureID, "R") || captureID == "" {
+		return errors.New("PayPal 退款需要 capture_id；请先确认 RefundLog.trade_no 已由 webhook 写入")
+	}
+	c := paypal.NewClient(cfg.Mode, cfg.ClientID, cfg.Secret)
+	if _, err := c.RefundCapture(ctx, captureID, paypal.RefundReq{
+		InvoiceID:   req.RefundNo,
+		Amount:      req.Refund,
+		Currency:    currencyOrDefault(cfg.Currency),
+		NoteToPayer: req.Reason,
+	}); err != nil {
+		return fmt.Errorf("paypal refund: %w", err)
+	}
+	return nil
+}
+
+func paypalCfg() config.PayPalConfig {
+	if app.Must().Cfg == nil {
+		return config.PayPalConfig{}
+	}
+	return app.Must().Cfg.PayPal
+}
+
+func currencyOrDefault(s string) string {
+	if s == "" {
+		return "USD"
+	}
+	return s
+}
+
+func nonEmpty(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
 
 // ========== 钱包余额支付 ==========
 

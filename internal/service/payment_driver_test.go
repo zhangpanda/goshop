@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -177,14 +178,25 @@ func TestSandboxDriverRefund(t *testing.T) {
 	}
 }
 
-func TestPayPalDriverPay(t *testing.T) {
+func TestPayPalDriverPay_NotConfigured(t *testing.T) {
+	old := app.Must().Cfg
+	t.Cleanup(func() { app.Must().Cfg = old })
+	app.Must().Cfg = &config.Config{} // PayPal 未配置
 	d := &PayPalDriver{}
-	resp, err := d.Pay(nil, &PayDriverReq{OrderNo: "PPL1", Amount: 100})
-	if err != nil {
-		t.Fatal(err)
+	if _, err := d.Pay(context.Background(), &PayDriverReq{OrderNo: "PPL1", Amount: 100}); err == nil {
+		t.Fatal("expected error when PayPal is not configured")
+	} else if !strings.Contains(err.Error(), "PayPal 未配置") {
+		t.Errorf("err = %v; want 'PayPal 未配置'", err)
 	}
-	if resp.PayURL == "" || !strings.Contains(resp.PayURL, "PPL1") {
-		t.Errorf("PayURL = %q; want PayPal checkout URL with order ref", resp.PayURL)
+}
+
+func TestPayPalDriverRefund_NotConfigured(t *testing.T) {
+	old := app.Must().Cfg
+	t.Cleanup(func() { app.Must().Cfg = old })
+	app.Must().Cfg = &config.Config{}
+	d := &PayPalDriver{}
+	if err := d.Refund(context.Background(), &RefundDriverReq{OrderNo: "O1", RefundNo: "CAP-XYZ"}); err == nil {
+		t.Fatal("expected error when PayPal is not configured")
 	}
 }
 

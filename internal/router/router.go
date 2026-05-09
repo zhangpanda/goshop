@@ -119,6 +119,9 @@ func Setup(r *gin.Engine) {
 	// 支付回调
 	api.POST("/pay/notify", handler.PayNotify)
 	api.POST("/pay/alipay-notify", handler.AlipayNotify)
+	api.POST("/pay/paypal/notify", handler.PayPalNotify)
+	api.GET("/pay/paypal/capture", handler.PayPalCapture)  // 前端 return_url 回跳
+	api.POST("/pay/paypal/capture", handler.PayPalCapture) // REST 显式调用
 	api.GET("/pay/sandbox/callback", handler.SandboxCallback)
 
 	// 公开安全接口
