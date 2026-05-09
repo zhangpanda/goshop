@@ -216,17 +216,21 @@ func (c *Client) CreateOrder(ctx context.Context, req CreateOrderReq) (*CreateOr
 }
 
 // CaptureOrderResp 仅抓取关键字段；完整响应字段较多。
+// 注意：PayPal capture 响应中 invoice_id 实际在 captures[] 元素内部，
+// 而不是在 purchase_units[] 外层。两个位置都保留字段以兼容不同场景
+// （GetOrder 返回的 PurchaseUnit 有 invoice_id，CaptureOrder 的不一定有）。
 type CaptureOrderResp struct {
 	ID            string `json:"id"`
 	Status        string `json:"status"` // COMPLETED/APPROVED/FAILED
 	PurchaseUnits []struct {
 		ReferenceID string `json:"reference_id"`
-		InvoiceID   string `json:"invoice_id"`
+		InvoiceID   string `json:"invoice_id"` // 仅 GetOrder 响应可靠返回
 		Payments    struct {
 			Captures []struct {
-				ID     string `json:"id"`     // 捕获 ID，退款时要用
-				Status string `json:"status"` // COMPLETED
-				Amount struct {
+				ID        string `json:"id"`         // 捕获 ID，退款时要用
+				Status    string `json:"status"`     // COMPLETED
+				InvoiceID string `json:"invoice_id"` // 真实位置；CreateOrder 时传的 invoice_id 会在这里回显
+				Amount    struct {
 					Value        string `json:"value"`
 					CurrencyCode string `json:"currency_code"`
 				} `json:"amount"`

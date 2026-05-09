@@ -152,16 +152,19 @@ func TestCaptureOrder(t *testing.T) {
 			writeJSON(w, 200, map[string]any{"access_token": "t", "expires_in": 3600})
 		},
 		"POST /v2/checkout/orders/PP-2/capture": func(w http.ResponseWriter, r *http.Request) {
+			// 关键：模拟 PayPal 真实响应——invoice_id 位于 captures[] 内部，不是 purchase_unit 外层
 			writeJSON(w, 201, map[string]any{
 				"id":     "PP-2",
 				"status": "COMPLETED",
 				"purchase_units": []map[string]any{{
-					"reference_id": "GO-2", "invoice_id": "GO-2",
+					"reference_id": "default",
+					// 注意：这里不设 invoice_id，验证我们从 captures[] 里读
 					"payments": map[string]any{
 						"captures": []map[string]any{{
-							"id":     "CAP-XYZ",
-							"status": "COMPLETED",
-							"amount": map[string]any{"value": "9.00", "currency_code": "USD"},
+							"id":         "CAP-XYZ",
+							"status":     "COMPLETED",
+							"invoice_id": "GO-CAP-2", // ← 真实 PayPal 返回的位置
+							"amount":     map[string]any{"value": "9.00", "currency_code": "USD"},
 						}},
 					},
 				}},
@@ -178,6 +181,9 @@ func TestCaptureOrder(t *testing.T) {
 	caps := out.PurchaseUnits[0].Payments.Captures
 	if len(caps) != 1 || caps[0].ID != "CAP-XYZ" {
 		t.Fatalf("captures=%+v", caps)
+	}
+	if caps[0].InvoiceID != "GO-CAP-2" {
+		t.Errorf("invoice_id on capture = %q; want GO-CAP-2", caps[0].InvoiceID)
 	}
 }
 

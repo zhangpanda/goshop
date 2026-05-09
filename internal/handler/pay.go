@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/wechatpay-apiv3/wechatpay-go/core/notify"
@@ -242,6 +243,32 @@ func PayPalCapture(c *gin.Context) {
 	}
 	client := paypal.NewClient(cfg.Mode, cfg.ClientID, cfg.Secret)
 	out, err := client.CaptureOrder(c.Request.Context(), paypalOrderID)
+	// PayPal 的幂等性：若订单已被捕获（例如重复点击 return_url），CaptureOrder 会返回
+	// 422 ORDER_ALREADY_CAPTURED。此时降级到 GetOrder 拿现有 capture 信息，再走同样的
+	// HandlePayNotify（它本身幂等，重复调用不会二次扣款/重复通知）。
+	if err != nil && strings.Contains(err.Error(), "ORDER_ALREADY_CAPTURED") {
+		got, gerr := client.GetOrder(c.Request.Context(), paypalOrderID)
+		if gerr != nil {
+			response.Fail(c, http.StatusBadGateway, "capture already done, but GetOrder failed: "+gerr.Error())
+			return
+		}
+		// GetOrder 的 invoice_id 在 purchase_unit 外层，但没有 capture id —— 需要再查 captures 接口。
+		// 简化处理：如果 GetOrder 响应里有 invoice_id，就用它 + paypalOrderID 作 trade_no。
+		if len(got.PurchaseUnits) > 0 && got.PurchaseUnits[0].InvoiceID != "" {
+			if err := service.HandlePayNotify(got.PurchaseUnits[0].InvoiceID, paypalOrderID); err != nil {
+				response.Fail(c, http.StatusInternalServerError, err.Error())
+				return
+			}
+			response.OK(c, gin.H{
+				"order_no":   got.PurchaseUnits[0].InvoiceID,
+				"capture_id": "",
+				"note":       "已捕获；capture_id 未从 GetOrder 取到，退款前请到 PayPal Dashboard 查 capture 记录",
+			})
+			return
+		}
+		response.Fail(c, http.StatusInternalServerError, "capture already done; cannot resolve invoice_id")
+		return
+	}
 	if err != nil {
 		slog.Warn("paypal capture", "order_id", paypalOrderID, "err", err)
 		response.Fail(c, http.StatusBadGateway, err.Error())
@@ -253,9 +280,13 @@ func PayPalCapture(c *gin.Context) {
 	}
 	var invoice, captureID string
 	if len(out.PurchaseUnits) > 0 {
-		invoice = out.PurchaseUnits[0].InvoiceID
-		if caps := out.PurchaseUnits[0].Payments.Captures; len(caps) > 0 {
+		pu := out.PurchaseUnits[0]
+		if caps := pu.Payments.Captures; len(caps) > 0 {
 			captureID = caps[0].ID
+			invoice = caps[0].InvoiceID // 首选：PP capture 响应里 invoice_id 的真实位置
+		}
+		if invoice == "" {
+			invoice = pu.InvoiceID // 兜底：某些响应可能也放在 purchase_unit 外层
 		}
 	}
 	if invoice == "" || captureID == "" {
