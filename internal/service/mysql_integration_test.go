@@ -123,10 +123,11 @@ func TestRefundRowLock_FORUPDATE(t *testing.T) {
 
 	db.Where("1=1").Delete(&model.WithdrawRequest{})
 	db.Where("1=1").Delete(&model.Distributor{})
-	if err := db.Create(&model.Distributor{UserID: 800, Status: 1, Balance: 0}).Error; err != nil {
+	d := model.Distributor{UserID: 800, Status: 1, Balance: 0}
+	if err := db.Create(&d).Error; err != nil {
 		t.Fatal(err)
 	}
-	w := model.WithdrawRequest{DistributorID: 1, UserID: 800, Amount: 1000, Status: 0}
+	w := model.WithdrawRequest{DistributorID: d.ID, UserID: 800, Amount: 1000, Status: 0}
 	if err := db.Create(&w).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -159,10 +160,10 @@ func TestRefundRowLock_FORUPDATE(t *testing.T) {
 	}
 
 	// 余额只退回一次
-	var d model.Distributor
-	db.Where("user_id = ?", 800).First(&d)
-	if d.Balance != 1000 {
-		t.Errorf("distributor balance = %d, want 1000 (refund happened exactly once)", d.Balance)
+	var gotD model.Distributor
+	db.Where("user_id = ?", 800).First(&gotD)
+	if gotD.Balance != 1000 {
+		t.Errorf("distributor balance = %d, want 1000 (refund happened exactly once)", gotD.Balance)
 	}
 
 	// status 最终 = 2（已拒绝）
