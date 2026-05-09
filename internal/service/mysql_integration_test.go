@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
@@ -29,19 +30,20 @@ func TestCommissionIdemKey_MySQLUnique(t *testing.T) {
 	db.Where("1=1").Delete(&model.Distributor{})
 
 	// 准备分销商
-	if err := db.Create(&model.Distributor{UserID: 500, Status: 1}).Error; err != nil {
+	d := model.Distributor{UserID: 500, Status: 1}
+	if err := db.Create(&d).Error; err != nil {
 		t.Fatal(err)
 	}
 
-	k := "order:7001:1"
-	first := model.CommissionLog{DistributorID: 1, OrderID: 7001, Amount: 100, Type: "order", IdemKey: &k}
+	k := fmt.Sprintf("order:7001:%d", d.ID)
+	first := model.CommissionLog{DistributorID: d.ID, OrderID: 7001, Amount: 100, Type: "order", IdemKey: &k}
 	if err := db.Create(&first).Error; err != nil {
 		t.Fatalf("first insert: %v", err)
 	}
 
 	// 同 IdemKey 第二次插入必须被 MySQL UNIQUE 拒绝
 	dup := k
-	second := model.CommissionLog{DistributorID: 1, OrderID: 7001, Amount: 100, Type: "order", IdemKey: &dup}
+	second := model.CommissionLog{DistributorID: d.ID, OrderID: 7001, Amount: 100, Type: "order", IdemKey: &dup}
 	if err := db.Create(&second).Error; err == nil {
 		t.Fatal("expected UNIQUE violation on duplicate IdemKey, got nil")
 	} else if !isDuplicateKeyError(err) {
@@ -50,7 +52,7 @@ func TestCommissionIdemKey_MySQLUnique(t *testing.T) {
 
 	// 非 order 类型 IdemKey=NULL 可多条并存
 	for i := 0; i < 3; i++ {
-		if err := db.Create(&model.CommissionLog{DistributorID: 1, Amount: -50, Type: "withdraw"}).Error; err != nil {
+		if err := db.Create(&model.CommissionLog{DistributorID: d.ID, Amount: -50, Type: "withdraw"}).Error; err != nil {
 			t.Fatalf("withdraw insert %d: %v", i, err)
 		}
 	}
