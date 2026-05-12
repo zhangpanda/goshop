@@ -21,7 +21,9 @@ func AdminStatistical(c *gin.Context) {
 
 func DiyApiGoodsAutoData(c *gin.Context) {
 	var p service.DiyApiParams
-	c.ShouldBindQuery(&p)
+	if !BindQuery(c, &p) {
+		return
+	}
 	list, err := service.DiyApiGoodsAutoData(&p)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
@@ -76,7 +78,10 @@ func GetAppMiniList(c *gin.Context) {
 }
 
 func DeleteAppMini(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	service.DeleteAppMini(uint(id))
 	response.OK(c, nil)
 }

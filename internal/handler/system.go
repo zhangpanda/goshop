@@ -78,8 +78,7 @@ func CreateArticle(c *gin.Context) {
 }
 func GetArticleList(c *gin.Context) {
 	catID, _ := strconv.ParseUint(c.Query("category_id"), 10, 64)
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	list, total, err := service.GetArticleList(uint(catID), page, pageSize)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
@@ -88,7 +87,10 @@ func GetArticleList(c *gin.Context) {
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 func GetArticleDetail(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	a, err := service.GetArticleDetail(uint(id))
 	if err != nil {
 		response.Fail(c, http.StatusNotFound, "文章不存在")
@@ -143,7 +145,10 @@ func GetParamsTemplateList(c *gin.Context) {
 	response.OK(c, list)
 }
 func SaveGoodsParams(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req struct {
 		Params []service.ParamsConfigItem `json:"params"`
 	}
@@ -155,7 +160,10 @@ func SaveGoodsParams(c *gin.Context) {
 	response.OK(c, nil)
 }
 func GetGoodsParamsHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	list, _ := service.GetGoodsParams(uint(id))
 	response.OK(c, list)
 }
@@ -226,7 +234,9 @@ func GetRegionList(c *gin.Context) {
 func GetSlideList(c *gin.Context) { list, _ := service.SlideList(); response.OK(c, list) }
 func CreateSlideHandler(c *gin.Context) {
 	var s model.Slide
-	c.ShouldBindJSON(&s)
+	if !BindJSON(c, &s) {
+		return
+	}
 	service.CreateSlide(&s)
 	response.OK(c, s)
 }
@@ -236,14 +246,18 @@ func GetNavigationList(c *gin.Context) {
 }
 func CreateNavigationHandler(c *gin.Context) {
 	var n model.Navigation
-	c.ShouldBindJSON(&n)
+	if !BindJSON(c, &n) {
+		return
+	}
 	service.CreateNavigation(&n)
 	response.OK(c, n)
 }
 func GetLinkList(c *gin.Context) { list, _ := service.LinkList(); response.OK(c, list) }
 func CreateLinkHandler(c *gin.Context) {
 	var l model.Link
-	c.ShouldBindJSON(&l)
+	if !BindJSON(c, &l) {
+		return
+	}
 	service.CreateLink(&l)
 	response.OK(c, l)
 }
@@ -252,7 +266,9 @@ func CreateLinkHandler(c *gin.Context) {
 func GetPaymentList(c *gin.Context) { list, _ := service.PaymentList(); response.OK(c, list) }
 func CreatePaymentHandler(c *gin.Context) {
 	var p model.Payment
-	c.ShouldBindJSON(&p)
+	if !BindJSON(c, &p) {
+		return
+	}
 	service.CreatePayment(&p)
 	response.OK(c, p)
 }
@@ -260,8 +276,7 @@ func CreatePaymentHandler(c *gin.Context) {
 // ---- 附件 ----
 func GetAttachmentList(c *gin.Context) {
 	catID, _ := strconv.ParseUint(c.Query("category_id"), 10, 64)
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	list, total, _ := service.AttachmentList(uint(catID), page, pageSize)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
@@ -283,15 +298,17 @@ func CreateAttachmentCategoryHandler(c *gin.Context) {
 
 // ---- 错误日志 ----
 func GetErrorLogList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	list, total, _ := service.GetErrorLogList(page, pageSize)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 
 // ---- 订单状态历史 ----
 func GetOrderStatusHistory(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	list, _ := service.GetOrderStatusHistory(uint(id))
 	response.OK(c, list)
 }

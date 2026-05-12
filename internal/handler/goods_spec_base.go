@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/internal/service"
@@ -10,7 +9,10 @@ import (
 )
 
 func SaveGoodsSpecBase(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req struct {
 		Specs []service.SpecBaseReq `json:"specs" binding:"required,min=1"`
 	}
@@ -23,13 +25,19 @@ func SaveGoodsSpecBase(c *gin.Context) {
 }
 
 func GetGoodsSpecBase(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	list, _ := service.GetGoodsSpecBase(uint(id))
 	response.OK(c, list)
 }
 
 func SaveGoodsPhotos(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req struct {
 		Images []string `json:"images" binding:"required,min=1"`
 	}
@@ -42,7 +50,10 @@ func SaveGoodsPhotos(c *gin.Context) {
 }
 
 func GetGoodsPhotos(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	list, _ := service.GetGoodsPhotos(uint(id))
 	response.OK(c, list)
 }

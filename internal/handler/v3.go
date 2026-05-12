@@ -28,14 +28,20 @@ func PlatformLogin(c *gin.Context) {
 // ========== 商品补充接口 ==========
 
 func GoodsStockHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	spec := c.Query("spec")
 	stock, _ := service.GoodsStock(uint(id), spec)
 	response.OK(c, gin.H{"stock": stock})
 }
 
 func GoodsSpecDetailHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	specValues := c.Query("spec_values")
 	resp, err := service.GoodsSpecDetail(uint(id), specValues)
 	if err != nil {
@@ -46,7 +52,10 @@ func GoodsSpecDetailHandler(c *gin.Context) {
 }
 
 func GoodsScoreHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	response.OK(c, service.GoodsScore(uint(id)))
 }
 
@@ -68,7 +77,10 @@ func OrderStatusGroupTotalHandler(c *gin.Context) {
 }
 
 func OrderOperateHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	order, err := service.GetOrderDetail(c.GetUint("user_id"), uint(id))
 	if err != nil {
 		response.Fail(c, http.StatusNotFound, err.Error())
@@ -95,8 +107,7 @@ func AdminOrderPayUnderLineHandler(c *gin.Context) {
 // ========== 短信/邮件日志 ==========
 
 func SmsLogListHandler(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	list, total, _ := service.SmsLogList(page, pageSize)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
@@ -105,7 +116,9 @@ func SmsLogDeleteHandler(c *gin.Context) {
 	var req struct {
 		IDs []uint `json:"ids"`
 	}
-	c.ShouldBindJSON(&req)
+	if !BindJSON(c, &req) {
+		return
+	}
 	if len(req.IDs) == 0 {
 		service.SmsLogAllDelete()
 	} else {
@@ -115,8 +128,7 @@ func SmsLogDeleteHandler(c *gin.Context) {
 }
 
 func EmailLogListHandler(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	list, total, _ := service.EmailLogList(page, pageSize)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
@@ -125,7 +137,9 @@ func EmailLogDeleteHandler(c *gin.Context) {
 	var req struct {
 		IDs []uint `json:"ids"`
 	}
-	c.ShouldBindJSON(&req)
+	if !BindJSON(c, &req) {
+		return
+	}
 	if len(req.IDs) == 0 {
 		service.EmailLogAllDelete()
 	} else {

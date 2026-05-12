@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/internal/service"
@@ -10,7 +9,10 @@ import (
 )
 
 func ToggleFavorite(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	added, err := service.ToggleFavorite(c.GetUint("user_id"), uint(id))
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
@@ -20,8 +22,7 @@ func ToggleFavorite(c *gin.Context) {
 }
 
 func GetFavorites(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	list, total, err := service.GetFavorites(c.GetUint("user_id"), page, pageSize)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
@@ -31,8 +32,7 @@ func GetFavorites(c *gin.Context) {
 }
 
 func GetBrowseHistory(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	list, total, err := service.GetBrowseHistory(c.GetUint("user_id"), page, pageSize)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())

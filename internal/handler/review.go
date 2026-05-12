@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/internal/service"
@@ -24,9 +23,11 @@ func CreateReview(c *gin.Context) {
 }
 
 func GetGoodsReviews(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
+	page, pageSize := QueryPage(c)
 	list, total, err := service.GetGoodsReviews(uint(id), page, pageSize)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
@@ -36,7 +37,10 @@ func GetGoodsReviews(c *gin.Context) {
 }
 
 func ReplyReview(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req struct {
 		Reply string `json:"reply" binding:"required"`
 	}

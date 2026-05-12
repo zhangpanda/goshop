@@ -5,56 +5,164 @@
   "timezone": "browser",
   "refresh": "30s",
   "time": {"from": "now-1h", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "type": "query",
+        "query": "label_values(goshop_http_requests_total, instance)",
+        "datasource": "Prometheus",
+        "multi": true,
+        "includeAll": true,
+        "current": {"text": "All", "value": "$__all"}
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "Deployments",
+        "datasource": "Prometheus",
+        "expr": "changes(process_start_time_seconds{job=\"goshop\"}[5m]) > 0",
+        "step": "60s",
+        "tagKeys": "instance",
+        "titleFormat": "Restart"
+      }
+    ]
+  },
   "panels": [
     {
+      "id": 100,
+      "type": "row",
+      "title": "📊 业务指标",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "collapsed": false
+    },
+    {
       "id": 1,
-      "title": "QPS (请求/秒)",
+      "title": "下单量 (5m rate)",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
-      "targets": [{"expr": "goshop:http_requests:rate5m", "legendFormat": "QPS"}],
-      "fieldConfig": {"defaults": {"unit": "reqps"}}
+      "gridPos": {"h": 7, "w": 6, "x": 0, "y": 1},
+      "targets": [{"expr": "rate(goshop_order_created_total{instance=~\"$instance\"}[5m])", "legendFormat": "{{instance}}"}],
+      "fieldConfig": {"defaults": {"unit": "ops", "color": {"mode": "palette-classic"}}}
     },
     {
       "id": 2,
-      "title": "P99 延迟 (ms)",
-      "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
-      "targets": [{"expr": "goshop:http_latency:p99_5m * 1000", "legendFormat": "P99"}],
-      "fieldConfig": {"defaults": {"unit": "ms"}}
+      "title": "支付成功率",
+      "type": "stat",
+      "gridPos": {"h": 7, "w": 6, "x": 6, "y": 1},
+      "targets": [{"expr": "sum(rate(goshop_pay_success_total[5m])) / (sum(rate(goshop_pay_total[5m])) > 0) * 100"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "red"}, {"value": 95, "color": "yellow"}, {"value": 99, "color": "green"}]}}}
     },
     {
       "id": 3,
-      "title": "错误率 (5xx)",
-      "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
-      "targets": [{"expr": "goshop:http_error_ratio:rate5m * 100", "legendFormat": "Error %"}],
-      "fieldConfig": {"defaults": {"unit": "percent", "thresholds": {"steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 5, "color": "red"}]}}}
+      "title": "退款率",
+      "type": "stat",
+      "gridPos": {"h": 7, "w": 6, "x": 12, "y": 1},
+      "targets": [{"expr": "sum(rate(goshop_refund_success_total[5m])) / (sum(rate(goshop_pay_success_total[5m])) > 0) * 100"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 5, "color": "yellow"}, {"value": 10, "color": "red"}]}}}
     },
     {
       "id": 4,
-      "title": "支付成功率",
-      "type": "stat",
-      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 8},
-      "targets": [{"expr": "sum(rate(goshop_pay_success_total[5m])) / (sum(rate(goshop_pay_total[5m])) > 0) * 100", "legendFormat": ""}],
-      "fieldConfig": {"defaults": {"unit": "percent", "thresholds": {"steps": [{"value": 0, "color": "red"}, {"value": 95, "color": "yellow"}, {"value": 99, "color": "green"}]}}}
+      "title": "支付/退款趋势",
+      "type": "timeseries",
+      "gridPos": {"h": 7, "w": 6, "x": 18, "y": 1},
+      "targets": [
+        {"expr": "rate(goshop_pay_success_total[5m])", "legendFormat": "支付成功"},
+        {"expr": "rate(goshop_refund_success_total[5m])", "legendFormat": "退款"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}}
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "🌐 HTTP 性能",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 8},
+      "collapsed": false
     },
     {
       "id": 5,
-      "title": "Goroutines",
+      "title": "QPS",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 8},
-      "targets": [{"expr": "go_goroutines{job=\"goshop\"}", "legendFormat": "{{instance}}"}],
-      "fieldConfig": {"defaults": {"unit": "short"}}
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 9},
+      "targets": [{"expr": "goshop:http_requests:rate5m", "legendFormat": "QPS"}],
+      "fieldConfig": {"defaults": {"unit": "reqps", "color": {"fixedColor": "blue", "mode": "fixed"}}}
     },
     {
       "id": 6,
-      "title": "Top 5 慢路由 P99",
+      "title": "P99 延迟",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 9},
+      "targets": [
+        {"expr": "goshop:http_latency:p99_5m * 1000", "legendFormat": "P99"},
+        {"expr": "goshop:http_latency:p95_5m * 1000", "legendFormat": "P95"},
+        {"expr": "goshop:http_latency:p50_5m * 1000", "legendFormat": "P50"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms", "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 200, "color": "yellow"}, {"value": 500, "color": "red"}]}}}
+    },
+    {
+      "id": 7,
+      "title": "错误率 (5xx)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 9},
+      "targets": [{"expr": "goshop:http_error_ratio:rate5m * 100", "legendFormat": "Error %"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 5, "color": "red"}]}}}
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "⚙️ 系统资源",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 17},
+      "collapsed": false
+    },
+    {
+      "id": 8,
+      "title": "Goroutines",
+      "type": "timeseries",
+      "gridPos": {"h": 7, "w": 6, "x": 0, "y": 18},
+      "targets": [{"expr": "go_goroutines{job=\"goshop\",instance=~\"$instance\"}", "legendFormat": "{{instance}}"}],
+      "fieldConfig": {"defaults": {"unit": "short", "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 5000, "color": "yellow"}, {"value": 10000, "color": "red"}]}}}
+    },
+    {
+      "id": 9,
+      "title": "内存使用",
+      "type": "timeseries",
+      "gridPos": {"h": 7, "w": 6, "x": 6, "y": 18},
+      "targets": [{"expr": "go_memstats_alloc_bytes{job=\"goshop\",instance=~\"$instance\"}", "legendFormat": "{{instance}}"}],
+      "fieldConfig": {"defaults": {"unit": "bytes"}}
+    },
+    {
+      "id": 10,
+      "title": "GC 暂停 (P99)",
+      "type": "timeseries",
+      "gridPos": {"h": 7, "w": 6, "x": 12, "y": 18},
+      "targets": [{"expr": "go_gc_duration_seconds{quantile=\"1\",job=\"goshop\"}", "legendFormat": "{{instance}}"}],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 11,
+      "title": "In-Flight 请求",
+      "type": "timeseries",
+      "gridPos": {"h": 7, "w": 6, "x": 18, "y": 18},
+      "targets": [{"expr": "goshop_http_in_flight{instance=~\"$instance\"}", "legendFormat": "{{instance}}"}],
+      "fieldConfig": {"defaults": {"unit": "short"}}
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "🐢 慢路由",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 25},
+      "collapsed": false
+    },
+    {
+      "id": 12,
+      "title": "Top 10 慢路由 P99 (ms)",
       "type": "table",
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
-      "targets": [{"expr": "topk(5, goshop:http_latency_by_route:p99_5m) * 1000", "format": "table", "instant": true}],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 26},
+      "targets": [{"expr": "topk(10, goshop:http_latency_by_route:p99_5m) * 1000", "format": "table", "instant": true}],
       "fieldConfig": {"defaults": {"unit": "ms"}}
     }
   ],
   "schemaVersion": 39,
-  "version": 1
+  "version": 2
 }

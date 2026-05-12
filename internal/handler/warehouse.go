@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/internal/service"
@@ -29,7 +28,10 @@ func GetWarehouseList(c *gin.Context) {
 }
 
 func UpdateWarehouse(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req service.WarehouseReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
@@ -43,7 +45,10 @@ func UpdateWarehouse(c *gin.Context) {
 }
 
 func DeleteWarehouse(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	if err := service.DeleteWarehouse(uint(id)); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
@@ -66,7 +71,10 @@ func WarehouseGoodsAdd(c *gin.Context) {
 }
 
 func WarehouseGoodsList(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	list, _ := service.WarehouseGoodsList(uint(id))
 	response.OK(c, list)
 }

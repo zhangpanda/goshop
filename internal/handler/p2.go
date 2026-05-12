@@ -15,12 +15,17 @@ import (
 func PluginList(c *gin.Context) { l, _ := service.PluginList(); response.OK(c, l) }
 func PluginInstall(c *gin.Context) {
 	var r struct{ Name, Title, Desc, Author, Version string }
-	c.ShouldBindJSON(&r)
+	if !BindJSON(c, &r) {
+		return
+	}
 	service.PluginInstall(r.Name, r.Title, r.Desc, r.Author, r.Version)
 	response.OK(c, nil)
 }
 func PluginUninstall(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	service.PluginUninstall(uint(id))
 	response.OK(c, nil)
 }
@@ -40,16 +45,24 @@ func DiyCreateHandler(c *gin.Context) {
 	response.OK(c, d)
 }
 func DiyUpdateHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var r struct {
 		Data string `json:"data"`
 	}
-	c.ShouldBindJSON(&r)
+	if !BindJSON(c, &r) {
+		return
+	}
 	service.DiyUpdate(uint(id), r.Data)
 	response.OK(c, nil)
 }
 func DiyDeleteHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	app.Must().DB.Delete(&model.Diy{}, id)
 	response.OK(c, nil)
 }
@@ -100,7 +113,10 @@ func FormInputCreateHandler(c *gin.Context) {
 	response.OK(c, gin.H{"id": form.ID})
 }
 func FormInputDeleteHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	app.Must().DB.Delete(&model.FormInput{}, id)
 	response.OK(c, nil)
 }
@@ -127,14 +143,18 @@ func FormInputDataListHandler(c *gin.Context) {
 func AppHomeNavListHandler(c *gin.Context) { l, _ := service.AppHomeNavList(); response.OK(c, l) }
 func AppHomeNavCreateHandler(c *gin.Context) {
 	var n model.AppHomeNav
-	c.ShouldBindJSON(&n)
+	if !BindJSON(c, &n) {
+		return
+	}
 	service.AppHomeNavCreate(&n)
 	response.OK(c, n)
 }
 func AppCenterNavListHandler(c *gin.Context) { l, _ := service.AppCenterNavList(); response.OK(c, l) }
 func AppCenterNavCreateHandler(c *gin.Context) {
 	var n model.AppCenterNav
-	c.ShouldBindJSON(&n)
+	if !BindJSON(c, &n) {
+		return
+	}
 	service.AppCenterNavCreate(&n)
 	response.OK(c, n)
 }
@@ -143,7 +163,9 @@ func AppTabbarSaveHandler(c *gin.Context) {
 	var r struct {
 		Items []model.AppTabbar `json:"items"`
 	}
-	c.ShouldBindJSON(&r)
+	if !BindJSON(c, &r) {
+		return
+	}
 	service.AppTabbarSave(r.Items)
 	response.OK(c, nil)
 }
@@ -154,7 +176,9 @@ func ShortcutMenuSaveHandler(c *gin.Context) {
 	var r struct {
 		Items []model.ShortcutMenu `json:"items"`
 	}
-	c.ShouldBindJSON(&r)
+	if !BindJSON(c, &r) {
+		return
+	}
 	service.ShortcutMenuSave(r.Items)
 	response.OK(c, nil)
 }
@@ -185,7 +209,9 @@ func SeoSaveHandler(c *gin.Context) {
 		Keywords string `json:"keywords"`
 		Desc     string `json:"desc"`
 	}
-	c.ShouldBindJSON(&r)
+	if !BindJSON(c, &r) {
+		return
+	}
 	service.SetConfig("seo_title", r.Title, "seo", "SEO标题")
 	service.SetConfig("seo_keywords", r.Keywords, "seo", "SEO关键词")
 	service.SetConfig("seo_desc", r.Desc, "seo", "SEO描述")

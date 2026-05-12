@@ -24,7 +24,10 @@ func AftersaleCreate(c *gin.Context) {
 }
 
 func AftersaleDelivery(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req service.AftersaleDeliveryReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
@@ -38,7 +41,10 @@ func AftersaleDelivery(c *gin.Context) {
 }
 
 func AftersaleCancel(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	if err := service.AftersaleCancel(c.GetUint("user_id"), uint(id)); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
@@ -47,8 +53,7 @@ func AftersaleCancel(c *gin.Context) {
 }
 
 func GetAftersaleList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	list, total, err := service.GetAftersaleList(c.GetUint("user_id"), page, pageSize)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
@@ -58,7 +63,10 @@ func GetAftersaleList(c *gin.Context) {
 }
 
 func GetAftersaleDetail(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	as, err := service.GetAftersaleDetail(c.GetUint("user_id"), uint(id))
 	if err != nil {
 		response.Fail(c, http.StatusNotFound, err.Error())
@@ -68,8 +76,7 @@ func GetAftersaleDetail(c *gin.Context) {
 }
 
 func AdminAftersaleList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	var status *int8
 	if s := c.Query("status"); s != "" {
 		v, _ := strconv.ParseInt(s, 10, 8)
@@ -85,7 +92,10 @@ func AdminAftersaleList(c *gin.Context) {
 }
 
 func AdminAftersaleConfirm(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	if err := service.AftersaleConfirm(uint(id)); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
@@ -94,7 +104,10 @@ func AdminAftersaleConfirm(c *gin.Context) {
 }
 
 func AdminAftersaleAudit(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	if err := service.AftersaleAudit(uint(id)); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
@@ -103,7 +116,10 @@ func AdminAftersaleAudit(c *gin.Context) {
 }
 
 func AdminAftersaleRefuse(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req struct {
 		Reason string `json:"reason" binding:"required"`
 	}

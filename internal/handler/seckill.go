@@ -24,8 +24,7 @@ func CreateSeckill(c *gin.Context) {
 }
 
 func GetSeckillList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	total, list, err := service.GetSeckillList(page, pageSize)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())

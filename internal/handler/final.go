@@ -25,11 +25,16 @@ func DesignCreateHandler(c *gin.Context) {
 	response.OK(c, d)
 }
 func DesignUpdateHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var r struct {
 		Data string `json:"data"`
 	}
-	c.ShouldBindJSON(&r)
+	if !BindJSON(c, &r) {
+		return
+	}
 	service.DesignUpdate(uint(id), r.Data)
 	response.OK(c, nil)
 }
@@ -52,16 +57,24 @@ func LayoutSaveHandler(c *gin.Context) {
 
 // GoodsContentApp
 func SaveGoodsContentAppHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var r struct {
 		Content string `json:"content"`
 	}
-	c.ShouldBindJSON(&r)
+	if !BindJSON(c, &r) {
+		return
+	}
 	service.SaveGoodsContentApp(uint(id), r.Content)
 	response.OK(c, nil)
 }
 func GetGoodsContentAppHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	response.OK(c, gin.H{"content": service.GetGoodsContentApp(uint(id))})
 }
 
@@ -80,12 +93,18 @@ func CreateOrderServiceHandler(c *gin.Context) {
 	response.OK(c, s)
 }
 func GetOrderServiceList(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	l, _ := service.OrderServiceList(uint(id))
 	response.OK(c, l)
 }
 func AdminReplyOrderService(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var r struct {
 		Reply string `json:"reply" binding:"required"`
 	}
@@ -112,7 +131,9 @@ func AdminOrderServiceList(c *gin.Context) {
 func QuickNavListHandler(c *gin.Context) { l, _ := service.QuickNavList(); response.OK(c, l) }
 func QuickNavCreateHandler(c *gin.Context) {
 	var n model.QuickNav
-	c.ShouldBindJSON(&n)
+	if !BindJSON(c, &n) {
+		return
+	}
 	service.QuickNavCreate(&n)
 	response.OK(c, n)
 }
@@ -128,14 +149,19 @@ func PluginConfigSetHandler(c *gin.Context) {
 		Key      string `json:"key"`
 		Value    string `json:"value"`
 	}
-	c.ShouldBindJSON(&r)
+	if !BindJSON(c, &r) {
+		return
+	}
 	service.PluginConfigSet(r.PluginID, r.Key, r.Value)
 	response.OK(c, nil)
 }
 
 // RolePlugins
 func GetRolePluginsHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	ids, err := service.GetRolePluginIDs(uint(id))
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
@@ -145,27 +171,40 @@ func GetRolePluginsHandler(c *gin.Context) {
 }
 
 func SaveRolePluginsHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var r struct {
 		PluginIDs []uint `json:"plugin_ids"`
 	}
-	c.ShouldBindJSON(&r)
+	if !BindJSON(c, &r) {
+		return
+	}
 	service.SaveRolePlugins(uint(id), r.PluginIDs)
 	response.OK(c, nil)
 }
 
 // FormFields
 func SaveFormFieldsHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var r struct {
 		Fields []model.FormTableUserFields `json:"fields"`
 	}
-	c.ShouldBindJSON(&r)
+	if !BindJSON(c, &r) {
+		return
+	}
 	service.SaveFormFields(uint(id), r.Fields)
 	response.OK(c, nil)
 }
 func GetFormFieldsHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	l, _ := service.GetFormFields(uint(id))
 	response.OK(c, l)
 }

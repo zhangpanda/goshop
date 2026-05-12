@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/internal/service"
@@ -23,7 +22,10 @@ func ShipOrder(c *gin.Context) {
 }
 
 func ConfirmReceive(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	if err := service.ConfirmReceive(c.GetUint("user_id"), uint(id)); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
@@ -32,7 +34,10 @@ func ConfirmReceive(c *gin.Context) {
 }
 
 func GetShipment(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	s, err := service.GetShipment(uint(id))
 	if err != nil {
 		response.Fail(c, http.StatusNotFound, err.Error())

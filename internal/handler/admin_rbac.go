@@ -3,7 +3,6 @@ package handler
 import (
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/internal/app"
@@ -56,8 +55,7 @@ func CreateAdminHandler(c *gin.Context) {
 }
 
 func GetAdminListHandler(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	total, list, err := service.GetAdminList(page, pageSize)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
@@ -67,9 +65,14 @@ func GetAdminListHandler(c *gin.Context) {
 }
 
 func UpdateAdminStatusHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req service.UpdateAdminStatusReq
-	c.ShouldBindJSON(&req)
+	if !BindJSON(c, &req) {
+		return
+	}
 	if err := service.UpdateAdminStatus(uint(id), req.Status); err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
 		return
@@ -103,7 +106,10 @@ func GetRoleListHandler(c *gin.Context) {
 }
 
 func UpdateRoleHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req service.RoleReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
@@ -117,7 +123,10 @@ func UpdateRoleHandler(c *gin.Context) {
 }
 
 func DeleteRoleHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	if err := service.DeleteRole(uint(id)); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return

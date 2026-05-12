@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,23 +15,34 @@ import (
 
 // ========== 通用状态更新 ==========
 func statusUpdate(c *gin.Context, m interface{}) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req struct {
 		Status int8 `json:"status"`
 	}
-	c.ShouldBindJSON(&req)
+	if !BindJSON(c, &req) {
+		return
+	}
 	app.Must().DB.Model(m).Where("id = ?", id).Update("status", req.Status)
 	response.OK(c, nil)
 }
 
 func genericDelete(c *gin.Context, m interface{}) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	app.Must().DB.Delete(m, id)
 	response.OK(c, nil)
 }
 
 func genericDetail(c *gin.Context, m interface{}) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	if err := app.Must().DB.First(m, id).Error; err != nil {
 		response.Fail(c, http.StatusNotFound, "不存在")
 		return
@@ -41,7 +51,10 @@ func genericDetail(c *gin.Context, m interface{}) {
 }
 
 func genericUpdate(c *gin.Context, m interface{}) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	if err := c.ShouldBindJSON(m); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
@@ -70,12 +83,18 @@ func ReviewStatusUpdateHandler(c *gin.Context) { statusUpdate(c, &model.Review{}
 
 // ========== 订单 ==========
 func AdminCancelOrder(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	app.Must().DB.Model(&model.Order{}).Where("id = ? AND status IN (0,1)", id).Update("status", model.OrderStatusCancelled)
 	response.OK(c, nil)
 }
 func AdminConfirmReceive(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	app.Must().DB.Model(&model.Order{}).Where("id = ? AND status = 2", id).Update("status", model.OrderStatusCompleted)
 	response.OK(c, nil)
 }
@@ -84,7 +103,10 @@ func AdminDeleteOrder(c *gin.Context) { genericDelete(c, &model.Order{}) }
 // ========== 售后 ==========
 func AdminAftersaleDelete(c *gin.Context) { genericDelete(c, &model.OrderAftersale{}) }
 func AdminAftersaleCancel(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	app.Must().DB.Model(&model.OrderAftersale{}).Where("id = ?", id).Update("status", model.AftersaleStatusCancelled)
 	response.OK(c, nil)
 }
@@ -101,7 +123,10 @@ func ArticleDeleteHandler(c *gin.Context)       { genericDelete(c, &model.Articl
 func ArticleStatusUpdateHandler(c *gin.Context) { statusUpdate(c, &model.Article{}) }
 func ArticleDetailHandler(c *gin.Context) {
 	var m model.Article
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	app.Must().DB.Preload("Category").First(&m, id)
 	response.OK(c, m)
 }
@@ -175,8 +200,7 @@ func MessageDeleteHandler(c *gin.Context) { genericDelete(c, &model.Message{}) }
 // ========== 支付日志 ==========
 func PayLogDetailHandler(c *gin.Context) { var m model.PayLog; genericDetail(c, &m) }
 func AdminPayLogList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	keyword := c.Query("keyword")
 	db := app.Must().DB.Model(&model.PayLog{})
 	if keyword != "" {
@@ -189,7 +213,10 @@ func AdminPayLogList(c *gin.Context) {
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 func PayLogCloseHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	app.Must().DB.Model(&model.PayLog{}).Where("id = ? AND status = 0", id).Update("status", 2)
 	response.OK(c, nil)
 }
@@ -215,8 +242,7 @@ func ScreeningPriceDeleteHandler(c *gin.Context) { genericDelete(c, &model.Scree
 
 // ========== 用户地址 ==========
 func UserAddressListHandler(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	keyword := c.Query("keyword")
 	db := app.Must().DB.Model(&model.Address{})
 	if keyword != "" {
@@ -254,8 +280,7 @@ func EmailTestHandler(c *gin.Context) {
 
 // ========== 商品浏览/收藏/购物车 管理列表 ==========
 func AdminGoodsBrowseList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	var total int64
 	app.Must().DB.Model(&model.BrowseHistory{}).Count(&total)
 	var list []model.BrowseHistory
@@ -265,8 +290,7 @@ func AdminGoodsBrowseList(c *gin.Context) {
 func AdminGoodsBrowseDelete(c *gin.Context) { genericDelete(c, &model.BrowseHistory{}) }
 
 func AdminGoodsFavorList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	var total int64
 	app.Must().DB.Model(&model.Favorite{}).Count(&total)
 	var list []model.Favorite
@@ -276,8 +300,7 @@ func AdminGoodsFavorList(c *gin.Context) {
 func AdminGoodsFavorDelete(c *gin.Context) { genericDelete(c, &model.Favorite{}) }
 
 func AdminGoodsCartList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	var total int64
 	app.Must().DB.Model(&model.Cart{}).Count(&total)
 	var list []model.Cart
@@ -288,8 +311,7 @@ func AdminGoodsCartDelete(c *gin.Context) { genericDelete(c, &model.Cart{}) }
 
 // ========== 消息/积分/搜索记录 管理列表 ==========
 func AdminMessageList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	var total int64
 	app.Must().DB.Model(&model.Message{}).Count(&total)
 	var list []model.Message
@@ -298,8 +320,7 @@ func AdminMessageList(c *gin.Context) {
 }
 
 func AdminIntegralLogList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	var total int64
 	app.Must().DB.Model(&model.PointsLog{}).Count(&total)
 	var list []model.PointsLog
@@ -308,8 +329,7 @@ func AdminIntegralLogList(c *gin.Context) {
 }
 
 func AdminSearchHistoryList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	var total int64
 	app.Must().DB.Model(&model.SearchHistory{}).Count(&total)
 	var list []model.SearchHistory
@@ -318,8 +338,7 @@ func AdminSearchHistoryList(c *gin.Context) {
 }
 
 func AdminPayRequestLogList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	var total int64
 	app.Must().DB.Model(&model.PayRequestLog{}).Count(&total)
 	var list []model.PayRequestLog
@@ -337,7 +356,10 @@ func CouponDeleteHandler(c *gin.Context) { genericDelete(c, &model.Coupon{}) }
 
 // ========== 物流轨迹 ==========
 func LogisticsTrackHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	result, err := service.GetLogisticsTrack(uint(id))
 	if err != nil {
 		response.Fail(c, 400, err.Error())

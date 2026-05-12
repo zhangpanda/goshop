@@ -17,7 +17,10 @@ import (
 // ========== 商品管理 ==========
 
 func AdminUpdateGoods(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req struct {
 		service.GoodsReq
 		SKUs []struct {
@@ -62,7 +65,10 @@ func AdminUpdateGoods(c *gin.Context) {
 }
 
 func AdminDeleteGoods(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	if err := service.GoodsDeleteFull(uint(id)); err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
 		return
@@ -71,11 +77,16 @@ func AdminDeleteGoods(c *gin.Context) {
 }
 
 func AdminToggleGoodsStatus(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req struct {
 		Status int8 `json:"status"`
 	}
-	c.ShouldBindJSON(&req)
+	if !BindJSON(c, &req) {
+		return
+	}
 	app.Must().DB.Model(&model.Goods{}).Where("id = ?", id).Update("status", req.Status)
 	response.OK(c, nil)
 }
@@ -84,7 +95,9 @@ func AdminToggleGoodsStatus(c *gin.Context) {
 
 func AdminGetOrders(c *gin.Context) {
 	var req service.OrderListReq
-	c.ShouldBindQuery(&req)
+	if !BindQuery(c, &req) {
+		return
+	}
 	db := app.Must().DB.Model(&model.Order{})
 	if req.Status != nil {
 		db = db.Where("status = ?", *req.Status)
@@ -101,11 +114,16 @@ func AdminGetOrders(c *gin.Context) {
 }
 
 func AdminUpdateOrderRemark(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req struct {
 		Remark string `json:"remark"`
 	}
-	c.ShouldBindJSON(&req)
+	if !BindJSON(c, &req) {
+		return
+	}
 	app.Must().DB.Model(&model.Order{}).Where("id = ?", id).Update("remark", req.Remark)
 	response.OK(c, nil)
 }
@@ -113,8 +131,7 @@ func AdminUpdateOrderRemark(c *gin.Context) {
 // ========== 用户管理 ==========
 
 func AdminGetUsers(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	keyword := c.Query("keyword")
 	idsStr := c.Query("ids")
 
@@ -142,18 +159,26 @@ func AdminGetUsers(c *gin.Context) {
 }
 
 func AdminUpdateUserStatus(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req struct {
 		Status int8 `json:"status"`
 	}
-	c.ShouldBindJSON(&req)
+	if !BindJSON(c, &req) {
+		return
+	}
 	app.Must().DB.Model(&model.User{}).Where("id = ?", id).Update("status", req.Status)
 	response.OK(c, nil)
 }
 
 // AdminDeleteUserHandler 禁用用户（非物理删除，与前台订单数据兼容）。
 func AdminDeleteUserHandler(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	if err := service.AdminDisableUser(uint(id)); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
@@ -164,7 +189,10 @@ func AdminDeleteUserHandler(c *gin.Context) {
 // ========== 分类管理 ==========
 
 func AdminUpdateCategory(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req service.CategoryReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
@@ -178,7 +206,10 @@ func AdminUpdateCategory(c *gin.Context) {
 }
 
 func AdminDeleteCategory(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	// 检查是否有子分类
 	var count int64
 	app.Must().DB.Model(&model.Category{}).Where("parent_id = ?", id).Count(&count)

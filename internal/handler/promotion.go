@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/internal/service"
@@ -36,8 +35,7 @@ func GetActivePromotions(c *gin.Context) {
  * AdminPromotionListHandler 管理端促销列表（type=promo，分页）。
  */
 func AdminPromotionListHandler(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	keyword := c.Query("keyword")
 	total, list, err := service.GetPromotionAdminList(page, pageSize, keyword)
 	if err != nil {

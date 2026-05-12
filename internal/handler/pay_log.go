@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/internal/service"
@@ -29,15 +28,13 @@ func CreatePayLog(c *gin.Context) {
 }
 
 func GetPayLogList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	list, total, _ := service.GetPayLogList(c.GetUint("user_id"), page, pageSize)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 
 func AdminGetRefundLogList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	list, total, _ := service.GetRefundLogList(page, pageSize)
 	response.OK(c, gin.H{"total": total, "list": list})
 }

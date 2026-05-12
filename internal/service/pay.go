@@ -145,7 +145,7 @@ func RefundOrder(userID uint, req *RefundReq) error {
 	}
 
 	// 第三方成功：事务化更新订单 + 回库存 + 标记 RefundLog 成功
-	return RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
+	err = RunInDBTx(app.Must().DB, func(tx *gorm.DB) error {
 		r := tx.Model(&model.Order{}).
 			Where("id = ? AND status IN ?", order.ID, []int8{model.OrderStatusPaid, model.OrderStatusShipped}).
 			Update("status", model.OrderStatusRefunded)

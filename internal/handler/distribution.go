@@ -15,7 +15,9 @@ func ApplyDistributor(c *gin.Context) {
 	var req struct {
 		ParentID uint `json:"parent_id"`
 	}
-	c.ShouldBindJSON(&req)
+	if !BindJSON(c, &req) {
+		return
+	}
 	d, err := service.ApplyDistributor(c.GetUint("user_id"), req.ParentID)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
@@ -48,8 +50,7 @@ func GetMyCommissionLogs(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	total, list, _ := service.GetCommissionLogs(d.ID, page, pageSize)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
@@ -92,15 +93,13 @@ func AdminCreateDistributor(c *gin.Context) {
 }
 
 func AdminDistributorList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	total, list, _ := service.GetDistributorList(page, pageSize)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
 
 func AdminWithdrawList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	total, list, _ := service.GetWithdrawList(page, pageSize, nil)
 	response.OK(c, gin.H{"total": total, "list": list})
 }
@@ -115,7 +114,9 @@ func AdminAuditWithdraw(c *gin.Context) {
 		Approve bool   `json:"approve"`
 		Reason  string `json:"reason"`
 	}
-	c.ShouldBindJSON(&req)
+	if !BindJSON(c, &req) {
+		return
+	}
 	if err := service.AuditWithdraw(uint(id), req.Approve, req.Reason); err != nil {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return

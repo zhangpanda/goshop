@@ -25,8 +25,7 @@ func CreateAnswer(c *gin.Context) {
 
 func GetAnswerList(c *gin.Context) {
 	goodsID, _ := strconv.ParseUint(c.Query("goods_id"), 10, 64)
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := QueryPage(c)
 	list, total, err := service.GetAnswerList(uint(goodsID), page, pageSize)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
@@ -36,7 +35,10 @@ func GetAnswerList(c *gin.Context) {
 }
 
 func AdminReplyAnswer(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	var req struct {
 		Reply string `json:"reply" binding:"required"`
 	}
@@ -49,7 +51,10 @@ func AdminReplyAnswer(c *gin.Context) {
 }
 
 func AdminDeleteAnswer(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, ok := ParamID(c, "id")
+	if !ok {
+		return
+	}
 	service.DeleteAnswer(uint(id))
 	response.OK(c, nil)
 }
