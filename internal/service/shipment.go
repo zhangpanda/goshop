@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zhangpanda/goshop/internal/app"
+	"github.com/zhangpanda/goshop/internal/event"
 	"github.com/zhangpanda/goshop/internal/model"
 	"github.com/zhangpanda/goshop/pkg/httpx"
 	"gorm.io/gorm"
@@ -55,8 +56,11 @@ func ConfirmReceive(userID, orderID uint) error {
 	}).Error; err != nil {
 		return err
 	}
-	// 分销佣金结算：用 SafeGo 防止 panic，SettleCommission 内部已事务化+幂等
-	app.SafeGo("settle_commission", func() { SettleCommission(orderID) })
+	event.Emit(event.OrderCompleted, event.OrderCompletedEvent{
+		OrderID:   orderID,
+		UserID:    order.UserID,
+		PayAmount: order.PayAmount,
+	})
 	return nil
 }
 

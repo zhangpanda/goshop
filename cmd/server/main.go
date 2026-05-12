@@ -92,6 +92,7 @@ func main() {
 	gin.SetMode(cfg.Server.Mode)
 
 	cronCtx, cronCancel := context.WithCancel(context.Background())
+	service.RegisterPayEventListeners()
 	go service.StartCronJobs(cronCtx, deps)
 
 	r := gin.New()
