@@ -17,13 +17,17 @@ func Logger() gin.HandlerFunc {
 		start := time.Now()
 		c.Next()
 
-		slog.Info("request",
+		attrs := []any{
 			"request_id", id,
 			"method", c.Request.Method,
 			"path", c.Request.URL.Path,
 			"status", c.Writer.Status(),
 			"latency_ms", time.Since(start).Milliseconds(),
 			"ip", c.ClientIP(),
-		)
+		}
+		if traceID, ok := c.Get("trace_id"); ok && traceID != "" {
+			attrs = append(attrs, "trace_id", traceID)
+		}
+		slog.Info("request", attrs...)
 	}
 }

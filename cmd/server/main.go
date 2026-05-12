@@ -90,6 +90,11 @@ func main() {
 		log.Fatalf("init wechat pay: %v", err)
 	}
 
+	// 结构化日志：release 模式用 JSON，debug 保持 text
+	if cfg.Server.Mode == "release" {
+		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
+	}
+
 	// 启动 HTTP 服务
 	gin.SetMode(cfg.Server.Mode)
 
