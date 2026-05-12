@@ -27,7 +27,9 @@ func SplitOrderByWarehouse(userID uint, req *CreateOrderReq) ([]*model.Order, er
 	groups := map[groupKey][]model.Cart{}
 	for _, c := range carts {
 		var ws model.WarehouseGoodsSpec
-		app.Must().DB.Where("goods_id = ? AND sku_id = ? AND inventory > 0", c.GoodsID, c.SKUID).
+		// WHERE 里明确写 warehouse_goods_specs.goods_id / sku_id：多表 JOIN 中
+		// warehouse_goods 也有这两列，裸写 goods_id/sku_id 在 MySQL 下 1052 ambiguous。
+		app.Must().DB.Where("warehouse_goods_specs.goods_id = ? AND warehouse_goods_specs.sku_id = ? AND warehouse_goods_specs.inventory > 0", c.GoodsID, c.SKUID).
 			Joins("JOIN warehouse_goods ON warehouse_goods.warehouse_id = warehouse_goods_specs.warehouse_id AND warehouse_goods.goods_id = warehouse_goods_specs.goods_id AND warehouse_goods.is_enable = 1").
 			Joins("JOIN warehouses ON warehouses.id = warehouse_goods_specs.warehouse_id AND warehouses.is_enable = 1").
 			Order("warehouses.level DESC").First(&ws)
