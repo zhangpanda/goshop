@@ -24,6 +24,7 @@ func Setup(r *gin.Engine) {
 	if app.Must().Cfg != nil && app.Must().Cfg.Server.MetricsPath != "" {
 		r.Use(middleware.PrometheusHTTP())
 	}
+	r.Use(middleware.OtelGin("goshop"), middleware.InjectTraceID())
 	r.Use(middleware.Cors(), middleware.Logger(), gin.Recovery())
 
 	if app.Must().Cfg != nil && app.Must().Cfg.Server.MetricsPath != "" {

@@ -16,6 +16,7 @@ import (
 	"github.com/zhangpanda/goshop/internal/app"
 	"github.com/zhangpanda/goshop/internal/event"
 	"github.com/zhangpanda/goshop/internal/initialize"
+	"github.com/zhangpanda/goshop/internal/middleware"
 	"github.com/zhangpanda/goshop/internal/repository"
 	"github.com/zhangpanda/goshop/internal/router"
 	"github.com/zhangpanda/goshop/internal/service"
@@ -94,6 +95,7 @@ func main() {
 
 	cronCtx, cronCancel := context.WithCancel(context.Background())
 	service.RegisterPayEventListeners()
+	tracerShutdown := middleware.InitTracer(context.Background(), "goshop")
 	go service.StartCronJobs(cronCtx, deps)
 
 	r := gin.New()
@@ -128,6 +130,7 @@ func main() {
 		log.Fatalf("server forced to shutdown: %v", err)
 	}
 	event.Drain() // 等待所有异步事件 handler 完成
+	tracerShutdown(ctx)
 	if err := deps.Close(); err != nil {
 		slog.Warn("shutdown", "deps_close", err.Error())
 	}
