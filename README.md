@@ -10,7 +10,7 @@
 
 ## 特性
 
-- **Go 后端**：Gin + GORM + MySQL，**395** 条 Gin 路由注册（`router.go` 353 + DIY/Form 41 + `/api.php` 1；以 `scripts/doc-metrics.sh` 为准）；ShopXO uni-app **`s=` 动作**当前 **94** 条（`internal/compat/shopxo/compat.go` 中 `routeMap`，以 `scripts/doc-metrics.sh` 计数为准）；12 种支付驱动，Redis 可选
+- **Go 后端**：Gin + GORM + MySQL，**398** 条 Gin 路由注册（`router.go` 356 + DIY/Form 41 + `/api.php` 1；以 `scripts/doc-metrics.sh` 为准）；ShopXO uni-app **`s=` 动作**当前 **94** 条（`internal/compat/shopxo/compat.go` 中 `routeMap`，以 `scripts/doc-metrics.sh` 计数为准）；12 种支付驱动，Redis 可选
 - **营销功能**：秒杀（乐观锁+限购）、拼团（自动成团）、优惠券、促销
 - **管理后台**：Next.js + Ant Design，72 个页面；与 ShopXO 后台为**分级对照**（已对齐 / 部分 / 占位等，见 `docs/shopxo-admin-parity.md`）
 - **PC前台**：Next.js + Tailwind CSS，Apple风格UI
@@ -130,7 +130,7 @@ goshop/
 │   ├── handler/                # HTTP处理器（以 scripts/doc-metrics.sh 计数为准）
 │   ├── service/                # 业务逻辑（以 scripts/doc-metrics.sh 计数为准）
 │   ├── model/                  # 数据模型 (34个 Go 文件, 95张表，以 AutoMigrate / doc-metrics 为准)
-│   ├── router/router.go        # 路由注册 (353 条 Gin；全站合计 395 见 doc-metrics/HANDOVER)
+│   ├── router/router.go        # 路由注册 (356 条 Gin；全站合计 398 见 doc-metrics/HANDOVER)
 │   └── middleware/             # 中间件 (JWT/CORS/操作日志)
 ├── admin/                      # 管理后台 Next.js（page 数以 doc-metrics 为准）
 ├── web/                        # PC前台 Next.js (24页面)

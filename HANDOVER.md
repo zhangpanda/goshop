@@ -30,22 +30,22 @@ cd admin && npm run dev         # 管理后台 :3010（admin/admin123）
 cd web && npm run dev           # PC前台 :3000
 ```
 
-## 当前状态（v1.5.4, 2026-04-27）
+## 当前状态（v1.7.3, 2026-05-12）
 
 ### 核心数据
 | 指标 | 数值 |
 |------|------|
-| Go 后端代码 | **20109** 行（`internal`+`pkg`+`cmd`+`config`，不含 `*_test.go`；以 `scripts/doc-metrics.sh` 为准） |
-| Gin HTTP 注册 | **395**（`internal/router/router.go` **353** + `diyapi_compat` **41** + `/api.php` **1**） |
+| Go 后端代码 | **21650** 行（`internal`+`pkg`+`cmd`+`config`，不含 `*_test.go`；以 `scripts/doc-metrics.sh` 为准） |
+| Gin HTTP 注册 | **398**（`internal/router/router.go` **356** + `diyapi_compat` **41** + `/api.php` **1**） |
 | ShopXO `api.php` | **94** 个 `s=` 动作（`routeMap`，单入口 `Any`；以 `scripts/doc-metrics.sh` 计数为准） |
-| 数据库表 | **95**（`cmd/server/main.go` 中 `AutoMigrate` 的去重模型数） |
+| 数据库表 | **95**（`model.AllModels()` 去重模型数） |
 | 管理后台页面 | **72**（`admin/src/app/**/page.tsx`） |
 | 管理后台组件 | **13**（`admin/src/components/*` 顶层文件） |
 | PC前台页面 | **24**（`web/src/app/**/page.tsx`） |
-| Go 单元测试 | **69**（`^func Test`，全仓 `*_test.go`；以 `scripts/doc-metrics.sh` 为准） |
+| Go 单元测试 | **104**（`^func Test`，全仓 `*_test.go`；以 `scripts/doc-metrics.sh` 为准） |
 | Playwright E2E | **34**（`admin/e2e/*.spec.ts`：full-flow 19 + deep-flow 10 + marketing 4 + screenshots 1） |
 | 迁移测试 | **26 项验证**（`scripts/migration_test.sh`：21 项数据校验 + 5 项 API：登录 + 商品/订单/用户/分类） |
-| 自动化脚本 | **7**（`scripts/quick_test.sh`；`scripts/ci_test.sh`；`scripts/deep_test.sh` 兼容入口；`integration_test.sh`；`sandbox_pay_test.sh`；`distribution_test.sh`；`migration_test.sh`） |
+| 自动化脚本 | **8**（`scripts/quick_test.sh`；`scripts/ci_test.sh`；`scripts/deep_test.sh` 兼容入口；`integration_test.sh`；`sandbox_pay_test.sh`；`distribution_test.sh`；`migration_test.sh`；`ci_watch.sh`） |
 
 > 上表为对外文档的**权威口径**。更新实现后请跑 **`scripts/doc-metrics.sh`** 刷新数字，并同步 `README.md` / `docs/*`，避免漂移。
 
@@ -146,19 +146,68 @@ cd web && npm run dev           # PC前台 :3000
 - **语言与货币**：管理端 **`GET/POST /admin/multilingual`**、**`GET/POST /admin/currency`**；前台菜单 **系统 → 语言与货币**（`admin/src/app/(dashboard)/locale/page.tsx`）。**`GetCurrencyConfig`** 从配置读取 **`currency_rate`**。
 - **角色与插件**：**`GET /admin/roles/:id/plugins`** + **`GetRolePluginIDs`**；RBAC 角色表增加 **「分配插件」**，对应 **`PUT /admin/roles/:id/plugins`**。**应用商店 Tab** 仍为占位（见「产品边界」，无内置市场计划）。
 
-## 工程与测试近况（2026-04-27）
+#### v1.6.0 新增工作（2026-05-08 ~ 2026-05-12，20 commits）
+
+##### PayPal 正式接入
+- **`pkg/paypal`**：Orders v2 REST API 客户端（CreateOrder / CaptureOrder / GetOrderDetails），支持 sandbox 与 live 环境切换
+- **Webhook 验签**：`VerifyWebhookSignature` 调用 PayPal API 校验事件真实性；`internal/handler/pay.go` 新增 `POST /api/pay/paypal/webhook` 路由
+- **capture 修复**：`invoice_id` 从 `captures[]` 内层读取；处理重复 capture（幂等）
+- **配置**：`config.yaml.example` 新增 `paypal` 段（client_id / secret / webhook_id / sandbox）
+- **文档**：`docs/paypal.md`（接入指南 + 沙盒测试 + Webhook 配置）
+
+##### 可观测性（Observability）
+- **Prometheus**：`deploy/prometheus/prometheus.yml`（抓取配置）+ `rules.yml`（SLO 告警规则：P99 延迟、错误率、支付成功率等）
+- **pprof**：`/debug/pprof` 端点注册（仅 debug 模式）
+- **Runbook**：`docs/observability.md`（指标说明、告警处理流程、Grafana 面板建议）
+
+##### 财务/支付 P0~P3 硬化
+- **P0 事务化与幂等**：`PayLogSuccess` 全事务 + 物理幂等约束（`pay_log.status` 唯一索引防重入）；退款对账 cron + 错误字段分离
+- **P1 并发与安全**：分销佣金结算行锁、退款金额二次校验
+- **P2/P3**：`httpx.Client` 统一 HTTP 超时（连接 5s / 总 30s）；staticcheck 清理
+
+##### 基础设施增强
+- **`feat(infra)`**：`internal/app/safego.go`（SafeGo panic 恢复）、`pkg/httpx/client.go`（带超时的 HTTP 客户端）、`pkg/cache` 新增 `Incr` / `Expire` 方法
+- **`scripts/ci_watch.sh`**：可靠等待 GitHub Actions 完成并以非零码表示失败（macOS bash 3.2 兼容）
+
+##### 支付宝修复 + 对账命令
+- **签名修复**：签名串应包含 `sign_type` 字段
+- **`cmd/alipay-reconcile-once`**：一次性对账命令（手动触发单日对账，适用于补跑或排查）
+
+##### 测试体系升级
+- **`internal/testutil/mysql.go`**：真 MySQL 集成测试辅助（`SetupTestDB` 创建临时库 + 自动清理）
+- **handler 层去 Skip**：接入 `testutil.SetupTestDB`，原先 `t.Skip("需要数据库")` 的用例现在真跑
+- **新增并发集成测试**：`TestRefundRowLock`、`TestDistributionConcurrentSettle` 等验证行锁正确性
+- **修复测试漂移**：硬编码 `DistributorID` → 用 `d.ID` 动态取值
+
+##### CI 修复
+- `gofmt -s` 对 pprof.go 注释代码块 tab 缩进
+- `admin-e2e`：显式导出 `GOSHOP_E2E` 并用 `/health` 轮询等待 API
+- ShopXO `s=` 冒烟对查询串重编码，支持中文参数
+
+##### 数据库迁移工具修复
+- `golang-migrate` 使用独立 MySQL 连接，避免 `Close` 关掉 GORM 连接池
+- 空白导入 `database/mysql` 以注册 golang-migrate 驱动
+
+##### 仓库拆单 Bug 修复
+- `SplitOrderByWarehouse` 的 `WHERE` 加表前缀 `warehouse_goods_specs.goods_id / sku_id`，防 MySQL 1052 ambiguous（3 表 JOIN 中 `warehouse_goods` 也有同名列）
+
+## 工程与测试近况（2026-05-12）
 
 ### 默认支付与数据
 - **`EnsureDefaultPayments()`**（`internal/initialize/seed.go`，`main` 在 `InitDefaultSeedData` 之后调用）：新库写入 **12 条**默认渠道（与 `payment_driver.go` 注册名一致）；**老库**按 `PaymentDriverKeyFromPayment` 解析已有行，**只补缺失的** `payment_key`，不覆盖已有配置。
 - **单测**：`internal/initialize/seed_payments_backfill_test.go` 等使用 **独立内存 SQLite**（`gorm.io/driver/sqlite`）验证全量/幂等/仅 offline/旧式「微信支付」名称推断等，避免 `file::memory:?cache=shared` 串库。
 
 ### 单测与本地脚本
+- **`internal/testutil/mysql.go`**：`SetupTestDB(t)` 连接真 MySQL 创建临时数据库 + AutoMigrate + 测试结束自动 DROP；handler 层原先 `t.Skip` 的用例已全部接入。
 - **支付 / ShopXO**：`GetPaymentDriver` 沙盒包装、`ShopXOPluginNameFromDriverKey`、名称推断 `payment_key` 等表驱动用例（`internal/service/*_test.go`）。
+- **PayPal**：`pkg/paypal/client_test.go`（mock HTTP 验证 CreateOrder/Capture/Webhook 验签）+ `sandbox_test.go`（需 `PAYPAL_CLIENT_ID` 环境变量）。
+- **并发集成测试**：`mysql_integration_test.go` 含 `TestRefundRowLock`、`TestDistributionConcurrentSettle` 等，验证行锁与事务隔离。
 - **`scripts/quick_test.sh`**：`go vet` + `go test`（包列表排除 `/node_modules/`），**无 `-race`**，日常最快。
 - **`scripts/ci_test.sh`**：`quick_test` 后再 **`go test -race -timeout 5m`**，对齐本仓库 CI 的 Go 测强度（仍不含 gofmt/govulncheck，见 Actions）。
 - **`scripts/deep_test.sh`**：兼容旧习惯；默认等同 `quick_test`；环境变量 **`GOSHOP_TEST_RACE=1`** 时等同 `ci_test`。
 - **`scripts/integration_test.sh`**：环境变量 **`BASE`** 覆盖 API 根地址；`curl` **连接/总超时**；启动前探测 **`GET …/api/site-config`**；校验 **12 个 `payment_key`**、**REST 线下 unified**、多单 ShopXO、可选 **`GOSHOP_PAYMENT_SANDBOX=1`** 沙盒回调。
 - **`scripts/sandbox_pay_test.sh`**：轮询渠道含 **当面付、PayPal** 等；钱包单独测余额边界。
+- **`scripts/ci_watch.sh`**：轮询 GitHub Actions run 状态，完成后以对应退出码返回（macOS bash 3.2 兼容 `set -u` 空数组）。
 
 ### CI（`.github/workflows/ci.yml`）
 - 后端 **`setup-go` 1.25.10**（与 `go.mod`、`Dockerfile`、`mise.toml`、`.tool-versions` 一致；升补丁见 `docs/development.md`）。
@@ -168,8 +217,8 @@ cd web && npm run dev           # PC前台 :3000
 - **集成**：`scripts/integration_test.sh` **失败即整 job 失败**（已移除 `|| true`）。
 
 ### 当前工程水准（自评，便于预期对齐）
-- **较强**：支付面与 ShopXO 兼容、默认数据补全策略、CI（含 race）与集成脚本、文档化指标脚本、**Playwright E2E 34 用例覆盖全部核心页面与 CRUD 交互**。
-- **仍薄**：大量 **handler 测试依赖真实库仍为 Skip**；秒杀/拼团/分销/售后等 **长链路端到端自动化覆盖不足**（E2E 验证了页面加载与弹窗交互，但未覆盖完整下单→支付→发货→售后链路）；生产级 **观测、真实三方对账** 仍待加强（与下表待办一致）。
+- **较强**：支付面与 ShopXO 兼容（含 PayPal）、默认数据补全策略、CI（含 race + 真 MySQL 集成）与集成脚本、文档化指标脚本、**Playwright E2E 34 用例覆盖全部核心页面与 CRUD 交互**、Prometheus SLO 告警规则、pprof 端点。
+- **仍薄**：秒杀/拼团/分销/售后等 **长链路端到端自动化覆盖不足**（E2E 验证了页面加载与弹窗交互，但未覆盖完整下单→支付→发货→售后链路）；Grafana Dashboard 未固化；**真实三方对账**仅支付宝有一次性命令，微信/PayPal 待补。
 
 **手工回归**：反向代理 + HTTPS 仍按 **`scripts/MANUAL_VERIFY_PROXY.md`** 与自动化互补。
 
@@ -193,8 +242,8 @@ cd web && npm run dev           # PC前台 :3000
 1. **多语言前端** — i18n 国际化
 2. **性能优化** — 数据库索引、热点数据缓存
 3. **优雅关停深化** — `main` 已具备信号触发 `Shutdown`；若需「排空长请求 / 停止定时任务顺序」等可再细化
-4. **PayPal 对接** — 需海外商户账号
-5. **测试纵深** — handler 层 testcontainers 或固定夹具 DB；核心业务场景覆盖率目标化
+4. **测试纵深** — handler 层已接入 testutil 真 MySQL；下一步：核心业务场景（下单→支付→发货→售后）端到端自动化覆盖率目标化
+5. **Grafana 面板** — Prometheus 规则已就绪，配套 Dashboard JSON 待导出固化
 
 ## 关键文件
 
@@ -202,24 +251,34 @@ cd web && npm run dev           # PC前台 :3000
 ```
 cmd/server/main.go                      # 入口（含 EnsureDefaultPayments）
 cmd/shopxo-import/main.go               # ShopXO MySQL → GoShop 数据导入（嵌入 SQL）
+cmd/alipay-reconcile-once/main.go       # 支付宝一次性对账命令
 internal/shopxomigrate/data.sql         # 上述导入脚本（与 docs/migration-from-shopxo.md 一致）
 internal/initialize/seed.go             # 商品等 seed + EnsureDefaultPayments（老库增量补渠道）
 internal/initialize/seed_payments_*_test.go  # 支付种子与 SQLite 补全单测
+internal/testutil/mysql.go              # 真 MySQL 集成测试辅助（SetupTestDB）
 pkg/cache/cache.go                 # 缓存抽象层(Redis/Memory)
+pkg/paypal/client.go               # PayPal Orders v2 REST + Webhook 验签
+pkg/httpx/client.go                # 统一超时 HTTP 客户端
 internal/router/router.go          # 路由(14个RBAC权限组)
-internal/service/payment_driver.go # 12种支付驱动 + 沙盒
+internal/app/safego.go             # SafeGo panic 恢复
+internal/service/payment_driver.go # 12种支付驱动 + 沙盒 + PayPal
 internal/service/distribution.go   # 分销(佣金结算/提现)
 internal/service/seckill.go        # 秒杀
 internal/service/group_buy.go      # 拼团
 internal/service/order.go          # 订单(含拆单)
+internal/service/statistical.go    # SplitOrderByWarehouse + 仪表盘统计
 internal/service/pay_log.go        # PayLog、合并支付 MultiOrderUnifiedPay、PayLogSuccess
+internal/service/pay_reconcile.go  # 退款对账 cron
 internal/service/notify.go         # 短信(阿里云) + 邮件(SMTP)
 internal/service/logistics.go      # 物流轨迹(快递100)
 internal/middleware/admin_auth.go  # AdminAuth + AdminPower
+internal/handler/pay.go            # 支付路由（含 PayPal Webhook）
 internal/compat/shopxo/diyapi.go # diyapi + attachmentapi（含 baseURL、attachmentApiCatch）
 internal/compat/shopxo/compat.go  # ShopXO 兼容（含多订单 order/pay）
 internal/handler/extend.go         # 导出 CSV（含 ids）、多语言/货币等管理接口
 internal/service/user.go         # AdminDisableUser
+deploy/prometheus/prometheus.yml   # Prometheus 抓取配置
+deploy/prometheus/rules.yml        # SLO 告警规则
 ```
 
 ### 前端
@@ -247,5 +306,6 @@ scripts/migration_test.sh        # ShopXO→GoShop 迁移自动化验证（21 �
 scripts/MANUAL_VERIFY_PROXY.md   # 反代/HTTPS 下手工验收清单（非脚本）
 scripts/sandbox_pay_test.sh      # 全渠道沙盒轮询（含 PayPal/当面付）+ 钱包边界
 scripts/distribution_test.sh     # 分销完整链路测试
+scripts/ci_watch.sh              # 等待 GitHub Actions 完成并返回退出码
 .github/workflows/ci.yml       # gofmt（排除 node_modules）/ vet+test 同 quick_test / -race 同 ci_test 后半 / 集成（payment.sandbox）/ admin-e2e
 ```

@@ -49,9 +49,10 @@ func Setup(r *gin.Engine) {
 	// DIY/Form 编辑器兼容路由
 	shopxo.SetupDiyApiCompat(r)
 
-	authRL := middleware.RateLimit(10, time.Minute) // 登录/注册: 10次/分钟
+	authRL := middleware.RateLimit(10, time.Minute)  // 登录/注册: 10次/分钟
+	apiRL := middleware.RateLimit(120, time.Minute)  // 公开 API: 120次/分钟/IP
 
-	api := r.Group("/api")
+	api := r.Group("/api", apiRL)
 	{
 		api.POST("/register", authRL, handler.Register)
 		api.POST("/login", authRL, handler.Login)

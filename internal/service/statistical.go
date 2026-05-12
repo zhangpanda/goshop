@@ -29,10 +29,14 @@ func SplitOrderByWarehouse(userID uint, req *CreateOrderReq) ([]*model.Order, er
 		var ws model.WarehouseGoodsSpec
 		// WHERE 里明确写 warehouse_goods_specs.goods_id / sku_id：多表 JOIN 中
 		// warehouse_goods 也有这两列，裸写 goods_id/sku_id 在 MySQL 下 1052 ambiguous。
-		app.Must().DB.Where("warehouse_goods_specs.goods_id = ? AND warehouse_goods_specs.sku_id = ? AND warehouse_goods_specs.inventory > 0", c.GoodsID, c.SKUID).
+		err := app.Must().DB.Where("warehouse_goods_specs.goods_id = ? AND warehouse_goods_specs.sku_id = ? AND warehouse_goods_specs.inventory > 0", c.GoodsID, c.SKUID).
 			Joins("JOIN warehouse_goods ON warehouse_goods.warehouse_id = warehouse_goods_specs.warehouse_id AND warehouse_goods.goods_id = warehouse_goods_specs.goods_id AND warehouse_goods.is_enable = 1").
 			Joins("JOIN warehouses ON warehouses.id = warehouse_goods_specs.warehouse_id AND warehouses.is_enable = 1").
-			Order("warehouses.level DESC").First(&ws)
+			Order("warehouses.level DESC").First(&ws).Error
+		if err != nil || ws.WarehouseID == 0 {
+			// 查不到可用仓库：不参与拆单，直接走默认逻辑
+			return nil, nil
+		}
 		key := groupKey{WarehouseID: ws.WarehouseID}
 		groups[key] = append(groups[key], c)
 	}
@@ -494,12 +498,15 @@ type SystemInfo struct {
 
 var appStartTime = time.Now()
 
+// AppVersion 由构建时 -ldflags 注入，默认 dev。
+var AppVersion = "dev"
+
 func GetSystemInfo() *SystemInfo {
 	var dbVer string
 	app.Must().DB.Raw("SELECT VERSION()").Scan(&dbVer)
 	return &SystemInfo{
 		GoVersion:    runtime.Version(),
-		AppVersion:   "1.0.0",
+		AppVersion:   AppVersion,
 		DBVersion:    dbVer,
 		OS:           runtime.GOOS,
 		Arch:         runtime.GOARCH,

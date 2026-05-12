@@ -8,7 +8,7 @@ echo "=== GoShop doc metrics ($(date -I 2>/dev/null || date '+%Y-%m-%d')) ==="
 echo
 
 echo -n "AutoMigrate 模型类型数（≈ 表数）: "
-grep -oE '&model\.[A-Za-z0-9_]+' internal/initialize/automigrate.go | sort -u | wc -l | tr -d ' '
+grep -oE '&[A-Za-z0-9_]+\{\}' internal/model/all.go | sort -u | wc -l | tr -d ' '
 
 echo -n "internal/router/router.go Gin 方法注册数: "
 grep -oE '\.(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|Any)\(' internal/router/router.go | wc -l | tr -d ' '
