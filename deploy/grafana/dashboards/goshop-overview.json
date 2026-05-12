@@ -1,0 +1,60 @@
+{
+  "uid": "goshop-overview",
+  "title": "GoShop Overview",
+  "tags": ["goshop"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "title": "QPS (请求/秒)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"expr": "goshop:http_requests:rate5m", "legendFormat": "QPS"}],
+      "fieldConfig": {"defaults": {"unit": "reqps"}}
+    },
+    {
+      "id": 2,
+      "title": "P99 延迟 (ms)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{"expr": "goshop:http_latency:p99_5m * 1000", "legendFormat": "P99"}],
+      "fieldConfig": {"defaults": {"unit": "ms"}}
+    },
+    {
+      "id": 3,
+      "title": "错误率 (5xx)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{"expr": "goshop:http_error_ratio:rate5m * 100", "legendFormat": "Error %"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "thresholds": {"steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 5, "color": "red"}]}}}
+    },
+    {
+      "id": 4,
+      "title": "支付成功率",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 8},
+      "targets": [{"expr": "sum(rate(goshop_pay_success_total[5m])) / (sum(rate(goshop_pay_total[5m])) > 0) * 100", "legendFormat": ""}],
+      "fieldConfig": {"defaults": {"unit": "percent", "thresholds": {"steps": [{"value": 0, "color": "red"}, {"value": 95, "color": "yellow"}, {"value": 99, "color": "green"}]}}}
+    },
+    {
+      "id": 5,
+      "title": "Goroutines",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 8},
+      "targets": [{"expr": "go_goroutines{job=\"goshop\"}", "legendFormat": "{{instance}}"}],
+      "fieldConfig": {"defaults": {"unit": "short"}}
+    },
+    {
+      "id": 6,
+      "title": "Top 5 慢路由 P99",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+      "targets": [{"expr": "topk(5, goshop:http_latency_by_route:p99_5m) * 1000", "format": "table", "instant": true}],
+      "fieldConfig": {"defaults": {"unit": "ms"}}
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}
