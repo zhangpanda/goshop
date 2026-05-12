@@ -13,6 +13,7 @@ type Handler func(payload any)
 var (
 	mu       sync.RWMutex
 	handlers = map[string][]Handler{}
+	wg       sync.WaitGroup
 )
 
 // On 注册事件监听器。同一事件可注册多个 handler，按注册顺序执行。
@@ -28,7 +29,11 @@ func Emit(name string, payload any) {
 	hs := handlers[name]
 	mu.RUnlock()
 	for _, fn := range hs {
-		go safeCall(name, fn, payload)
+		wg.Add(1)
+		go func(f Handler) {
+			defer wg.Done()
+			safeCall(name, f, payload)
+		}(fn)
 	}
 }
 
@@ -40,6 +45,11 @@ func EmitSync(name string, payload any) {
 	for _, fn := range hs {
 		safeCall(name, fn, payload)
 	}
+}
+
+// Drain 等待所有已触发的异步 handler 完成。应在 HTTP server Shutdown 之后调用。
+func Drain() {
+	wg.Wait()
 }
 
 func safeCall(event string, fn Handler, payload any) {

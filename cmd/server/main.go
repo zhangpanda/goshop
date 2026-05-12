@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zhangpanda/goshop/config"
 	"github.com/zhangpanda/goshop/internal/app"
+	"github.com/zhangpanda/goshop/internal/event"
 	"github.com/zhangpanda/goshop/internal/initialize"
 	"github.com/zhangpanda/goshop/internal/repository"
 	"github.com/zhangpanda/goshop/internal/router"
@@ -126,6 +127,7 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatalf("server forced to shutdown: %v", err)
 	}
+	event.Drain() // 等待所有异步事件 handler 完成
 	if err := deps.Close(); err != nil {
 		slog.Warn("shutdown", "deps_close", err.Error())
 	}
