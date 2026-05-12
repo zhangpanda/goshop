@@ -210,6 +210,7 @@ func (s *OrderService) CreateOrder(userID uint, req *CreateOrderReq) (*model.Ord
 
 	AddOrderStatusHistory(order.ID, -1, order.Status, "订单创建", "系统")
 	SaveOrderCurrency(order.ID, order.PayAmount)
+	MetricOrderCreated.Inc()
 
 	order.Items = items
 	return &order, nil

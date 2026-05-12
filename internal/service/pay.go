@@ -49,6 +49,7 @@ func PayOrder(userID uint, req *PayOrderReq) (*jsapi.PrepayWithRequestPaymentRes
 // 幂等保护：通过 WHERE status = pending 条件更新，并发重复回调只有一个能成功。
 // 成功单笔更新后调用 postPaidHook 触发订单历史与通知（与合并支付路径 PayLogSuccess 行为一致）。
 func HandlePayNotify(outTradeNo string, transactionID string) error {
+	MetricPayTotal.Inc()
 	var order model.Order
 	if err := app.Must().DB.Where("order_no = ?", outTradeNo).First(&order).Error; err == nil {
 		if order.Status != model.OrderStatusPaid && order.Status != model.OrderStatusPending {
@@ -72,6 +73,7 @@ func HandlePayNotify(outTradeNo string, transactionID string) error {
 		if result.RowsAffected == 0 {
 			return nil // 并发竞争，另一个 goroutine 已处理
 		}
+		MetricPaySuccess.Inc()
 		postPaidHook(order.ID, "支付成功", "系统")
 		return nil
 	}
@@ -167,6 +169,10 @@ func RefundOrder(userID uint, req *RefundReq) error {
 		}
 		return tx.Model(&rl).Updates(map[string]interface{}{"status": 1, "trade_no": order.TransactionID}).Error
 	})
+	if err == nil {
+		MetricRefundSuccess.Inc()
+	}
+	return err
 }
 
 // resolveOrderPaymentKey 从订单反查支付方式：order.PaymentID → Payment.Config.payment_key。
