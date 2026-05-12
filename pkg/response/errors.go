@@ -28,12 +28,12 @@ const (
 	CodeStockInsuf    = 3003
 
 	// 4xxx: 订单
-	CodeOrderNotFound    = 4001
-	CodeOrderStatusErr   = 4002
-	CodeCartEmpty        = 4003
-	CodeCouponInvalid    = 4004
-	CodeRefundDuplicate  = 4005
-	CodeRefundStatusErr  = 4006
+	CodeOrderNotFound   = 4001
+	CodeOrderStatusErr  = 4002
+	CodeCartEmpty       = 4003
+	CodeCouponInvalid   = 4004
+	CodeRefundDuplicate = 4005
+	CodeRefundStatusErr = 4006
 
 	// 5xxx: 支付
 	CodePayNotConfigured = 5001
