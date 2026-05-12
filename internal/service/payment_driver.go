@@ -597,7 +597,9 @@ func UnifiedPay(userID uint, req *UnifiedPayReq) (*PayDriverResp, error) {
 func alipaySign(params map[string]string, privateKeyPEM string) string {
 	keys := make([]string, 0, len(params))
 	for k := range params {
-		if k != "sign" && k != "sign_type" {
+		// 仅排除 sign 字段本身；sign_type 需参与签名
+		// （沙箱 gateway invalid-signature 错误页回显的 "网关生成的验签字符串" 含 sign_type=RSA2）
+		if k != "sign" {
 			keys = append(keys, k)
 		}
 	}
