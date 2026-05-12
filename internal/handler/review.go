@@ -10,8 +10,7 @@ import (
 
 func CreateReview(c *gin.Context) {
 	var req service.CreateReviewReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	review, err := service.CreateReview(c.GetUint("user_id"), &req)
@@ -44,8 +43,7 @@ func ReplyReview(c *gin.Context) {
 	var req struct {
 		Reply string `json:"reply" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.ReplyReview(uint(id), req.Reply); err != nil {

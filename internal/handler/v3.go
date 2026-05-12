@@ -13,8 +13,7 @@ import (
 
 func PlatformLogin(c *gin.Context) {
 	var req service.PlatformLoginReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	resp, err := service.PlatformLogin(&req)
@@ -93,8 +92,7 @@ func AdminOrderPayUnderLineHandler(c *gin.Context) {
 	var req struct {
 		OrderID uint `json:"order_id" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.AdminOrderPayUnderLine(req.OrderID, c.GetUint("admin_id")); err != nil {

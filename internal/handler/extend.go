@@ -19,8 +19,7 @@ func SetMultilingualConfig(c *gin.Context) {
 		DefaultLang string   `json:"default_lang" binding:"required"`
 		Available   []string `json:"available" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	service.SetMultilingualConfig(req.DefaultLang, req.Available)
@@ -42,8 +41,7 @@ func GetCurrencyConfig(c *gin.Context) {
 
 func SetCurrencyConfig(c *gin.Context) {
 	var req service.CurrencyConfig
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	service.SetCurrencyConfig(&req)
@@ -56,8 +54,7 @@ func AdminBookingConfirm(c *gin.Context) {
 	var req struct {
 		OrderID uint `json:"order_id" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.BookingConfirm(req.OrderID); err != nil {
@@ -71,8 +68,7 @@ func AdminBookingConfirm(c *gin.Context) {
 
 func ExportData(c *gin.Context) {
 	var req service.ExportReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	c.Header("Content-Type", "text/csv; charset=utf-8")

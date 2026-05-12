@@ -15,8 +15,7 @@ func CreatePayLog(c *gin.Context) {
 		PaymentID  uint   `json:"payment_id"`
 		ClientType string `json:"client_type"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	pl, err := service.CreatePayLog(c.GetUint("user_id"), req.OrderIDs, req.PaymentID, req.ClientType)

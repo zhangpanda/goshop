@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -37,8 +36,7 @@ func DiyCreateHandler(c *gin.Context) {
 		Name string `json:"name" binding:"required"`
 		Data string `json:"data"`
 	}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &r) {
 		return
 	}
 	d, _ := service.DiyCreate(r.Name, r.Data)
@@ -74,8 +72,7 @@ func CustomViewCreateHandler(c *gin.Context) {
 		Title   string `json:"title" binding:"required"`
 		Content string `json:"content"`
 	}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &r) {
 		return
 	}
 	v, _ := service.CustomViewCreate(r.Title, r.Content)
@@ -89,8 +86,7 @@ func ThemeCreateHandler(c *gin.Context) {
 		Name string `json:"name" binding:"required"`
 		Data string `json:"data"`
 	}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &r) {
 		return
 	}
 	service.ThemeCreate(r.Name, r.Data)
@@ -104,8 +100,7 @@ func FormInputCreateHandler(c *gin.Context) {
 		Name   string `json:"name" binding:"required"`
 		Config string `json:"config"`
 	}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &r) {
 		return
 	}
 	form := model.FormInput{Name: r.Name, Config: r.Config, Status: 1}
@@ -125,8 +120,7 @@ func FormInputDataSubmitHandler(c *gin.Context) {
 		FormID uint   `json:"form_id" binding:"required"`
 		Data   string `json:"data"`
 	}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &r) {
 		return
 	}
 	service.FormInputDataSubmit(r.FormID, c.GetUint("user_id"), r.Data)
@@ -190,8 +184,7 @@ func AgreementSaveHandler(c *gin.Context) {
 		Name    string `json:"name" binding:"required"`
 		Content string `json:"content"`
 	}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &r) {
 		return
 	}
 	service.AgreementSave(r.Name, r.Content)

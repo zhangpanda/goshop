@@ -11,8 +11,7 @@ import (
 
 func AftersaleCreate(c *gin.Context) {
 	var req service.AftersaleCreateReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	as, err := service.AftersaleCreate(c.GetUint("user_id"), &req)
@@ -29,8 +28,7 @@ func AftersaleDelivery(c *gin.Context) {
 		return
 	}
 	var req service.AftersaleDeliveryReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.AftersaleDelivery(c.GetUint("user_id"), uint(id), &req); err != nil {
@@ -123,8 +121,7 @@ func AdminAftersaleRefuse(c *gin.Context) {
 	var req struct {
 		Reason string `json:"reason" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.AftersaleRefuse(uint(id), req.Reason); err != nil {

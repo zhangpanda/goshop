@@ -11,8 +11,7 @@ import (
 
 func CreateAddress(c *gin.Context) {
 	var req service.AddressReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	addr, err := service.CreateAddress(c.GetUint("user_id"), &req)
@@ -39,8 +38,7 @@ func UpdateAddress(c *gin.Context) {
 		return
 	}
 	var req service.AddressReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.UpdateAddress(c.GetUint("user_id"), uint(id), &req); err != nil {

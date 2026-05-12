@@ -11,8 +11,7 @@ import (
 
 func CreateAnswer(c *gin.Context) {
 	var req service.AnswerCreateReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	a, err := service.CreateAnswer(c.GetUint("user_id"), &req)
@@ -42,8 +41,7 @@ func AdminReplyAnswer(c *gin.Context) {
 	var req struct {
 		Reply string `json:"reply" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	service.ReplyAnswer(uint(id), req.Reply)

@@ -10,8 +10,7 @@ import (
 
 func ShipOrder(c *gin.Context) {
 	var req service.ShipOrderReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.ShipOrder(&req); err != nil {

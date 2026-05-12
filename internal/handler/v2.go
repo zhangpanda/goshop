@@ -61,8 +61,7 @@ func DiyApiGoodsBrowseAutoData(c *gin.Context) {
 
 func SaveAppMini(c *gin.Context) {
 	var req service.AppMiniReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.SaveAppMini(&req); err != nil {
@@ -94,8 +93,7 @@ func GetSiteConfigHandler(c *gin.Context) {
 
 func SaveSiteConfigHandler(c *gin.Context) {
 	var req map[string]string
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	service.SaveSiteConfig(req)
@@ -108,8 +106,7 @@ func GetSelfExtractionAddress(c *gin.Context) {
 
 func SaveSelfExtractionAddress(c *gin.Context) {
 	var req []map[string]interface{}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	service.SaveSelfExtractionAddress(req)
@@ -120,8 +117,7 @@ func SaveSelfExtractionAddress(c *gin.Context) {
 
 func FormTableQueryHandler(c *gin.Context) {
 	var req service.FormTableParams
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	total, data, err := service.FormTableQuery(&req)
@@ -159,8 +155,7 @@ func SqlConsoleExecute(c *gin.Context) {
 	var req struct {
 		SQL string `json:"sql" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	results, err := service.ExecuteSQL(req.SQL)

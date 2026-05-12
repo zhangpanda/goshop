@@ -11,8 +11,7 @@ import (
 
 func AddCart(c *gin.Context) {
 	var req service.AddCartReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	cart, err := service.AddCart(c.GetUint("user_id"), &req)
@@ -39,8 +38,7 @@ func UpdateCart(c *gin.Context) {
 		return
 	}
 	var req service.UpdateCartReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.UpdateCart(c.GetUint("user_id"), uint(id), &req); err != nil {
@@ -54,8 +52,7 @@ func DeleteCart(c *gin.Context) {
 	var req struct {
 		IDs []uint `json:"ids" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.DeleteCart(c.GetUint("user_id"), req.IDs); err != nil {
@@ -69,8 +66,7 @@ func SelectAllCart(c *gin.Context) {
 	var req struct {
 		Selected bool `json:"selected"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.SelectAllCart(c.GetUint("user_id"), req.Selected); err != nil {

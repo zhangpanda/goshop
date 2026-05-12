@@ -18,8 +18,7 @@ func CreateBrand(c *gin.Context) {
 		Desc string `json:"desc"`
 		Sort int    `json:"sort"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	b, err := service.CreateBrand(req.Name, req.Logo, req.Desc, req.Sort)
@@ -44,8 +43,7 @@ func CreateArticleCategory(c *gin.Context) {
 		Name string `json:"name" binding:"required"`
 		Sort int    `json:"sort"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	cat, err := service.CreateArticleCategory(req.Name, req.Sort)
@@ -65,8 +63,7 @@ func GetArticleCategoryList(c *gin.Context) {
 }
 func CreateArticle(c *gin.Context) {
 	var req service.ArticleReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	a, err := service.CreateArticle(&req)
@@ -102,8 +99,7 @@ func GetArticleDetail(c *gin.Context) {
 // ---- 规格模板 ----
 func CreateSpecTemplate(c *gin.Context) {
 	var req service.SpecTemplateReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	t, err := service.CreateSpecTemplate(&req)
@@ -125,8 +121,7 @@ func GetSpecTemplateList(c *gin.Context) {
 // ---- 参数模板 ----
 func CreateParamsTemplate(c *gin.Context) {
 	var req service.ParamsTemplateReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	t, err := service.CreateParamsTemplate(&req)
@@ -152,8 +147,7 @@ func SaveGoodsParams(c *gin.Context) {
 	var req struct {
 		Params []service.ParamsConfigItem `json:"params"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	service.SaveGoodsParams(uint(id), req.Params)
@@ -209,8 +203,7 @@ func SetConfigHandler(c *gin.Context) {
 		Value string `json:"value"`
 		Desc  string `json:"desc"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if len(req.Configs) > 0 {
@@ -288,8 +281,7 @@ func CreateAttachmentCategoryHandler(c *gin.Context) {
 	var req struct {
 		Name string `json:"name" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	service.CreateAttachmentCategory(req.Name)

@@ -17,8 +17,7 @@ func DesignCreateHandler(c *gin.Context) {
 		Name string `json:"name" binding:"required"`
 		Data string `json:"data"`
 	}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &r) {
 		return
 	}
 	d, _ := service.DesignCreate(r.Name, r.Data)
@@ -47,8 +46,7 @@ func LayoutSaveHandler(c *gin.Context) {
 		Type string `json:"type" binding:"required"`
 		Data string `json:"data"`
 	}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &r) {
 		return
 	}
 	service.LayoutSave(r.Name, r.Type, r.Data)
@@ -85,8 +83,7 @@ func CreateOrderServiceHandler(c *gin.Context) {
 		Type    string `json:"type"`
 		Content string `json:"content" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &r) {
 		return
 	}
 	s, _ := service.CreateOrderService(r.OrderID, c.GetUint("user_id"), r.Type, r.Content)
@@ -108,8 +105,7 @@ func AdminReplyOrderService(c *gin.Context) {
 	var r struct {
 		Reply string `json:"reply" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &r) {
 		return
 	}
 	service.ReplyOrderService(uint(id), c.GetUint("admin_id"), r.Reply)

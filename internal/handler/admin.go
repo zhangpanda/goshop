@@ -32,8 +32,7 @@ func AdminUpdateGoods(c *gin.Context) {
 			Coding string `json:"coding"`
 		} `json:"skus"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := app.Must().DB.Transaction(func(tx *gorm.DB) error {
@@ -194,8 +193,7 @@ func AdminUpdateCategory(c *gin.Context) {
 		return
 	}
 	var req service.CategoryReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	app.Must().DB.Model(&model.Category{}).Where("id = ?", id).Updates(map[string]interface{}{

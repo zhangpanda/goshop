@@ -18,8 +18,7 @@ import (
 
 func PayOrder(c *gin.Context) {
 	var req service.PayOrderReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	resp, err := service.PayOrder(c.GetUint("user_id"), &req)
@@ -33,8 +32,7 @@ func PayOrder(c *gin.Context) {
 // UnifiedPay 统一支付入口（支持多支付方式）
 func UnifiedPay(c *gin.Context) {
 	var req service.UnifiedPayReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	req.ClientIP = c.ClientIP()
@@ -127,8 +125,7 @@ func SandboxCallback(c *gin.Context) {
 
 func RefundOrder(c *gin.Context) {
 	var req service.RefundReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.RefundOrder(c.GetUint("user_id"), &req); err != nil {

@@ -10,8 +10,7 @@ import (
 
 func WxLogin(c *gin.Context) {
 	var req service.WxLoginReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	resp, err := service.WxLogin(&req)

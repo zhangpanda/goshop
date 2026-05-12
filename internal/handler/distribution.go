@@ -62,8 +62,7 @@ func RequestWithdraw(c *gin.Context) {
 		AccountNo   string `json:"account_no" binding:"required"`
 		AccountName string `json:"account_name" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.RequestWithdraw(c.GetUint("user_id"), req.Amount, req.AccountType, req.AccountNo, req.AccountName); err != nil {
@@ -80,8 +79,7 @@ func AdminCreateDistributor(c *gin.Context) {
 		UserID   uint `json:"user_id" binding:"required"`
 		ParentID uint `json:"parent_id"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	d, err := service.ApplyDistributor(req.UserID, req.ParentID)

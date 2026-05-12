@@ -13,8 +13,7 @@ import (
 
 func CreateCategory(c *gin.Context) {
 	var req service.CategoryReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	cat, err := service.CreateCategory(&req)
@@ -38,8 +37,7 @@ func GetCategoryTree(c *gin.Context) {
 
 func CreateGoods(c *gin.Context) {
 	var req service.CreateGoodsReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	goods, err := service.CreateGoods(&req)
@@ -52,8 +50,7 @@ func CreateGoods(c *gin.Context) {
 
 func GetGoodsList(c *gin.Context) {
 	var req service.GoodsListReq
-	if err := c.ShouldBindQuery(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindQuery(c, &req) {
 		return
 	}
 	resp, err := service.GetGoodsList(&req)

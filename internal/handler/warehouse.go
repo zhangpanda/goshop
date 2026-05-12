@@ -10,8 +10,7 @@ import (
 
 func CreateWarehouse(c *gin.Context) {
 	var req service.WarehouseReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	w, err := service.CreateWarehouse(&req)
@@ -33,8 +32,7 @@ func UpdateWarehouse(c *gin.Context) {
 		return
 	}
 	var req service.WarehouseReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.UpdateWarehouse(uint(id), &req); err != nil {
@@ -62,8 +60,7 @@ func WarehouseGoodsAdd(c *gin.Context) {
 		GoodsID     uint `json:"goods_id" binding:"required"`
 		Inventory   int  `json:"inventory"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	service.WarehouseGoodsAdd(req.WarehouseID, req.GoodsID, req.Inventory)
@@ -87,8 +84,7 @@ func WarehouseGoodsSpecSave(c *gin.Context) {
 		Inventory   int    `json:"inventory"`
 		SpecValues  string `json:"spec_values"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	service.WarehouseGoodsSpecSave(req.WarehouseID, req.GoodsID, req.SKUID, req.Inventory, req.SpecValues)

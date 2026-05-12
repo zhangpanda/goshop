@@ -11,8 +11,7 @@ import (
 
 func CreateOrder(c *gin.Context) {
 	var req service.CreateOrderReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	userID := c.GetUint("user_id")
@@ -35,8 +34,7 @@ func CreateOrder(c *gin.Context) {
 
 func GetOrderList(c *gin.Context) {
 	var req service.OrderListReq
-	if err := c.ShouldBindQuery(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindQuery(c, &req) {
 		return
 	}
 	resp, err := service.GetOrderList(c.GetUint("user_id"), &req)

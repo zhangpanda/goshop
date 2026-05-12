@@ -17,8 +17,7 @@ func CreateExpressHandler(c *gin.Context) {
 		Icon string `json:"icon"`
 		Sort int    `json:"sort"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	e, _ := service.CreateExpress(req.Name, req.Code, req.Icon, req.Sort)
@@ -55,8 +54,7 @@ func CreatePowerHandler(c *gin.Context) {
 		Control  string `json:"control"`
 		Sort     int    `json:"sort"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	p, _ := service.CreatePower(req.ParentID, req.Name, req.Control, req.Sort)
@@ -92,8 +90,7 @@ func CreateBrandCategory(c *gin.Context) {
 		Name string `json:"name" binding:"required"`
 		Sort int    `json:"sort"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	bc := service.CreateBrandCategoryRecord(req.Name, req.Sort)

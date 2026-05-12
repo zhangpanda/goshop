@@ -10,8 +10,7 @@ import (
 
 func Register(c *gin.Context) {
 	var req service.RegisterReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	user, err := service.Register(&req)
@@ -24,8 +23,7 @@ func Register(c *gin.Context) {
 
 func Login(c *gin.Context) {
 	var req service.LoginReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	resp, err := service.Login(&req)

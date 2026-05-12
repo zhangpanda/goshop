@@ -55,8 +55,7 @@ func genericUpdate(c *gin.Context, m interface{}) {
 	if !ok {
 		return
 	}
-	if err := c.ShouldBindJSON(m); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, m) {
 		return
 	}
 	app.Must().DB.Model(m).Where("id = ?", id).Updates(m)
@@ -224,8 +223,7 @@ func PayLogCloseHandler(c *gin.Context) {
 // ========== 地区 ==========
 func RegionSaveHandler(c *gin.Context) {
 	var m model.Region
-	if err := c.ShouldBindJSON(&m); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &m) {
 		return
 	}
 	if m.ID > 0 {
@@ -267,8 +265,7 @@ func EmailTestHandler(c *gin.Context) {
 	var req struct {
 		Email string `json:"email" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.SendEmail(req.Email, "GoShop 邮件测试", "这是一封测试邮件，如果您收到说明SMTP配置正确。"); err != nil {

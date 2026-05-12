@@ -13,8 +13,7 @@ func SendVerifyCode(c *gin.Context) {
 		Account string `json:"account" binding:"required"`
 		Type    string `json:"type" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	service.SendVerifyCode(req.Account, req.Type)
@@ -23,8 +22,7 @@ func SendVerifyCode(c *gin.Context) {
 
 func UpdatePassword(c *gin.Context) {
 	var req service.UpdatePwdReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.UpdatePassword(c.GetUint("user_id"), &req); err != nil {
@@ -36,8 +34,7 @@ func UpdatePassword(c *gin.Context) {
 
 func ForgetPassword(c *gin.Context) {
 	var req service.ForgetPwdReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.ForgetPassword(&req); err != nil {
@@ -49,8 +46,7 @@ func ForgetPassword(c *gin.Context) {
 
 func BindMobile(c *gin.Context) {
 	var req service.BindMobileReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.BindMobile(c.GetUint("user_id"), &req); err != nil {

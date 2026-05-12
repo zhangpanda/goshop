@@ -11,8 +11,7 @@ import (
 
 func CreateSeckill(c *gin.Context) {
 	var req service.SeckillReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	promo, err := service.CreateSeckill(&req)

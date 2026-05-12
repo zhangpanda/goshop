@@ -14,8 +14,7 @@ import (
 
 func AdminLoginHandler(c *gin.Context) {
 	var req service.AdminLoginReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	// 验证码校验（自动化 E2E：设置环境变量 GOSHOP_E2E=1 时跳过，切勿在生产环境开启）
@@ -42,8 +41,7 @@ func AdminLoginHandler(c *gin.Context) {
 
 func CreateAdminHandler(c *gin.Context) {
 	var req service.CreateAdminReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	admin, err := service.CreateAdmin(&req)
@@ -84,8 +82,7 @@ func UpdateAdminStatusHandler(c *gin.Context) {
 
 func CreateRoleHandler(c *gin.Context) {
 	var req service.RoleReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	role, err := service.CreateRole(&req)
@@ -111,8 +108,7 @@ func UpdateRoleHandler(c *gin.Context) {
 		return
 	}
 	var req service.RoleReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, err.Error())
+	if !BindJSON(c, &req) {
 		return
 	}
 	if err := service.UpdateRole(uint(id), &req); err != nil {
