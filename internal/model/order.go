@@ -23,10 +23,10 @@ const (
 type Order struct {
 	ID              uint        `json:"id" gorm:"primaryKey;comment:订单ID"`
 	OrderNo         string      `json:"order_no" gorm:"uniqueIndex;size:32;not null;comment:订单编号"`
-	UserID          uint        `json:"user_id" gorm:"index;not null;comment:用户ID"`
+	UserID          uint        `json:"user_id" gorm:"index:idx_order_user_status;not null;comment:用户ID"`
 	TotalAmount     int64       `json:"total_amount" gorm:"not null;comment:总金额(分)"`
 	PayAmount       int64       `json:"pay_amount" gorm:"not null;comment:实付金额(分)"`
-	Status          int8        `json:"status" gorm:"default:0;comment:状态:0待付款1待发货2待收货3已完成4已取消5已退款"`
+	Status          int8        `json:"status" gorm:"default:0;index:idx_order_user_status;index:idx_order_status_created;comment:状态:0待付款1待发货2待收货3已完成4已取消5已退款"`
 	OrderModel      int8        `json:"order_model" gorm:"default:0;comment:订单模式:0快递1同城2自提3虚拟"`
 	ExtractionCode  string      `json:"extraction_code" gorm:"size:6;comment:自提码"`
 	FictitiousValue string      `json:"fictitious_value" gorm:"type:text;comment:虚拟商品信息"`
@@ -38,7 +38,7 @@ type Order struct {
 	TransactionID   string      `json:"transaction_id" gorm:"size:64;comment:第三方支付流水号"`
 	ShippedAt       *time.Time  `json:"shipped_at" gorm:"comment:发货时间"`
 	CompletedAt     *time.Time  `json:"completed_at" gorm:"comment:完成时间"`
-	CreatedAt       time.Time   `json:"created_at"`
+	CreatedAt       time.Time   `json:"created_at" gorm:"index:idx_order_status_created"`
 	UpdatedAt       time.Time   `json:"updated_at"`
 }
 
