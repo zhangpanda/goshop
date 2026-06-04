@@ -10,6 +10,13 @@ import (
 
 // GoodsSpecInventorySync 仓库库存同步到商品SKU库存（所有启用仓库的该商品库存求和）
 func GoodsSpecInventorySync(goodsID uint) error {
+	// 检查该商品是否有仓库管理记录（无论仓库启用与否）
+	var warehouseCount int64
+	app.Must().DB.Model(&model.WarehouseGoodsSpec{}).Where("goods_id = ?", goodsID).Count(&warehouseCount)
+	if warehouseCount == 0 {
+		return nil // 该商品不使用仓库管理，跳过
+	}
+
 	// 获取所有启用仓库的规格库存
 	type specSum struct {
 		SKUID     uint `gorm:"column:sku_id"`
@@ -21,9 +28,17 @@ func GoodsSpecInventorySync(goodsID uint) error {
 		Where("warehouse_goods_specs.goods_id = ?", goodsID).
 		Select("warehouse_goods_specs.sku_id, SUM(warehouse_goods_specs.inventory) as inventory").
 		Group("warehouse_goods_specs.sku_id").Find(&sums)
-	for _, s := range sums {
-		if s.SKUID > 0 {
-			app.Must().DB.Model(&model.GoodsSKU{}).Where("id = ?", s.SKUID).Update("stock", s.Inventory)
+
+	// 该商品有仓库管理但所有仓库都已禁用时，将SKU库存置零
+	if len(sums) == 0 {
+		app.Must().DB.Model(&model.GoodsSKU{}).Where("goods_id = ?", goodsID).Update("stock", 0)
+	} else {
+		// 先将所有 SKU 库存置零，再用仓库汇总数据覆盖（防止被移出仓库的 SKU 残留库存）
+		app.Must().DB.Model(&model.GoodsSKU{}).Where("goods_id = ?", goodsID).Update("stock", 0)
+		for _, s := range sums {
+			if s.SKUID > 0 {
+				app.Must().DB.Model(&model.GoodsSKU{}).Where("id = ?", s.SKUID).Update("stock", s.Inventory)
+			}
 		}
 	}
 	// 同步GoodsSpecBase
