@@ -22,7 +22,7 @@
 
 ## Docker 与 Go 工具链
 
-仓库根目录 **`Dockerfile`** 构建阶段使用 **`golang:1.25.10-alpine`**，与 **`go.mod`**（`go` / **`toolchain`**）、**CI**（`actions/setup-go` → **`1.25.10`**）、**`mise.toml`**、**`.tool-versions`** 对齐。`docker compose` 中的 **`goshop`** 服务由此构建；仅含后端二进制，管理端与 PC 前台仍需按根目录 `README.md` 另行启动。升级补丁见 **`docs/development.md`** 同步清单。
+仓库根目录 **`Dockerfile`** 构建阶段使用 **`golang:1.25.11-alpine`**，与 **`go.mod`**（`go` / **`toolchain`**）、**CI**（`actions/setup-go` → **`1.25.11`**）、**`mise.toml`**、**`.tool-versions`** 对齐。`docker compose` 中的 **`goshop`** 服务由此构建；仅含后端二进制，管理端与 PC 前台仍需按根目录 `README.md` 另行启动。升级补丁见 **`docs/development.md`** 同步清单。
 
 ## Nginx 配置示例
 

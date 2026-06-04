@@ -47,12 +47,12 @@ docker compose up -d
 # 管理后台和 PC 前台需另行启动（见下方本地开发步骤）
 ```
 
-> Docker 镜像仅包含 Go 后端（**`Dockerfile`** 构建阶段：`golang:1.25.10-alpine`，与 `go.mod` / CI 一致）。管理后台（Next.js :3010）和 PC 前台（Next.js :3000）需在宿主机或单独容器中运行。首次启动仍会创建默认管理员，**公网前须改密**（见 [部署指南](docs/deployment.md)）。
+> Docker 镜像仅包含 Go 后端（**`Dockerfile`** 构建阶段：`golang:1.25.11-alpine`，与 `go.mod` / CI 一致）。管理后台（Next.js :3010）和 PC 前台（Next.js :3000）需在宿主机或单独容器中运行。首次启动仍会创建默认管理员，**公网前须改密**（见 [部署指南](docs/deployment.md)）。
 
 ### 本地开发
 
 #### 环境要求
-- Go **1.25.10**（`go.mod` 声明 **`go` + `toolchain`**；CI、**`Dockerfile`**（`golang:1.25.10-alpine`）、可选 **`mise.toml`** / **`.tool-versions`** 与之对齐；勿混用 1.24.x 旧链，否则需自行降级 `github.com/gin-gonic/gin` 等到 v1.10.x）
+- Go **1.25.11**（`go.mod` 声明 **`go` + `toolchain`**；CI、**`Dockerfile`**（`golang:1.25.11-alpine`）、可选 **`mise.toml`** / **`.tool-versions`** 与之对齐；勿混用 1.24.x 旧链，否则需自行降级 `github.com/gin-gonic/gin` 等到 v1.10.x）
 - Node.js 20+（与 Next.js 15 实践一致）
 - MySQL 5.7+ / 8.0+（推荐 8.0）
 - Redis 6+（可选，不配置则使用内存缓存）

@@ -4,7 +4,7 @@
 
 ## 开发环境
 
-- Go **1.25.10**（`go.mod` 的 `go` + **`toolchain`**；CI **`setup-go`**；**`Dockerfile`** → `golang:1.25.10-alpine`；可选 **`mise.toml`** / **`.tool-versions`**）
+- Go **1.25.11**（`go.mod` 的 `go` + **`toolchain`**；CI **`setup-go`**；**`Dockerfile`** → `golang:1.25.11-alpine`；可选 **`mise.toml`** / **`.tool-versions`**）
 - Node.js 20+
 - MySQL 8.0+（5.7 亦通常可用）
 - Redis 6+（可选；不配置则使用内存缓存）

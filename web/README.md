@@ -26,7 +26,7 @@ npm install
 npm run dev    # http://localhost:3000
 ```
 
-API 请求通过 `next.config.js` 的 rewrites 代理到后端 `http://localhost:8080`。后端请用仓库根目录 **`go.mod` 要求（Go 1.25.10，`toolchain go1.25.10`）** 构建/运行，或与 **`Dockerfile`**（`golang:1.25.10-alpine`）一致的环境。
+API 请求通过 `next.config.js` 的 rewrites 代理到后端 `http://localhost:8080`。后端请用仓库根目录 **`go.mod` 要求（Go 1.25.11，`toolchain go1.25.11`）** 构建/运行，或与 **`Dockerfile`**（`golang:1.25.11-alpine`）一致的环境。
 
 ## 构建
 

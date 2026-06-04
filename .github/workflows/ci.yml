@@ -29,7 +29,7 @@ jobs:
       # 与 go.mod、Dockerfile、本步校验、mise、.tool-versions 对齐
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.10'
+          go-version: '1.25.11'
       - name: Build
         run: go build -o bin/goshop ./cmd/server/
       # 与 scripts/quick_test.sh 一致：排除 web/node_modules 下误入的 Go 包
@@ -152,7 +152,7 @@ jobs:
       # 与 go.mod、Dockerfile、本步校验、mise、.tool-versions 对齐
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.10'
+          go-version: '1.25.11'
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

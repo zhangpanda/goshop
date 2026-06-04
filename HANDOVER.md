@@ -18,7 +18,7 @@
 - 对照 ShopXO 源码时请自行准备官方发行版（如 v6.8.x），本仓库不随附 ShopXO 代码。
 
 ## 技术栈
-- 后端: Go 1.25.10（`go.mod`：`go` + `toolchain`；可选 **mise** / **asdf** 见 `mise.toml`、`.tool-versions`）+ Gin + GORM + MySQL + Redis(可选)；镜像构建 **`golang:1.25.10-alpine`**
+- 后端: Go 1.25.11（`go.mod`：`go` + `toolchain`；可选 **mise** / **asdf** 见 `mise.toml`、`.tool-versions`）+ Gin + GORM + MySQL + Redis(可选)；镜像构建 **`golang:1.25.11-alpine`**
 - 管理后台: Next.js 15 + Ant Design 5（端口3010）
 - PC前台: Next.js 15 + Tailwind 4 + framer-motion（端口3000）
 - 手机端: 可选 shopxo-uniapp 等 + 后端 `/api.php` 单入口（ShopXO v6.8.0 约定，见 `docs/uniapp-guide.md`）
@@ -210,7 +210,7 @@ cd web && npm run dev           # PC前台 :3000
 - **`scripts/ci_watch.sh`**：轮询 GitHub Actions run 状态，完成后以对应退出码返回（macOS bash 3.2 兼容 `set -u` 空数组）。
 
 ### CI（`.github/workflows/ci.yml`）
-- 后端 **`setup-go` 1.25.10**（与 `go.mod`、`Dockerfile`、`mise.toml`、`.tool-versions` 一致；升补丁见 `docs/development.md`）。
+- 后端 **`setup-go` 1.25.11**（与 `go.mod`、`Dockerfile`、`mise.toml`、`.tool-versions` 一致；升补丁见 `docs/development.md`）。
 - **`gofmt -s`**：仅扫描仓库内 `*.go`，排除 `web/node_modules`、`admin/node_modules`。
 - **`go vet` / `go test`**：包列表 `go list ./... | grep -v '/node_modules/'`（避免本地 `npm i` 后误入依赖里的 Go 包）。
 - **`go test -race -timeout 5m`** 独立一步。

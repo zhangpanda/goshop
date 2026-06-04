@@ -4,7 +4,7 @@
 
 与 **`go.mod`** 的 **`go major.minor.patch`**（**唯一真值**；`toolchain` 行可选，`go mod tidy` 常会删除与 `go` 重复的 `toolchain`）、**CI**、**`Dockerfile`**、**`mise.toml`**、**`.tool-versions`** 保持一致：
 
-- **Go 1.25.10**（`python3 scripts/sync_go_toolchain.py` **无参**即可自检；与 `govulncheck` 等补丁要求冲突时请升级）
+- **Go 1.25.11**（`python3 scripts/sync_go_toolchain.py` **无参**即可自检；与 `govulncheck` 等补丁要求冲突时请升级）
 - **本机版本管理（可选）**：[mise](https://mise.jdx.dev/) 在仓库根执行 `mise install`（读 `mise.toml`）；[asdf](https://asdf-vm.com/) 执行 `asdf install`（读 `.tool-versions` 的 `golang`）
 - **Node.js 20+**（Next.js 15）
 - **MySQL 5.7+ / 8.0+**（推荐 8.0）

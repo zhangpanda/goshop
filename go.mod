@@ -1,6 +1,6 @@
 module github.com/zhangpanda/goshop
 
-go 1.25.10
+go 1.25.11
 
 require (
 	github.com/gin-contrib/cors v1.7.7

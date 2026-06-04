@@ -13,7 +13,7 @@ npm run dev    # http://localhost:3010（见 package.json）
 
 ## E2E（Playwright）
 
-依赖 **Go 后端**（默认 `http://localhost:8080`，与 `next.config.js` 反代一致；后端工具链为 **Go 1.25.10**，见仓库根 `go.mod` / `Dockerfile`）。自动化下需 **`GOSHOP_E2E=1`** 跳过登录验证码（仅用于本地/CI，**生产勿开**）。
+依赖 **Go 后端**（默认 `http://localhost:8080`，与 `next.config.js` 反代一致；后端工具链为 **Go 1.25.11**，见仓库根 `go.mod` / `Dockerfile`）。自动化下需 **`GOSHOP_E2E=1`** 跳过登录验证码（仅用于本地/CI，**生产勿开**）。
 
 ```bash
 # 终端 1：仓库根目录，配置好 config.yaml 后
